@@ -29,7 +29,6 @@ source_group("module" FILES ${MODULE_HEADERS_DIR}/mqtt_streaming_server_module_i
 
 add_library(${LIB_NAME} SHARED ${SRC_Include}
                                ${SRC_Srcs}
-                               mqtt_streaming_server.natvis
 )
 
 add_library(${SDK_TARGET_NAMESPACE}::${LIB_NAME} ALIAS ${LIB_NAME})
