@@ -249,7 +249,7 @@ void MqttStreamingServerImpl::sendTopicList()
     std::string topic = buildSignalsTopic();
     auto topicsMessage = prepareJsonTopics();
     if (publisher.isConnected() == mqtt::MqttConnectionStatus::connected) {
-        bool status = publisher.publish(topic, (void*) topicsMessage.c_str(), topicsMessage.length());
+        bool status = publisher.publish(topic, (void*) topicsMessage.c_str(), topicsMessage.length(), nullptr, 1, nullptr, true);
         if (!status) {
             LOG_W("Failed to publish topics list to {}", topic);
         } else {
