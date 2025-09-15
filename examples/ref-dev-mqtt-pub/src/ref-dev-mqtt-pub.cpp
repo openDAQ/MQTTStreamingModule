@@ -84,17 +84,6 @@ int main(int argc, char* argv[])
     auto refDevice = instance.addDevice("daqref://device0");
     refDevice.setPropertyValue("EnableProtectedChannel", true);
 
-    std::vector<FunctionBlockPtr> vec;
-
-    auto signals = instance.getRootDevice().getSignals(search::Recursive(search::Any()));
-    auto chCnt = signals.getCount();
-    for (size_t i = 0; i < chCnt; ++i) {
-        if (!signals[i].getDomainSignal().assigned())
-            continue;
-        vec.push_back(instance.addFunctionBlock("RefFBModuleScaling"));
-        vec.back().getInputPorts()[0].connect(signals[i]);
-    }
-
     auto serverConfig = instance.getAvailableServerTypes().get("OpenDAQMQTT").createDefaultConfig();
     serverConfig.setPropertyValue("BrokerAddress", "127.0.0.1");
     const auto mqttServer = instance.addServer("OpenDAQMQTT", serverConfig);
