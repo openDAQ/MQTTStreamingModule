@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <Type Name="daq::modules::mqtt_streaming_server_module::MqttStreamingServerImpl">
+    <DisplayString>{{ MqttStreamingServer, &lt;{refCount}&gt;}}</DisplayString>
+        <Expand>
+          <ExpandedItem>(daq::ServerImpl*)this,mqttd</ExpandedItem>
+          <Item Name="readThreadActive">readThreadActive</Item>
+          <Item Name="readThreadSleepTime">readThreadSleepTime</Item>
+        </Expand>
+	</Type>
+</AutoVisualizer>
