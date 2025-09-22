@@ -516,7 +516,6 @@ void MqttStreamingServerImpl::addReader(SignalPtr signalToRead)
     signals.pushBack(signalToRead);
     streamReaders.emplace_back(StreamReaderBuilder()
                                     .setSignal(signalToRead)
-                                    .setInputPortNotificationMethod(PacketReadyNotification::None)
                                     .setValueReadType(SampleType::Float64)
                                     .setDomainReadType(SampleType::Int64)
                                     .setSkipEvents(true)
