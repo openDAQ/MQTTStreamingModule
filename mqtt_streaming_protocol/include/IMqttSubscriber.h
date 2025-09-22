@@ -1,7 +1,8 @@
 #pragma once
 #include "IMqttBase.h"
-#include <functional>
 #include "MqttMessage.h"
+#include <functional>
+#include <mutex>
 
 namespace mqtt
 {
@@ -13,6 +14,7 @@ public:
     virtual bool unsubscribeAll() = 0;
     virtual void setMessageArrivedCb(std::string topic, std::function<void(const IMqttSubscriber&, mqtt::MqttMessage&)> cb) = 0;
     virtual void setMessageArrivedCb(std::function<void(const IMqttSubscriber&, mqtt::MqttMessage&)> cb) = 0;
+    virtual std::lock_guard<std::recursive_mutex> getCbLock() = 0;
     virtual ~IMqttSubscriber()
     {
     }

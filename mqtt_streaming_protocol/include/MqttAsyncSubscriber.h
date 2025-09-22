@@ -63,7 +63,6 @@ public:
 
     ~MqttAsyncSubscriber()
     {
-        std::lock_guard<std::recursive_mutex> guard(mtx);
         if (this->client != nullptr)
         {
             disconnect();
@@ -85,7 +84,6 @@ public:
 
     virtual bool unsubscribeAll() override
     {
-        std::lock_guard<std::recursive_mutex> guard(mtx);
         for (auto& sub : subscriptions)
         {
             unsubscribe(sub.topic);
@@ -97,7 +95,6 @@ public:
 
     virtual bool subscribe(std::string topic, int qos) override
     {
-        std::lock_guard<std::recursive_mutex> guard(mtx);
         MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
         int rc;
         opts.onSuccess = MqttAsyncSubscriber::onSubscriber;
@@ -113,7 +110,6 @@ public:
 
     virtual bool unsubscribe(std::string topic) override
     {
-        std::lock_guard<std::recursive_mutex> guard(mtx);
         MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
         int rc;
         opts.onSuccess = MqttAsyncSubscriber::onSubscriber;
@@ -128,16 +124,20 @@ public:
 
     virtual void setMessageArrivedCb(std::function<void(const IMqttSubscriber&, mqtt::MqttMessage&)> cb) override
     {
-        std::lock_guard<std::recursive_mutex> guard(mtx);
+        auto lock = getCbLock();
         this->commonCb = cb;
     }
 
     virtual void setMessageArrivedCb(std::string topic, std::function<void(const IMqttSubscriber&, mqtt::MqttMessage&)> cb) override
     {
-        std::lock_guard<std::recursive_mutex> guard(mtx);
+        auto lock = getCbLock();
         this->cbs.insert({topic, cb});
     }
 
+    std::lock_guard<std::recursive_mutex> getCbLock() override
+    {
+        return std::lock_guard<std::recursive_mutex>(cbMtx);
+    }
 
     virtual bool reconnect() override
     {
@@ -161,7 +161,7 @@ private:
     std::string username;
     std::string password;
     std::vector<MqttSubscription> subscriptions;
-    std::recursive_mutex mtx;
+    std::recursive_mutex cbMtx;
     bool penddingConnect;
     const MQTTClientType type = MQTTClientType::subscriber;
 
@@ -178,6 +178,7 @@ private:
 
     void writeConnectionStatusMsg(std::string who, std::string msg, int level)
     {
+        auto lock = getCbLock();
         if (this->connCb)
         {
             this->connCb(who, msg, level, type);
@@ -189,21 +190,23 @@ private:
     static int msgArrived(void* context, char* topicName, int topicLen, MQTTAsync_message* message)
     {
         MqttAsyncSubscriber* subscriber = (MqttAsyncSubscriber*) context;
-        auto it = subscriber->cbs.find(topicName);
-        if (subscriber->commonCb || it != subscriber->cbs.end())
         {
-            mqtt::MqttMessage msg;
-            // Get the topic
-            msg.setTopic(topicName);
-            // Copy the payload
-            msg.addData((uint8_t*) message->payload, message->payloadlen);
-            if (subscriber->commonCb)
-                subscriber->commonCb(*subscriber, msg);
-            if(it != subscriber->cbs.end() && it->second)
-                it->second(*subscriber, msg);
+            auto lock = subscriber->getCbLock();
+            auto it = subscriber->cbs.find(topicName);
+            if (subscriber->commonCb || it != subscriber->cbs.end())
+            {
+                mqtt::MqttMessage msg;
+                // Get the topic
+                msg.setTopic(topicName);
+                // Copy the payload
+                msg.addData((uint8_t*) message->payload, message->payloadlen);
+                if (subscriber->commonCb)
+                    subscriber->commonCb(*subscriber, msg);
+                if(it != subscriber->cbs.end() && it->second)
+                    it->second(*subscriber, msg);
 
+            }
         }
-
         MQTTAsync_freeMessage(&message);
         if (topicLen > 0)
             MQTTAsync_free(topicName);
@@ -218,11 +221,7 @@ private:
             {
                 auto subscriber = (MqttAsyncSubscriber*) context;
                 subscriber->setPendingConnect(false);
-                MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
-                int rc;
-                opts.onSuccess = MqttAsyncSubscriber::onSubscriber;
-                opts.onFailure = MqttAsyncSubscriber::onSubscriberFailure;
-                opts.context = subscriber;
+                auto lock = subscriber->getCbLock();
                 if (subscriber->onConnectCb)
                     subscriber->onConnectCb();
             }

@@ -8,7 +8,6 @@ namespace mqtt {
 
     bool MqttAsyncSubscriber::connect()
 {
-    std::lock_guard<std::recursive_mutex> guard(mtx);
     if (this->client != nullptr)
     {
         // Signal stop reconnecting
@@ -50,21 +49,20 @@ namespace mqtt {
 
 bool MqttAsyncSubscriber::disconnect()
 {
-    std::lock_guard<std::recursive_mutex> guard(mtx);
     return MQTTAsync_disconnect(this->client, NULL) == MQTTASYNC_SUCCESS;
 }
 
 MqttConnectionStatus MqttAsyncSubscriber::isConnected()
 {
-    std::lock_guard<std::recursive_mutex> guard(mtx);
-    if (this->penddingConnect)
-        return MqttConnectionStatus::pending;
+    {
+        if (this->penddingConnect)
+            return MqttConnectionStatus::pending;
+    }
     return MQTTAsync_isConnected(this->client) ? MqttConnectionStatus::connected : MqttConnectionStatus::not_connected;
 }
 
 void MqttAsyncSubscriber::setServerURL(std::string serverUrl)
 {
-    std::lock_guard<std::recursive_mutex> guard(mtx);
     this->serverUrl = serverUrl;
     if (serverUrl[0] == ':' || serverUrl == "")
     {
@@ -114,13 +112,11 @@ void MqttAsyncSubscriber::setServerURL(std::string serverUrl)
 
 void MqttAsyncSubscriber::setClientId(std::string clientId)
 {
-    std::lock_guard<std::recursive_mutex> guard(mtx);
     this->clientId = clientId;
 }
 
 void MqttAsyncSubscriber::setUsernamePasswrod(std::string username, std::string password)
 {
-    std::lock_guard<std::recursive_mutex> guard(mtx);
     this->username = username;
     this->password = password;
 
