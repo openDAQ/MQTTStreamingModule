@@ -74,12 +74,11 @@ DevicePtr MqttStreamingClientModule::onCreateDevice(const StringPtr& connectionS
 
     std::scoped_lock lock(sync);
 
-    DevicePtr device(createWithImplementation<IDevice, MqttStreamingDeviceImpl>(
+    device = createWithImplementation<IDevice, MqttStreamingDeviceImpl>(
                       context,
                       parent,
                       configPtr
-                )
-        );
+                );
 
     // Set the connection info for the device
     ServerCapabilityConfigPtr connectionInfo = device.getInfo().getConfigurationConnectionInfo();

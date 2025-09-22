@@ -30,12 +30,11 @@ class MqttReceiverFbImpl final : public FunctionBlock
 public:
     explicit MqttReceiverFbImpl(const ContextPtr& ctx,
                                 const ComponentPtr& parent,
+                                const FunctionBlockTypePtr& type,
                                 const StringPtr& localId,
                                 std::shared_ptr<mqtt::MqttAsyncSubscriber> subscriber,
                                 const PropertyObjectPtr& config = nullptr);
     ~MqttReceiverFbImpl() override;
-
-    static FunctionBlockTypePtr CreateType();
 
 private:
     std::unordered_map<std::string, SignalConfigPtr> outputSignals;

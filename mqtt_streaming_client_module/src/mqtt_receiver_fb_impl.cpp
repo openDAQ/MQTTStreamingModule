@@ -17,16 +17,19 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 
 MqttReceiverFbImpl::MqttReceiverFbImpl(const ContextPtr& ctx,
                                        const ComponentPtr& parent,
+                                       const FunctionBlockTypePtr& type,
                                        const StringPtr& localId,
                                        std::shared_ptr<mqtt::MqttAsyncSubscriber> subscriber,
                                        const PropertyObjectPtr& config)
-    : FunctionBlock(CreateType(), ctx, parent, localId)
+    : FunctionBlock(type, ctx, parent, localId)
     , subscriber(subscriber)
 {
     initComponentStatus();
 
     if (config.assigned())
         initProperties(config);
+    else
+        initProperties(type.createDefaultConfig());
     createSignals();
 
     for (const auto& topic : subscribedTopics)
@@ -84,11 +87,6 @@ void MqttReceiverFbImpl::readProperties()
             subscribedTopics.push_back(signalId.toStdString());
         }
     }
-}
-
-FunctionBlockTypePtr MqttReceiverFbImpl::CreateType()
-{
-    return FunctionBlockType("MqttFBModule", "MqttSubscriber", "MQTT signal receiving");
 }
 
 void MqttReceiverFbImpl::configure()
@@ -175,7 +173,20 @@ void MqttReceiverFbImpl::createSignals()
         boost::replace_all(signalName, "/", "_");
 
         auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::Float64).build();
-        auto domainSignalDsc = DataDescriptorBuilder().setSampleType(SampleType::UInt64).build();
+        auto getEpoch = []()  ->std::string {
+            const std::time_t epochTime = std::chrono::system_clock::to_time_t(std::chrono::time_point<std::chrono::system_clock>{});
+            char buf[48];
+            strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%SZ", gmtime(&epochTime));
+            return { buf };
+        };
+
+        const auto domainSignalDsc =
+            DataDescriptorBuilder()
+                .setSampleType(SampleType::UInt64)
+                .setUnit(Unit("s", -1, "seconds", "time"))
+                .setTickResolution(Ratio(1, 1'000'000))
+                .setOrigin(getEpoch())
+                .setName("Time").build();
 
         auto refS = outputSignals.emplace(std::make_pair(topic, createAndAddSignal(buildSignalNameFromTopic(topic), signalDsc))).first;
         auto refSD = outputDomainSignals.emplace(std::make_pair(topic, createAndAddSignal(buildDomainSignalNameFromTopic(topic), domainSignalDsc, false))).first;

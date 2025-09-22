@@ -122,7 +122,7 @@ void MqttStreamingDeviceImpl::onSignalsMessage(const mqtt::IMqttSubscriber& subs
 
 DictPtr<IString, IFunctionBlockType> MqttStreamingDeviceImpl::onGetAvailableFunctionBlockTypes()
 {
-    auto types = Dict<IString, IFunctionBlockType>();
+    fbTypes = Dict<IString, IFunctionBlockType>();
     for (const auto& device : deviceMap)
     {
         auto defaultConfig = PropertyObject();
@@ -137,9 +137,9 @@ DictPtr<IString, IFunctionBlockType> MqttStreamingDeviceImpl::onGetAvailableFunc
                                               defaultConfig);
 
 
-        types.set(fbType.getId(), fbType);
+        fbTypes.set(fbType.getId(), fbType);
     }
-    return types;
+    return fbTypes;
 }
 
 FunctionBlockPtr MqttStreamingDeviceImpl::onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config)
@@ -147,11 +147,16 @@ FunctionBlockPtr MqttStreamingDeviceImpl::onAddFunctionBlock(const StringPtr& ty
     FunctionBlockPtr nestedFunctionBlock;
     {
         auto lock = this->getAcquisitionLock();
-        nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttReceiverFbImpl>(context, functionBlocks, typeId, subscriber, config);
-        addNestedFunctionBlock(nestedFunctionBlock);
+        if (fbTypes.hasKey(typeId))
+        {
+            auto fbTypePtr = fbTypes.getOrDefault(typeId);
+            nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttReceiverFbImpl>(context, functionBlocks, fbTypePtr, typeId, subscriber, config);
+            addNestedFunctionBlock(nestedFunctionBlock);
+            setComponentStatus(ComponentStatus::Ok);
+        } else {
+            setComponentStatusWithMessage(ComponentStatus::Error, "Function block type is not available: " + typeId.toStdString());
+        }
     }
-
-    setComponentStatus(ComponentStatus::Ok);
     return nestedFunctionBlock;
 }
 

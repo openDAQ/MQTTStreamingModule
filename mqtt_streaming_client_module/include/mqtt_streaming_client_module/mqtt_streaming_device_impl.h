@@ -49,6 +49,8 @@ protected:
     void setupMqttSubscriber();
     void onSignalsMessage(const mqtt::IMqttSubscriber& subscriber, mqtt::MqttMessage& msg);
 
+    DictObjectPtr<IDict, IString, IFunctionBlockType> fbTypes;
+
     StringPtr connectionString;
     EnumerationPtr connectionStatus;
 
