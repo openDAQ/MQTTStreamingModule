@@ -12,6 +12,7 @@ set(SRC_PublicHeaders   IMqttBase.h
 			MqttAsyncSubscriber.h
 			MQTTClientType.h
 			MqttMessage.h
+			MqttSettings.h
 )
 
 set(INCLUDE_DIR ../include)

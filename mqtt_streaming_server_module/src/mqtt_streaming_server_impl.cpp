@@ -58,7 +58,7 @@ MqttStreamingServerImpl::MqttStreamingServerImpl(const DevicePtr& rootDevice,
 
     ServerCapabilityConfigPtr serverCapabilityStreaming =
         ServerCapability(SERVER_ID_AND_CAPABILITY, SERVER_ID_AND_CAPABILITY, ProtocolType::Streaming)
-        .setPrefix("daq.mqtts")
+        .setPrefix("daq.mqtt")
         .setConnectionType("TCP/IP")
         .setPort(connectionSettings.port);
 

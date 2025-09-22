@@ -129,7 +129,13 @@ public:
     virtual void setMessageArrivedCb(std::function<void(const IMqttSubscriber&, mqtt::MqttMessage&)> cb) override
     {
         std::lock_guard<std::recursive_mutex> guard(mtx);
-        this->cb = cb;
+        this->commonCb = cb;
+    }
+
+    virtual void setMessageArrivedCb(std::string topic, std::function<void(const IMqttSubscriber&, mqtt::MqttMessage&)> cb) override
+    {
+        std::lock_guard<std::recursive_mutex> guard(mtx);
+        this->cbs.insert({topic, cb});
     }
 
 
@@ -183,15 +189,19 @@ private:
     static int msgArrived(void* context, char* topicName, int topicLen, MQTTAsync_message* message)
     {
         MqttAsyncSubscriber* subscriber = (MqttAsyncSubscriber*) context;
-        if (subscriber->cb)
+        auto it = subscriber->cbs.find(topicName);
+        if (subscriber->commonCb || it != subscriber->cbs.end())
         {
             mqtt::MqttMessage msg;
             // Get the topic
             msg.setTopic(topicName);
             // Copy the payload
             msg.addData((uint8_t*) message->payload, message->payloadlen);
+            if (subscriber->commonCb)
+                subscriber->commonCb(*subscriber, msg);
+            if(it != subscriber->cbs.end() && it->second)
+                it->second(*subscriber, msg);
 
-            subscriber->cb(*subscriber, msg);
         }
 
         MQTTAsync_freeMessage(&message);

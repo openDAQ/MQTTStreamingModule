@@ -26,19 +26,10 @@
 #include <opendaq/connection_internal.h>
 #include <tsl/ordered_map.h>
 #include <MqttAsyncPublisher.h>
+#include <MqttSettings.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_SERVER_MODULE
 
-
-namespace Mqtt::Utils::Settings {
-    struct MqttConnectionSettings {
-        std::string mqttUrl;
-        int port;
-        std::string username;
-        std::string password;
-        std::string clientId;
-    };
-}
 
 struct ChannelData {
     std::vector<double> data;
