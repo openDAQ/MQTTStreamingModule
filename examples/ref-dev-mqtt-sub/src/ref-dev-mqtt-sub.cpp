@@ -59,64 +59,47 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    using namespace std::chrono_literals;
-    StringPtr loggerPath = "ref_device_simulator.log";
-
-    auto users = List<IUser>();
-    users.pushBack(User("opendaq", "$2b$10$bqZWNEd.g1R1Q1inChdAiuDr5lbal33bBNOehlCwuWcxRH5weF3hu")); // password: opendaq
-    users.pushBack(User("root", "$2b$10$k/Tj3yqFV7uQz42UCJK2n.4ECd.ySQ2Sfd81Kx.xfuMOeluvA/Vpy", {"admin"})); // password: root
-    const AuthenticationProviderPtr authenticationProvider = StaticAuthenticationProvider(true, users);
-
-    PropertyObjectPtr config = PropertyObject();
-    config.addProperty(StringProperty("Name", "Reference device simulator"));
-    config.addProperty(StringProperty("LocalId", "RefDevSimulator"));
-    config.addProperty(StringProperty("SerialNumber", "sim01"));
-    config.addProperty(BoolProperty("EnableLogging", true));
-    config.addProperty(StringProperty("LoggingPath", loggerPath));
-
-
-    const InstancePtr instance = InstanceBuilder().addModulePath(MODULE_PATH)
-                                     .addDiscoveryServer("mdns")
-                                     .setRootDevice("daqref://device1", config)
-                                     .setLogger(Logger(loggerPath))
-                                     .setAuthenticationProvider(authenticationProvider)
-                                     .build();
+    const InstancePtr instance = InstanceBuilder().addModulePath(MODULE_PATH).build();
     auto brokerDevice = instance.addDevice("daq.mqtt://127.0.0.1");
     auto availableDeviceNodes = brokerDevice.getAvailableFunctionBlockTypes();
+
+    if (availableDeviceNodes.getCount() == 0) {
+        std::cout << "No function block available from the device." << std::endl;
+        return -1;
+    }
 
     std::vector<daq::FunctionBlockPtr> fbList;
     for (const auto& [key, value] : availableDeviceNodes) {
         std::cout << "Available function block: " << key << std::endl;
-        fbList.push_back(brokerDevice.addFunctionBlock(key, value.createDefaultConfig()));
+        fbList.push_back(brokerDevice.addFunctionBlock(key));
     }
+    std::cout << "Try to connect the first one (" << fbList[0].getLocalId() << ")" << std::endl;
+
+    auto signals = fbList[0].getSignals();
     std::vector<StreamReaderPtr> readers;
-    auto signals = fbList.back().getSignals();
-    for (const auto& s : signals)
-    {
+    for (const auto& s : signals) {
         readers.emplace_back(daq::StreamReader<double, uint64_t>(s, ReadTimeoutType::Any));
     }
 
-#if 1
     std::thread t1([readers]() {
-        uint64_t cnt = 0;
         constexpr int size = 1000;
         double samples[size];
         uint64_t timestamps[size];
         while (true) {
-            for (const auto& reader : readers) {
-                while (!reader.getEmpty())
-                {
+            for (int iRdr = 0; iRdr < readers.size(); ++iRdr) {
+                const auto& reader = readers[iRdr];
+                while (!reader.getEmpty()) {
                     daq::SizeT count = size;
                     reader.readWithDomain(samples, timestamps, &count);
                     for (daq::SizeT i = 0; i < count; ++i)
-                        std::cout << "READER " << cnt++ << " - Sample: " << samples[i] << " Timestamp: " << timestamps[i] << std::endl;
+                        std::cout << "READER #" << iRdr << " - Sample: " << samples[i] << " Timestamp: " << timestamps[i] << std::endl;
                 }
             }
-            std::this_thread::sleep_for(20ms);
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
     });
     t1.detach();
-#endif
+
     std::cout << "Press \"enter\" to exit the application..." << std::endl;
     std::cin.get();
     return 0;
