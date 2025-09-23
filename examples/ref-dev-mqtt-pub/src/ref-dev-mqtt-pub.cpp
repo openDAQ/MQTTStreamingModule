@@ -85,7 +85,7 @@ int main(int argc, char* argv[])
     refDevice.setPropertyValue("EnableProtectedChannel", true);
 
     auto serverConfig = instance.getAvailableServerTypes().get("OpenDAQMQTT").createDefaultConfig();
-    serverConfig.setPropertyValue("BrokerAddress", "127.0.0.1");
+    serverConfig.setPropertyValue("MqttBrokerAddress", "127.0.0.1");
     const auto mqttServer = instance.addServer("OpenDAQMQTT", serverConfig);
 
     std::cout << "Press \"enter\" to exit the application..." << std::endl;

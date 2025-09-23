@@ -19,26 +19,14 @@
 #include <rapidjson/document.h>
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
+#include <mqtt_streaming_server_module/constants.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_SERVER_MODULE
 using namespace daq;
 
-static constexpr size_t DEFAULT_MAX_PACKET_READ_COUNT = 1000;
-static constexpr uint16_t DEFAULT_POLLING_PERIOD = 20;
-static constexpr uint16_t DEFAULT_PORT = 1883;
-static constexpr const char* DEFAULT_ADDRESS = "127.0.0.1";
-static constexpr const char* DEFAULT_USERNAME = "";
-static constexpr const char* DEFAULT_PASSWORD = "";
-static constexpr const char* SERVER_ID_AND_CAPABILITY = "OpenDAQMQTT";
-
-static constexpr const char* PROPERTY_NAME_MQTT_BROKER_URL = "BrokerAddress";
-static constexpr const char* PROPERTY_NAME_MQTT_BROKER_PORT = "MqttBrokerPort";
-static constexpr const char* PROPERTY_NAME_MQTT_USERNAME = "MqttUsername";
-static constexpr const char* PROPERTY_NAME_MQTT_PASSWORD = "MqttPassword";
-
-MqttStreamingServerImpl::MqttStreamingServerImpl(const DevicePtr& rootDevice,
-                                                     const PropertyObjectPtr& config,
-                                                     const ContextPtr& context)
+MqttStreamingServerImpl::MqttStreamingServerImpl(const DevicePtr &rootDevice,
+                                                 const PropertyObjectPtr &config,
+                                                 const ContextPtr &context)
     : Server(SERVER_ID_AND_CAPABILITY, config, rootDevice, context)
     , signals(List<ISignal>())
     , rootDeviceGlobalId(rootDevice.getGlobalId().toStdString())
@@ -46,29 +34,35 @@ MqttStreamingServerImpl::MqttStreamingServerImpl(const DevicePtr& rootDevice,
     , loggerComponent(logger.getOrAddComponent(id))
     , serverStopped(false)
     , publisher()
-    , connectionSettings({ "", DEFAULT_PORT, "", "", rootDevice.getGlobalId().toStdString()})
+    , connectionSettings({DEFAULT_BROKER_ADDRESS,
+                          DEFAULT_PORT,
+                          DEFAULT_USERNAME,
+                          DEFAULT_PASSWORD,
+                          rootDevice.getGlobalId().toStdString()})
 {
     auto info = rootDevice.getInfo();
     if (info.hasServerCapability(SERVER_ID_AND_CAPABILITY))
-        DAQ_THROW_EXCEPTION(InvalidStateException, fmt::format("Device \"{}\" already has an {} server capability.", info.getName(), SERVER_ID_AND_CAPABILITY));
+        DAQ_THROW_EXCEPTION(InvalidStateException,
+                            fmt::format("Device \"{}\" already has an {} server capability.",
+                                        info.getName(),
+                                        SERVER_ID_AND_CAPABILITY));
 
     readMqttSettings();
 
-    StringPtr path = config.getPropertyValue("Path");
+    ServerCapabilityConfigPtr serverCapabilityStreaming = ServerCapability(SERVER_ID_AND_CAPABILITY,
+                                                                           SERVER_ID_AND_CAPABILITY,
+                                                                           ProtocolType::Streaming)
+                                                              .setPrefix(MQTT_PREFIX)
+                                                              .setConnectionType(CONNECTION_TYPE)
+                                                              .setPort(connectionSettings.port);
 
-    ServerCapabilityConfigPtr serverCapabilityStreaming =
-        ServerCapability(SERVER_ID_AND_CAPABILITY, SERVER_ID_AND_CAPABILITY, ProtocolType::Streaming)
-        .setPrefix("daq.mqtt")
-        .setConnectionType("TCP/IP")
-        .setPort(connectionSettings.port);
-
-    serverCapabilityStreaming.addProperty(StringProperty("Path", path == "/" ? "" : path));
     info.asPtr<IDeviceInfoInternal>(true).addServerCapability(serverCapabilityStreaming);
 
     this->context.getOnCoreEvent() += event(&MqttStreamingServerImpl::coreEventCallback);
 
-    maxPacketReadCount = config.getPropertyValue("MaxPacketReadCount");
-    processingThreadSleepTime = std::chrono::milliseconds(config.getPropertyValue("StreamingDataPollingPeriod"));
+    maxPacketReadCount = config.getPropertyValue(PROPERTY_NAME_MAX_PACKET_READ_COUNT);
+    processingThreadSleepTime = std::chrono::milliseconds(
+        config.getPropertyValue(PROPERTY_NAME_POLLING_PERIOD));
 
     buffer.data.resize(maxPacketReadCount);
     buffer.timestamps.resize(maxPacketReadCount);
@@ -236,12 +230,12 @@ std::string MqttStreamingServerImpl::prepareJsonTopics()
 
 std::string MqttStreamingServerImpl::buildTopicFromId(const std::string& globalId)
 {
-    return ("openDAQ" + globalId);
+    return (TOPIC_ALL_SIGNALS_PREFIX + globalId);
 }
 
 std::string MqttStreamingServerImpl::buildSignalsTopic()
 {
-    return ("openDAQ" + rootDeviceGlobalId + "/$signals");
+    return (TOPIC_ALL_SIGNALS_PREFIX + rootDeviceGlobalId + "/" + DEVICE_SIGNAL_LIST);
 }
 
 void MqttStreamingServerImpl::sendTopicList()
@@ -260,7 +254,7 @@ void MqttStreamingServerImpl::sendTopicList()
 
 void MqttStreamingServerImpl::readMqttSettings()
 {
-    connectionSettings.mqttUrl = (std::string)config.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_URL);
+    connectionSettings.mqttUrl = (std::string)config.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_ADDRESS);
     connectionSettings.port = config.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_PORT);
     connectionSettings.username = (std::string)config.getPropertyValue(PROPERTY_NAME_MQTT_USERNAME);
     connectionSettings.password = (std::string)config.getPropertyValue(PROPERTY_NAME_MQTT_PASSWORD);
@@ -417,7 +411,7 @@ PropertyObjectPtr MqttStreamingServerImpl::createDefaultConfig(const ContextPtr&
     //auto defaultConfig = MqttStreamingServerHandler::createDefaultConfig();
     auto defaultConfig = PropertyObject();
 
-    const auto pollingPeriodProp = IntPropertyBuilder("StreamingDataPollingPeriod", DEFAULT_POLLING_PERIOD)
+    const auto pollingPeriodProp = IntPropertyBuilder(PROPERTY_NAME_POLLING_PERIOD, DEFAULT_POLLING_PERIOD)
                                        .setMinValue(1)
                                        .setMaxValue(65535)
                                        .setDescription("Polling period in milliseconds "
@@ -426,7 +420,7 @@ PropertyObjectPtr MqttStreamingServerImpl::createDefaultConfig(const ContextPtr&
                                        .build();
     defaultConfig.addProperty(pollingPeriodProp);
 
-    const auto maxPacketReadCountProp = IntPropertyBuilder("MaxPacketReadCount", DEFAULT_MAX_PACKET_READ_COUNT)
+    const auto maxPacketReadCountProp = IntPropertyBuilder(PROPERTY_NAME_MAX_PACKET_READ_COUNT, DEFAULT_MAX_PACKET_READ_COUNT)
                                                 .setMinValue(1)
                                                 .setDescription("Specifies the size of a pre-allocated packet buffer into "
                                                                 "which packets are dequeued. The size determines the amount of "
@@ -436,7 +430,7 @@ PropertyObjectPtr MqttStreamingServerImpl::createDefaultConfig(const ContextPtr&
                                                 .build();
     defaultConfig.addProperty(maxPacketReadCountProp);
 
-    const auto url = StringPropertyBuilder(PROPERTY_NAME_MQTT_BROKER_URL, DEFAULT_ADDRESS)
+    const auto url = StringPropertyBuilder(PROPERTY_NAME_MQTT_BROKER_ADDRESS, DEFAULT_BROKER_ADDRESS)
                           .setDescription("")
                           .build();
     defaultConfig.addProperty(url);
@@ -458,11 +452,6 @@ PropertyObjectPtr MqttStreamingServerImpl::createDefaultConfig(const ContextPtr&
                          .build();
     defaultConfig.addProperty(password);
 
-    const auto path = StringPropertyBuilder("Path", "")
-                          .setDescription("")
-                          .build();
-    defaultConfig.addProperty(path);
-
     populateDefaultConfigFromProvider(context, defaultConfig);
     return defaultConfig;
 }
@@ -478,17 +467,6 @@ PropertyObjectPtr MqttStreamingServerImpl::populateDefaultConfig(const PropertyO
     }
 
     return defConfig;
-}
-
-PropertyObjectPtr MqttStreamingServerImpl::getDiscoveryConfig()
-{
-    auto discoveryConfig = PropertyObject();
-    discoveryConfig.addProperty(StringProperty("ServiceName", "_opendaq-streaming-mqtt._tcp.local."));
-    discoveryConfig.addProperty(StringProperty("ServiceCap", "OPENDAQ_MQTTS"));
-    discoveryConfig.addProperty(StringProperty("Path", config.getPropertyValue("Path")));
-    discoveryConfig.addProperty(IntProperty("Port", 0));
-    discoveryConfig.addProperty(StringProperty("ProtocolVersion", std::to_string(/*GetLatestConfigProtocolVersion()*/0)));
-    return discoveryConfig;
 }
 
 ServerTypePtr MqttStreamingServerImpl::createType(const ContextPtr& context)

@@ -48,7 +48,6 @@ public:
     static PropertyObjectPtr populateDefaultConfig(const PropertyObjectPtr& config, const ContextPtr& context);
 
 protected:
-    PropertyObjectPtr getDiscoveryConfig() override;
     void onStopServer() override;
     StreamingPtr onGetStreaming();
     void connectSignalReaders();

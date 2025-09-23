@@ -10,6 +10,7 @@ set(SRC_Include common.h
                 module_dll.h
                 mqtt_streaming_server_module_impl.h
                 mqtt_streaming_server_impl.h
+                constants.h
 )
 
 prepend_include(mqtt_streaming_server_module SRC_Include)
@@ -17,6 +18,10 @@ prepend_include(mqtt_streaming_server_module SRC_Include)
 set(SRC_Srcs module_dll.cpp
              mqtt_streaming_server_module_impl.cpp
              mqtt_streaming_server_impl.cpp
+)
+
+source_group("common" FILES ${MODULE_HEADERS_DIR}/common.h
+                            ${MODULE_HEADERS_DIR}/constants.h
 )
 
 source_group("module" FILES ${MODULE_HEADERS_DIR}/mqtt_streaming_server_module_impl.h
