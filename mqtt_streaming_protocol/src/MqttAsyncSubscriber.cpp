@@ -60,7 +60,10 @@ bool MqttAsyncSubscriber::connect() {
         MQTTAsync_destroy(&client);
     }
 
-    pendingConnect = true;
+    if (serverUrl.empty() || clientId.empty()) {
+        return false;
+    }
+
     int rc = MQTTAsync_createWithOptions(&client,
                                          serverUrl.c_str(),
                                          clientId.c_str(),
@@ -91,6 +94,7 @@ bool MqttAsyncSubscriber::connect() {
         return false;
     }
 
+    pendingConnect = true;
     return true;
 }
 
@@ -107,7 +111,7 @@ MqttConnectionStatus MqttAsyncSubscriber::isConnected() {
 }
 
 void MqttAsyncSubscriber::setServerURL(std::string serverUrl) {
-    if (serverUrl[0] == ':') {
+    if (serverUrl[0] == ':' || serverUrl == "") {
         serverUrl = "";
     } else {
         std::string ssl("ssl://");

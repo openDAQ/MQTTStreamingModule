@@ -1,5 +1,4 @@
-set(BASE_NAME mqtt_streaming_protocol)
-set(LIB_NAME ${BASE_NAME})
+set(LIB_NAME mqtt_streaming_protocol)
 
 set(SRC_Cpp MqttAsyncPublisher.cpp
             MqttAsyncSubscriber.cpp
@@ -17,15 +16,13 @@ set(SRC_PublicHeaders   IMqttBase.h
 set(INCLUDE_DIR ../include)
 prepend_include(${INCLUDE_DIR} SRC_PublicHeaders)
 
-
-set(SRC_PrivateHeaders )
+source_group("include" FILES ${SRC_PublicHeaders})
 
 add_library(${LIB_NAME} STATIC ${SRC_Cpp}
                                ${SRC_PublicHeaders}
-                               ${SRC_PrivateHeaders}
 )
 
-add_library(${SDK_TARGET_NAMESPACE}::${BASE_NAME} ALIAS ${LIB_NAME})
+add_library(${SDK_TARGET_NAMESPACE}::${LIB_NAME} ALIAS ${LIB_NAME})
 
 if(BUILD_64Bit OR BUILD_ARM)
     set_target_properties(${LIB_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)

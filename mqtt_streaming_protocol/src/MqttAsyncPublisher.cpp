@@ -59,7 +59,10 @@ bool MqttAsyncPublisher::connect() {
         MQTTAsync_destroy(&client);
     }
 
-    pendingConnect = true;
+    if (serverUrl.empty() || clientId.empty()) {
+        return false;
+    }
+
     int rc = MQTTAsync_createWithOptions(&client,
                                          serverUrl.c_str(),
                                          clientId.c_str(),
@@ -90,7 +93,7 @@ bool MqttAsyncPublisher::connect() {
     if (rc != MQTTASYNC_SUCCESS) {
         return false;
     }
-
+    pendingConnect = true;
     return true;
 }
 
@@ -142,7 +145,7 @@ bool MqttAsyncPublisher::publish(const std::string &topic, void *data,
 }
 
 void MqttAsyncPublisher::setServerURL(std::string serverUrl) {
-    if (serverUrl[0] == ':') {
+    if (serverUrl[0] == ':' || serverUrl == "") {
         serverUrl = "";
     } else {
         std::string ssl("ssl://");
