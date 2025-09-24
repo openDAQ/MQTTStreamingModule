@@ -10,7 +10,6 @@ set(SRC_PublicHeaders   IMqttBase.h
 			MqttAsyncPublisher.h
 			IMqttSubscriber.h
 			MqttAsyncSubscriber.h
-			MQTTClientType.h
 			MqttMessage.h
 			MqttSettings.h
 )

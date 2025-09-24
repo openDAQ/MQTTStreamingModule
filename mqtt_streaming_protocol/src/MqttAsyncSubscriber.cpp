@@ -46,6 +46,7 @@ MqttAsyncSubscriber::MqttAsyncSubscriber(std::string serverUrl,
 }
 
 MqttAsyncSubscriber::~MqttAsyncSubscriber() {
+    unsubscribeAll();
     if (client != nullptr) {
         disconnect();
         MQTTAsync_destroy(&client);
@@ -73,14 +74,14 @@ bool MqttAsyncSubscriber::connect() {
 
     rc = MQTTAsync_setCallbacks(client,
                                 this,
-                                &MqttAsyncSubscriber::connlost,
-                                &MqttAsyncSubscriber::msgArrived,
-                                &MqttAsyncSubscriber::deliveryComplete);
+                                &MqttAsyncSubscriber::onConnectionLost,
+                                &MqttAsyncSubscriber::onMsgArrived,
+                                &MqttAsyncSubscriber::onDeliveryCompleted);
     if (rc != MQTTASYNC_SUCCESS) {
         return false;
     }
 
-    rc = MQTTAsync_setConnected(client, this, &MqttAsyncSubscriber::connectedCb);
+    rc = MQTTAsync_setConnected(client, this, &MqttAsyncSubscriber::onConnected);
     if (rc != MQTTASYNC_SUCCESS) {
         return false;
     }
@@ -101,8 +102,8 @@ MqttConnectionStatus MqttAsyncSubscriber::isConnected() {
     if (pendingConnect)
         return MqttConnectionStatus::pending;
 
-    return MQTTAsync_isConnected(this->client) ? MqttConnectionStatus::connected
-                                               : MqttConnectionStatus::not_connected;
+    return MQTTAsync_isConnected(client) ? MqttConnectionStatus::connected
+                                         : MqttConnectionStatus::not_connected;
 }
 
 void MqttAsyncSubscriber::setServerURL(std::string serverUrl) {
@@ -144,8 +145,8 @@ void MqttAsyncSubscriber::setUsernamePasswrod(std::string username, std::string 
     this->username = username;
     this->password = password;
 
-    this->connOpts.username = !username.empty() ? this->username.c_str() : NULL;
-    this->connOpts.password = !password.empty() ? this->password.c_str() : NULL;
+    connOpts.username = !username.empty() ? username.c_str() : NULL;
+    connOpts.password = !password.empty() ? password.c_str() : NULL;
 }
 
 MqttClientType MqttAsyncSubscriber::getClientType() const {
@@ -164,8 +165,8 @@ bool MqttAsyncSubscriber::unsubscribeAll() {
 bool MqttAsyncSubscriber::subscribe(std::string topic, int qos) {
     MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
     int rc;
-    opts.onSuccess = MqttAsyncSubscriber::onSubscriber;
-    opts.onFailure = MqttAsyncSubscriber::onSubscriberFailure;
+    opts.onSuccess = MqttAsyncSubscriber::onSubscribeSuccess;
+    opts.onFailure = MqttAsyncSubscriber::onSubscribeFailure;
     opts.context = this;
     if ((rc = MQTTAsync_subscribe(client, topic.c_str(), qos, &opts)) == MQTTASYNC_SUCCESS) {
         subscriptions.emplace_back(topic, qos);
@@ -175,8 +176,8 @@ bool MqttAsyncSubscriber::subscribe(std::string topic, int qos) {
 
 bool MqttAsyncSubscriber::unsubscribe(std::string topic) {
     MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
-    opts.onSuccess = MqttAsyncSubscriber::onSubscriber;
-    opts.onFailure = MqttAsyncSubscriber::onSubscriberFailure;
+    opts.onSuccess = MqttAsyncSubscriber::onSubscribeSuccess;
+    opts.onFailure = MqttAsyncSubscriber::onSubscribeFailure;
     opts.context = this;
     int rc = MQTTAsync_unsubscribe(client, topic.c_str(), &opts);
     auto it = std::find_if(subscriptions.begin(),
@@ -191,27 +192,23 @@ void MqttAsyncSubscriber::setMessageArrivedCb(
     std::function<void(const IMqttSubscriber &, mqtt::MqttMessage &)> cb)
 {
     auto lock = getCbLock();
-    commonCb = cb;
+    onMsgArrivedCmnCb = cb;
 }
 
 void MqttAsyncSubscriber::setMessageArrivedCb(
     std::string topic, std::function<void(const IMqttSubscriber &, mqtt::MqttMessage &)> cb)
 {
     auto lock = getCbLock();
-    cbs.insert({topic, cb});
-}
-
-std::lock_guard<std::recursive_mutex> MqttAsyncSubscriber::getCbLock() {
-    return std::lock_guard<std::recursive_mutex>(cbMtx);
+    onMsgArrivedCbs.insert({topic, cb});
 }
 
 bool MqttAsyncSubscriber::reconnect() { return true; }
 
 std::string MqttAsyncSubscriber::getServerUrl() const { return serverUrl; }
 
-void MqttAsyncSubscriber::deliveryComplete(void *context, MQTTAsync_token token) {}
+void MqttAsyncSubscriber::onDeliveryCompleted(void *context, MQTTAsync_token token) {}
 
-int MqttAsyncSubscriber::msgArrived(void *context,
+int MqttAsyncSubscriber::onMsgArrived(void *context,
                                     char *topicName,
                                     int topicLen,
                                     MQTTAsync_message *message)
@@ -219,14 +216,14 @@ int MqttAsyncSubscriber::msgArrived(void *context,
     MqttAsyncSubscriber *subscriber = (MqttAsyncSubscriber *) context;
     {
         auto lock = subscriber->getCbLock();
-        auto it = subscriber->cbs.find(topicName);
-        if (subscriber->commonCb || it != subscriber->cbs.end()) {
+        auto it = subscriber->onMsgArrivedCbs.find(topicName);
+        if (subscriber->onMsgArrivedCmnCb || it != subscriber->onMsgArrivedCbs.end()) {
             mqtt::MqttMessage msg;
             msg.setTopic(topicName);
             msg.addData((uint8_t *) message->payload, message->payloadlen);
-            if (subscriber->commonCb)
-                subscriber->commonCb(*subscriber, msg);
-            if (it != subscriber->cbs.end() && it->second)
+            if (subscriber->onMsgArrivedCmnCb)
+                subscriber->onMsgArrivedCmnCb(*subscriber, msg);
+            if (it != subscriber->onMsgArrivedCbs.end() && it->second)
                 it->second(*subscriber, msg);
         }
     }
@@ -236,22 +233,22 @@ int MqttAsyncSubscriber::msgArrived(void *context,
     return 1;
 }
 
-void MqttAsyncSubscriber::connectedCb(void *context, char *cause) {
+void MqttAsyncSubscriber::onConnected(void *context, char *cause) {
     if (context != nullptr) {
         auto subscriber = (MqttAsyncSubscriber *) context;
         subscriber->pendingConnect = false;
         auto lock = subscriber->getCbLock();
-        if (subscriber->onConnectCb)
-            subscriber->onConnectCb();
+        if (subscriber->onConnectedCb)
+            subscriber->onConnectedCb();
     }
 }
-void MqttAsyncSubscriber::connlost(void *context, char *cause) {
+void MqttAsyncSubscriber::onConnectionLost(void *context, char *cause) {
     // Reconnect procedure here!
 }
 
-void MqttAsyncSubscriber::onSubscriber(void *context, MQTTAsync_successData *response) {}
+void MqttAsyncSubscriber::onSubscribeSuccess(void *context, MQTTAsync_successData *response) {}
 
-void MqttAsyncSubscriber::onSubscriberFailure(void *context, MQTTAsync_failureData *response) {}
+void MqttAsyncSubscriber::onSubscribeFailure(void *context, MQTTAsync_failureData *response) {}
 
 void MqttAsyncSubscriber::onConnectSuccess(void *context, MQTTAsync_successData data)
 {

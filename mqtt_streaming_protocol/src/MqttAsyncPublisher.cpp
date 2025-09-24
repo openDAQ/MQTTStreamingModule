@@ -1,216 +1,243 @@
 #include "MqttAsyncPublisher.h"
 
-#include <thread>
-
 namespace mqtt {
 
-MqttAsyncPublisher::MqttAsyncPublisher() : 
-    MqttAsyncPublisher("", "", false, false, false, false, "", "", "", "")
-{
-
-}
+MqttAsyncPublisher::MqttAsyncPublisher()
+    : MqttAsyncPublisher("", "", false, false, false, false, "", "", "", "")
+{}
 
 MqttAsyncPublisher::MqttAsyncPublisher(std::string serverUrl,
-                                             std::string clientId,
-                                             bool cleanSession,
-                                             bool enableSSL,
-                                             bool useCertificates,
-                                             bool verifyServerCert,
-                                             std::string trustStorePath,
-                                             std::string clientCertPath,
-                                             std::string privKeyPath,
-                                             std::string privKeyPass)
-    : IMqttBase(enableSSL, useCertificates, verifyServerCert, trustStorePath, clientCertPath, privKeyPath, privKeyPass)
-    , penddingConnect(false)
+                                       std::string clientId,
+                                       bool cleanSession,
+                                       bool enableSSL,
+                                       bool useCertificates,
+                                       bool verifyServerCert,
+                                       std::string trustStorePath,
+                                       std::string clientCertPath,
+                                       std::string privKeyPath,
+                                       std::string privKeyPass)
+    : IMqttBase(enableSSL,
+                useCertificates,
+                verifyServerCert,
+                trustStorePath,
+                clientCertPath,
+                privKeyPath,
+                privKeyPass)
+    , clientId(clientId)
+    , username("")
+    , password("")
+    , pendingConnect(false)
+    , client(nullptr)
 {
-    this->serverUrl = serverUrl;
-    this->clientId = clientId;
-    this->username = "";
-    this->password = "";
-    this->connOpts = MQTTAsync_connectOptions_initializer;
-    this->connOpts.cleansession = cleanSession ? 1 : 0;
-    this->connOpts.keepAliveInterval = 20;
-    this->connOpts.connectTimeout = 5;
-    this->connOpts.onSuccess = (MQTTAsync_onSuccess*) &MqttAsyncPublisher::onConnectSuccess;
-    this->connOpts.onFailure = (MQTTAsync_onFailure*) &MqttAsyncPublisher::onConnectFailure;
-    this->connOpts.automaticReconnect = true;
-    this->connOpts.minRetryInterval = 1;
-    this->connOpts.maxRetryInterval = 10;
-    this->createOpts = MQTTAsync_createOptions_initializer;
-    this->ssl_opts = MQTTAsync_SSLOptions_initializer;
-    this->connOpts.ssl = &this->ssl_opts;
-    this->client = nullptr;
     setServerURL(serverUrl);
+    connOpts = MQTTAsync_connectOptions_initializer;
+    connOpts.cleansession = cleanSession ? 1 : 0;
+    connOpts.keepAliveInterval = 20;
+    connOpts.connectTimeout = 5;
+    connOpts.onSuccess = (MQTTAsync_onSuccess *) &MqttAsyncPublisher::onConnectSuccess;
+    connOpts.onFailure = (MQTTAsync_onFailure *) &MqttAsyncPublisher::onConnectFailure;
+    connOpts.automaticReconnect = true;
+    connOpts.minRetryInterval = 1;
+    connOpts.maxRetryInterval = 10;
+    connOpts.ssl = &sslOpts;
+    connOpts.context = this;
+    createOpts = MQTTAsync_createOptions_initializer;
+    sslOpts = MQTTAsync_SSLOptions_initializer;
 }
 
-MqttAsyncPublisher::~MqttAsyncPublisher()
-{
-    std::lock_guard<std::recursive_mutex> guard(mtx);
-    if (this->client != nullptr)
-    {
+MqttAsyncPublisher::~MqttAsyncPublisher() {
+    if (client != nullptr) {
         disconnect();
-        MQTTAsync_destroy(&this->client);
+        MQTTAsync_destroy(&client);
     }
 }
 
-bool MqttAsyncPublisher::connect()
-{
-    std::lock_guard<std::recursive_mutex> guard(mtx);
-    if (this->client != nullptr)
-    {
+bool MqttAsyncPublisher::connect() {
+    if (client != nullptr) {
         // Signal stop reconnecting
         disconnect();
-        MQTTAsync_destroy(&this->client);
+        MQTTAsync_destroy(&client);
     }
 
-    penddingConnect = true;
-    setServerURL(this->serverUrl);
-    int rc = MQTTAsync_createWithOptions(&this->client, this->serverUrl.c_str(), this->clientId.c_str(), MQTTCLIENT_PERSISTENCE_NONE, NULL, &this->createOpts);
+    pendingConnect = true;
+    int rc = MQTTAsync_createWithOptions(&client,
+                                         serverUrl.c_str(),
+                                         clientId.c_str(),
+                                         MQTTCLIENT_PERSISTENCE_NONE,
+                                         NULL,
+                                         &createOpts);
 
-    if (rc != MQTTASYNC_SUCCESS)
-    {
+    if (rc != MQTTASYNC_SUCCESS) {
         return false;
     }
 
-    rc = MQTTAsync_setCallbacks(this->client, this, &MqttAsyncPublisher::connlost, &MqttAsyncPublisher::msgArrived, &MqttAsyncPublisher::deliveryComplete);
-    if (rc != MQTTASYNC_SUCCESS)
-    {
+    rc = MQTTAsync_setCallbacks(client,
+                                this,
+                                &MqttAsyncPublisher::onConnectionLost,
+                                &MqttAsyncPublisher::onMsgArrived,
+                                &MqttAsyncPublisher::onDeliveryCompleted);
+
+    if (rc != MQTTASYNC_SUCCESS) {
         return false;
     }
 
-    rc = MQTTAsync_setConnected(this->client, this, &MqttAsyncPublisher::connectedCb);
-    if (rc != MQTTASYNC_SUCCESS)
-    {
+    rc = MQTTAsync_setConnected(client, this, &MqttAsyncPublisher::onConnected);
+    if (rc != MQTTASYNC_SUCCESS) {
         return false;
     }
 
-    this->connOpts.context = this;
-    if ((rc = MQTTAsync_connect(this->client, &this->connOpts)) != MQTTASYNC_SUCCESS)
-    {
+    rc = MQTTAsync_connect(client, &connOpts);
+    if (rc != MQTTASYNC_SUCCESS) {
         return false;
     }
 
- 
     return true;
 }
 
-bool MqttAsyncPublisher::disconnect()
-{
-    std::lock_guard<std::recursive_mutex> guard(mtx);
-    return MQTTAsync_disconnect(this->client, NULL) == MQTTASYNC_SUCCESS;
+bool MqttAsyncPublisher::disconnect() {
+    return MQTTAsync_disconnect(client, NULL) == MQTTASYNC_SUCCESS;
 }
 
-MqttConnectionStatus MqttAsyncPublisher::isConnected()
-{
-    std::lock_guard<std::recursive_mutex> guard(mtx);
-    if (this->penddingConnect)
+MqttConnectionStatus MqttAsyncPublisher::isConnected() {
+    if (pendingConnect)
         return MqttConnectionStatus::pending;
-    return MQTTAsync_isConnected(this->client) ? MqttConnectionStatus::connected : MqttConnectionStatus::not_connected;
+
+    return MQTTAsync_isConnected(client) ? MqttConnectionStatus::connected
+                                         : MqttConnectionStatus::not_connected;
 }
 
 void MqttAsyncPublisher::setUsernamePasswrod(std::string username, std::string password)
 {
-    std::lock_guard<std::recursive_mutex> guard(mtx);
     this->username = username;
     this->password = password;
 
-    this->connOpts.username = !username.empty() ? this->username.c_str() : NULL;
-    this->connOpts.password = !password.empty() ? this->password.c_str() : NULL;
+    connOpts.username = !username.empty() ? username.c_str() : NULL;
+    connOpts.password = !password.empty() ? password.c_str() : NULL;
 }
 
-void MqttAsyncPublisher::publishBirthCertificates()
-{
-}
+void MqttAsyncPublisher::publishBirthCertificates() {}
 
-bool MqttAsyncPublisher::publish(const std::string& topic, void* data, size_t dataLen, std::string* err, int qos, int* token, bool retained)
-{
-    std::lock_guard<std::recursive_mutex> guard(mtx);
+bool MqttAsyncPublisher::publish(const std::string &topic, void *data,
+                                 size_t dataLen, std::string *err, int qos,
+                                 int *token, bool retained) {
     MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
     MQTTAsync_message pubmsg = MQTTAsync_message_initializer;
     int rc;
-    opts.onSuccess = (MQTTAsync_onSuccess*) &MqttAsyncPublisher::onSend;
-    opts.onFailure = (MQTTAsync_onFailure*) &MqttAsyncPublisher::onSendFailure;
+    opts.onSuccess = (MQTTAsync_onSuccess *) &MqttAsyncPublisher::onSend;
+    opts.onFailure = (MQTTAsync_onFailure *) &MqttAsyncPublisher::onSendFailure;
     opts.context = this;
     pubmsg.payload = data;
     pubmsg.payloadlen = (int) dataLen;
     pubmsg.qos = qos;
     pubmsg.retained = retained ? 1 : 0;
-    if ((rc = MQTTAsync_sendMessage(client, topic.c_str(), &pubmsg, &opts)) != MQTTASYNC_SUCCESS)
-    {
-        if (err != nullptr)
-        {
+    if ((rc = MQTTAsync_sendMessage(client, topic.c_str(), &pubmsg, &opts)) != MQTTASYNC_SUCCESS) {
+        if (err != nullptr) {
             *err = MQTTAsync_strerror(rc);
         }
     }
-    if (token != nullptr)
-    {
+    if (token != nullptr) {
         *token = opts.token;
     }
     return rc == MQTTASYNC_SUCCESS;
 }
 
-void MqttAsyncPublisher::setStateCB(std::function<void()> cb)
-{
-    this->cb = cb;
-}
+void MqttAsyncPublisher::setServerURL(std::string serverUrl) {
+    if (serverUrl[0] == ':') {
+        serverUrl = "";
+    } else {
+        std::string ssl("ssl://");
+        std::string tcp("tcp://");
+        // Remove any protocol if available
+        if ((serverUrl.size() >= ssl.size()
+             && std::equal(ssl.begin(), ssl.end(), serverUrl.begin()))) {
+            serverUrl.erase(0, ssl.length());
+        }
+        if ((serverUrl.size() >= tcp.size()
+             && std::equal(tcp.begin(), tcp.end(), serverUrl.begin()))) {
+            serverUrl.erase(0, tcp.length());
+        }
 
-void MqttAsyncPublisher::setServerURL(std::string serverUrl)
-{
-    std::lock_guard<std::recursive_mutex> guard(mtx);
+        if (enableSSL) {
+            serverUrl = "ssl://" + serverUrl;
+            sslOpts.enableServerCertAuth = useCertificates && verifyServerCert
+                                           && trustStorePath != "";
+            sslOpts.trustStore = (trustStorePath != "") ? trustStorePath.c_str() : nullptr;
+            sslOpts.keyStore = (useCertificates) ? clientCertPath.c_str() : nullptr;
+            sslOpts.privateKey = (useCertificates) ? privKeyPath.c_str() : nullptr;
+        } else {
+            serverUrl = "tcp://" + serverUrl;
+        }
+    }
     this->serverUrl = serverUrl;
-    if (serverUrl[0] == ':' || serverUrl == "")
-    {
-        this->serverUrl = "";
-        return;
-    }
-    std::string ssl("ssl://");
-    std::string tcp("tcp://");
-    // Remove any protocol if available
-    if ((this->serverUrl.size() >= ssl.size() && std::equal(ssl.begin(), ssl.end(), this->serverUrl.begin())))
-    {
-        this->serverUrl.erase(0, ssl.length());
-    }
-    if ((this->serverUrl.size() >= tcp.size() && std::equal(tcp.begin(), tcp.end(), this->serverUrl.begin())))
-    {
-        this->serverUrl.erase(0, tcp.length());
-    }
-
-    if (enableSSL)
-    {
-        this->serverUrl = "ssl://" + this->serverUrl;
-        this->ssl_opts.enableServerCertAuth = this->useCertificates && this->verifyServerCert && trustStorePath != "";
-        if (trustStorePath != "")
-        {
-            this->ssl_opts.trustStore = trustStorePath.c_str();
-        }
-        else
-        {
-            this->ssl_opts.trustStore = nullptr;
-        }
-        if (this->useCertificates)
-        {
-            this->ssl_opts.keyStore = clientCertPath.c_str();
-            this->ssl_opts.privateKey = privKeyPath.c_str();
-        }
-        else
-        {
-            this->ssl_opts.keyStore = nullptr;
-            this->ssl_opts.privateKey = nullptr;
-        }
-    }
-    else
-    {
-        this->serverUrl = "tcp://" + this->serverUrl;
-    }
 }
 
-void MqttAsyncPublisher::setClientId(std::string clientId)
-{
-    std::lock_guard<std::recursive_mutex> guard(mtx);
+void MqttAsyncPublisher::setClientId(std::string clientId) {
     this->clientId = clientId;
 }
-bool MqttAsyncPublisher::reconnect()
+
+bool MqttAsyncPublisher::reconnect() { return false; }
+
+MqttClientType MqttAsyncPublisher::getClientType() const {
+    return MqttClientType::async;
+}
+
+std::string MqttAsyncPublisher::getServerUrl() const { return serverUrl; }
+
+void MqttAsyncPublisher::onDeliveryCompleted(void *context, MQTTAsync_token token) {}
+
+void MqttAsyncPublisher::onConnected(void *context, char *cause) {
+    if (context != nullptr) {
+        auto publisher = (MqttAsyncPublisher *) context;
+        publisher->pendingConnect = false;
+        auto lock = publisher->getCbLock();
+        if (publisher->onConnectedCb)
+            publisher->onConnectedCb();
+    }
+}
+
+void MqttAsyncPublisher::onConnectionLost(void *context, char *cause) {
+    (void) cause;
+    // Reconnect procedure here!
+    if (context != nullptr) {
+        auto publisher = (MqttAsyncPublisher *) context;
+        publisher->pendingConnect = false;
+    }
+}
+
+int MqttAsyncPublisher::onMsgArrived(void *context,
+                                     char *topicName,
+                                     int topicLen,
+                                     MQTTAsync_message *message)
 {
-    return false;
+    MQTTAsync_freeMessage(&message);
+    MQTTAsync_free(topicName);
+    return 1;
 }
+
+void MqttAsyncPublisher::onSend(void *context, MQTTAsync_successData *data) {
+    auto publisher = (MqttAsyncPublisher *) context;
+    auto lock = publisher->getCbLock();
+    if (publisher->onSentSuccessCb)
+        publisher->onSentSuccessCb(data->token);
 }
+
+void MqttAsyncPublisher::onSendFailure(void *context, MQTTAsync_failureData *data)
+{
+    auto publisher = (MqttAsyncPublisher *) context;
+    auto lock = publisher->getCbLock();
+    if (publisher->onSentFailCb)
+        publisher->onSentFailCb(data->token);
+}
+
+void MqttAsyncPublisher::onConnectSuccess(void *context, MQTTAsync_successData data)
+{
+    // TODO : check when this is called
+}
+
+void MqttAsyncPublisher::onConnectFailure(void *context, MQTTAsync_failureData data)
+{
+    // TODO : check when this is called
+    auto publisher = (MqttAsyncPublisher *) context;
+    publisher->pendingConnect = false;
+}
+} // namespace mqtt

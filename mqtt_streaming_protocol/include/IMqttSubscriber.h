@@ -2,7 +2,6 @@
 #include "IMqttBase.h"
 #include "MqttMessage.h"
 #include <functional>
-#include <mutex>
 
 namespace mqtt
 {
@@ -14,13 +13,10 @@ public:
     virtual bool unsubscribeAll() = 0;
     virtual void setMessageArrivedCb(std::string topic, std::function<void(const IMqttSubscriber&, mqtt::MqttMessage&)> cb) = 0;
     virtual void setMessageArrivedCb(std::function<void(const IMqttSubscriber&, mqtt::MqttMessage&)> cb) = 0;
-    virtual std::lock_guard<std::recursive_mutex> getCbLock() = 0;
-    virtual ~IMqttSubscriber()
-    {
-    }
+    virtual ~IMqttSubscriber() = default;
 
 protected:
-    std::unordered_map<std::string, std::function<void(const IMqttSubscriber&, mqtt::MqttMessage& msg)>> cbs;
-    std::function<void(const IMqttSubscriber&, mqtt::MqttMessage& msg)> commonCb;
+    std::unordered_map<std::string, std::function<void(const IMqttSubscriber&, mqtt::MqttMessage& msg)>> onMsgArrivedCbs;
+    std::function<void(const IMqttSubscriber&, mqtt::MqttMessage& msg)> onMsgArrivedCmnCb;
 };
 }  // namespace mqtt

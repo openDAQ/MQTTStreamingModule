@@ -78,7 +78,7 @@ void MqttStreamingDeviceImpl::setupMqttSubscriber()
     subscriber->setClientId(connectionSettings.clientId);
     subscriber->setUsernamePasswrod(connectionSettings.username, connectionSettings.password);
 
-    subscriber->setOnConnect([this] {
+    subscriber->setOnConnected([this] {
         connectedPromise.set_value(true);
     });
 

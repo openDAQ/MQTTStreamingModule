@@ -4,6 +4,7 @@
 
 #include "MQTTAsync.h"
 #include "MqttMessage.h"
+#include <atomic>
 #include <mutex>
 
 namespace mqtt
@@ -43,7 +44,6 @@ public:
 
     MqttClientType getClientType() const override;
     std::string getServerUrl() const override;
-    std::lock_guard<std::recursive_mutex> getCbLock() override;
 
     bool subscribe(std::string topic, int qos) override;
     bool unsubscribe(std::string topic) override;
@@ -59,20 +59,20 @@ private:
     std::string password;
     std::vector<MqttSubscription> subscriptions;
     std::recursive_mutex cbMtx;
-    bool pendingConnect;
+    std::atomic<bool> pendingConnect;
 
     MQTTAsync client;
     MQTTAsync_connectOptions connOpts;
     MQTTAsync_createOptions createOpts;
     MQTTAsync_SSLOptions sslOpts;
 
-    static int msgArrived(void* context, char* topicName, int topicLen, MQTTAsync_message* message);
-    static void connectedCb(void* context, char* cause);
-    static void connlost(void* context, char* cause);
-    static void onSubscriber(void* context, MQTTAsync_successData* response);
-    static void onSubscriberFailure(void* context, MQTTAsync_failureData* response);
+    static int onMsgArrived(void* context, char* topicName, int topicLen, MQTTAsync_message* message);
+    static void onConnected(void* context, char* cause);
+    static void onConnectionLost(void* context, char* cause);
+    static void onSubscribeSuccess(void* context, MQTTAsync_successData* response);
+    static void onSubscribeFailure(void* context, MQTTAsync_failureData* response);
     static void onConnectSuccess(void* context, MQTTAsync_successData data);
     static void onConnectFailure(void* context, MQTTAsync_failureData data);
-    static void deliveryComplete(void* context, MQTTAsync_token token);
+    static void onDeliveryCompleted(void* context, MQTTAsync_token token);
 };
 }  // namespace mqtt
