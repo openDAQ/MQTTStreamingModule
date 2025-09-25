@@ -2,13 +2,9 @@
 
 namespace mqtt {
 
-MqttAsyncClient::MqttAsyncClient()
-    : MqttAsyncClient("", "", false)
-{}
+MqttAsyncClient::MqttAsyncClient() : MqttAsyncClient("", "", false) {}
 
-MqttAsyncClient::MqttAsyncClient(std::string serverUrl,
-                                       std::string clientId,
-                                       bool cleanSession)
+MqttAsyncClient::MqttAsyncClient(std::string serverUrl, std::string clientId, bool cleanSession)
     : clientId(clientId)
     , username("")
     , password("")
@@ -91,7 +87,7 @@ bool MqttAsyncClient::disconnect() {
     return MQTTAsync_disconnect(client, &disconnOpts) == MQTTASYNC_SUCCESS;
 }
 
-MqttConnectionStatus MqttAsyncClient::isConnected() const{
+MqttConnectionStatus MqttAsyncClient::isConnected() const {
     if (pendingConnect)
         return MqttConnectionStatus::pending;
 
@@ -99,8 +95,7 @@ MqttConnectionStatus MqttAsyncClient::isConnected() const{
                                          : MqttConnectionStatus::not_connected;
 }
 
-std::lock_guard<std::recursive_mutex> MqttAsyncClient::getCbLock()
-{
+std::lock_guard<std::recursive_mutex> MqttAsyncClient::getCbLock() {
     return std::lock_guard<decltype(cbMtx)>(cbMtx);
 }
 
@@ -113,9 +108,14 @@ void MqttAsyncClient::setUsernamePasswrod(std::string username, std::string pass
     connOpts.password = !password.empty() ? password.c_str() : NULL;
 }
 
-bool MqttAsyncClient::publish(const std::string &topic, void *data,
-                                 size_t dataLen, std::string *err, int qos,
-                                 int *token, bool retained) {
+bool MqttAsyncClient::publish(const std::string &topic,
+                              void *data,
+                              size_t dataLen,
+                              std::string *err,
+                              int qos,
+                              int *token,
+                              bool retained)
+{
     MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
     MQTTAsync_message pubmsg = MQTTAsync_message_initializer;
     int rc;
@@ -207,16 +207,15 @@ void MqttAsyncClient::onConnectionLost(void *context, char *cause) {
 }
 
 int MqttAsyncClient::onMsgArrived(void *context,
-                                     char *topicName,
-                                     int topicLen,
-                                     MQTTAsync_message *message)
+                                  char *topicName,
+                                  int topicLen,
+                                  MQTTAsync_message *message)
 {
     if (context != nullptr && message != nullptr) {
         MqttAsyncClient *client = (MqttAsyncClient *) context;
         {
             auto lock = client->getCbLock();
-            auto it = (topicName != nullptr) ?
-                          client->onMsgArrivedCbs.find(topicName)
+            auto it = (topicName != nullptr) ? client->onMsgArrivedCbs.find(topicName)
                                              : client->onMsgArrivedCbs.end();
             if (client->onMsgArrivedCmnCb || it != client->onMsgArrivedCbs.end()) {
                 mqtt::MqttMessage msg;
@@ -235,7 +234,8 @@ int MqttAsyncClient::onMsgArrived(void *context,
     return 1;
 }
 
-void MqttAsyncClient::onSendSuccess(void *context, MQTTAsync_successData *data) {
+void MqttAsyncClient::onSendSuccess(void *context, MQTTAsync_successData *data)
+{
     if (context != nullptr && data != nullptr) {
         auto clienttInst = (MqttAsyncClient *) context;
         auto lock = clienttInst->getCbLock();
@@ -254,7 +254,7 @@ void MqttAsyncClient::onSendFailure(void *context, MQTTAsync_failureData *data)
     }
 }
 
-void MqttAsyncClient::onConnectSuccess(void *context, MQTTAsync_successData* data)
+void MqttAsyncClient::onConnectSuccess(void *context, MQTTAsync_successData *data)
 {
     // TODO : check when this is called
     if (context != nullptr) {
@@ -263,7 +263,7 @@ void MqttAsyncClient::onConnectSuccess(void *context, MQTTAsync_successData* dat
     }
 }
 
-void MqttAsyncClient::onConnectFailure(void *context, MQTTAsync_failureData* data)
+void MqttAsyncClient::onConnectFailure(void *context, MQTTAsync_failureData *data)
 {
     // TODO : check when this is called
     if (context != nullptr) {
@@ -272,7 +272,7 @@ void MqttAsyncClient::onConnectFailure(void *context, MQTTAsync_failureData* dat
     }
 }
 
-void MqttAsyncClient::onDisconnectSuccess(void *context, MQTTAsync_successData* data)
+void MqttAsyncClient::onDisconnectSuccess(void *context, MQTTAsync_successData *data)
 {
     // TODO : check when this is called
     if (context != nullptr) {
@@ -283,7 +283,7 @@ void MqttAsyncClient::onDisconnectSuccess(void *context, MQTTAsync_successData* 
     }
 }
 
-void MqttAsyncClient::onDisconnectFailure(void *context, MQTTAsync_failureData* data)
+void MqttAsyncClient::onDisconnectFailure(void *context, MQTTAsync_failureData *data)
 {
     // TODO : check when this is called
     if (context != nullptr) {
@@ -294,29 +294,16 @@ void MqttAsyncClient::onDisconnectFailure(void *context, MQTTAsync_failureData* 
     }
 }
 
-void MqttAsyncClient::onSubscribeSuccess(void* context, MQTTAsync_successData* response)
-{
+void MqttAsyncClient::onSubscribeSuccess(void *context, MQTTAsync_successData *response) {}
 
-}
+void MqttAsyncClient::onSubscribeFailure(void *context, MQTTAsync_failureData *response) {}
 
-void MqttAsyncClient::onSubscribeFailure(void* context, MQTTAsync_failureData* response)
-{
+void MqttAsyncClient::onUnsubscribeSuccess(void *context, MQTTAsync_successData *response) {}
 
-}
+void MqttAsyncClient::onUnsubscribeFailure(void *context, MQTTAsync_failureData *response) {}
 
-void MqttAsyncClient::onUnsubscribeSuccess(void* context, MQTTAsync_successData* response)
-{
-
-}
-
-void MqttAsyncClient::onUnsubscribeFailure(void* context, MQTTAsync_failureData* response)
-{
-
-}
-
-void MqttAsyncClient::setConnectedCb(std::function<void()> cb)
-{
-    auto lock =  getCbLock();
+void MqttAsyncClient::setConnectedCb(std::function<void()> cb) {
+    auto lock = getCbLock();
     onConnectedCb = cb;
 }
 

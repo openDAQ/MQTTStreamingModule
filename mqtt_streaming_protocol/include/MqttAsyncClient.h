@@ -1,15 +1,14 @@
 #pragma once
 
+#include <atomic>
 #include <functional>
 #include <mutex>
 #include <string>
-#include <atomic>
 
 #include "MQTTAsync.h"
 #include "MqttMessage.h"
 
-namespace mqtt
-{
+namespace mqtt {
 
 enum class MqttConnectionStatus {
     not_connected,
@@ -21,22 +20,22 @@ struct MqttSubscription {
     std::string topic;
     int qos;
 
-    MqttSubscription(std::string t, int q) : topic(t), qos(q) {}
+    MqttSubscription(std::string t, int q)
+        : topic(t)
+        , qos(q)
+    {}
 };
 
-class MqttAsyncClient final
-{
+class MqttAsyncClient final {
 public:
-    using MsgArrivedCb_type = void(const MqttAsyncClient&, mqtt::MqttMessage& msg);
+    using MsgArrivedCb_type = void(const MqttAsyncClient &, mqtt::MqttMessage &msg);
 
     MqttAsyncClient();
-    MqttAsyncClient(std::string serverUrl,
-                       std::string clientId,
-                       bool cleanSession);
-    MqttAsyncClient(const MqttAsyncClient&) = delete;
-    MqttAsyncClient& operator=(const MqttAsyncClient&) = delete;
-    MqttAsyncClient(MqttAsyncClient&&) = delete;
-    MqttAsyncClient& operator=(MqttAsyncClient&&) = delete;
+    MqttAsyncClient(std::string serverUrl, std::string clientId, bool cleanSession);
+    MqttAsyncClient(const MqttAsyncClient &) = delete;
+    MqttAsyncClient &operator=(const MqttAsyncClient &) = delete;
+    MqttAsyncClient(MqttAsyncClient &&) = delete;
+    MqttAsyncClient &operator=(MqttAsyncClient &&) = delete;
     ~MqttAsyncClient();
 
     bool connect();
@@ -92,20 +91,22 @@ private:
 
     std::lock_guard<std::recursive_mutex> getCbLock();
 
-    static void onDeliveryCompleted(void* context, MQTTAsync_token token);
-    static void onConnected(void* context, char* cause);
-    static void onConnectionLost(void* context, char* cause);
-    static int onMsgArrived(void* context, char* topicName, int topicLen, MQTTAsync_message* message);
-    static void onSendSuccess(void* context, MQTTAsync_successData* data);
-    static void onSendFailure(void* context, MQTTAsync_failureData* data);
-    static void onConnectSuccess(void* context, MQTTAsync_successData* data);
-    static void onConnectFailure(void* context, MQTTAsync_failureData* data);
-    static void onDisconnectSuccess(void* context, MQTTAsync_successData* data);
-    static void onDisconnectFailure(void* context, MQTTAsync_failureData* data);
-    static void onSubscribeSuccess(void* context, MQTTAsync_successData* response);
-    static void onSubscribeFailure(void* context, MQTTAsync_failureData* response);
-    static void onUnsubscribeSuccess(void* context, MQTTAsync_successData* response);
-    static void onUnsubscribeFailure(void* context, MQTTAsync_failureData* response);
-
+    static void onDeliveryCompleted(void *context, MQTTAsync_token token);
+    static void onConnected(void *context, char *cause);
+    static void onConnectionLost(void *context, char *cause);
+    static int onMsgArrived(void *context,
+                            char *topicName,
+                            int topicLen,
+                            MQTTAsync_message *message);
+    static void onSendSuccess(void *context, MQTTAsync_successData *data);
+    static void onSendFailure(void *context, MQTTAsync_failureData *data);
+    static void onConnectSuccess(void *context, MQTTAsync_successData *data);
+    static void onConnectFailure(void *context, MQTTAsync_failureData *data);
+    static void onDisconnectSuccess(void *context, MQTTAsync_successData *data);
+    static void onDisconnectFailure(void *context, MQTTAsync_failureData *data);
+    static void onSubscribeSuccess(void *context, MQTTAsync_successData *response);
+    static void onSubscribeFailure(void *context, MQTTAsync_failureData *response);
+    static void onUnsubscribeSuccess(void *context, MQTTAsync_successData *response);
+    static void onUnsubscribeFailure(void *context, MQTTAsync_failureData *response);
 };
-}  // namespace mqtt
+} // namespace mqtt
