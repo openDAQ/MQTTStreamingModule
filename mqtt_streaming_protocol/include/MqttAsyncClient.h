@@ -33,6 +33,10 @@ public:
     MqttAsyncClient(std::string serverUrl,
                        std::string clientId,
                        bool cleanSession);
+    MqttAsyncClient(const MqttAsyncClient&) = delete;
+    MqttAsyncClient& operator=(const MqttAsyncClient&) = delete;
+    MqttAsyncClient(MqttAsyncClient&&) = delete;
+    MqttAsyncClient& operator=(MqttAsyncClient&&) = delete;
     ~MqttAsyncClient();
 
     bool connect();
