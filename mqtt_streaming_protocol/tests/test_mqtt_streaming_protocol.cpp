@@ -36,6 +36,15 @@ protected:
         });
         return instance->connect();
     }
+
+    bool connect(std::string url, std::string id) {
+        bool res = createConnection(url, id);
+        if (res) {
+            auto status = connectedFuture.wait_for(std::chrono::milliseconds(successTimeout));
+            res = (status == std::future_status::ready && connectedFuture.get() == true);
+        }
+        return res;
+    }
 };
 
 TEST_F(MqttStreamingProtocolTest, Connection)
@@ -121,14 +130,16 @@ TEST_F(MqttStreamingProtocolTest, Disconnection)
     ASSERT_TRUE(connectedFuture.get());
     ASSERT_TRUE(instance->isConnected() == MqttConnectionStatus::connected);
 
-    auto disconnectionOk = instance->disconnect();
-    ASSERT_TRUE(disconnectionOk);
     // It is necessary to give the client time to disconnect.
     std::promise<bool> disconnectedPromise;
     auto disconnectedFuture = disconnectedPromise.get_future();
     instance->setDisconnectCb([promise = &disconnectedPromise](bool result) {
         promise->set_value(result);
     });
+
+    auto disconnectionOk = instance->disconnect();
+    ASSERT_TRUE(disconnectionOk);
+
     status = disconnectedFuture.wait_for(std::chrono::milliseconds(successTimeout));
 
     ASSERT_TRUE(status == std::future_status::ready);
@@ -139,4 +150,56 @@ TEST_F(MqttStreamingProtocolTest, Disconnection)
 TEST_F(MqttStreamingProtocolTest, NotConnected)
 {
     ASSERT_TRUE(instance->isConnected() == MqttConnectionStatus::not_connected);
+}
+
+TEST_F(MqttStreamingProtocolTest, PublishingWithoutDataControl)
+{
+    auto ok = connect("127.0.0.1", clientId);
+    ASSERT_TRUE(ok);
+
+    int token = 0;
+    std::promise<bool> sendPromise;
+    auto sendFuture = sendPromise.get_future();
+    instance->setSentCb([promise = &sendPromise, token = &token](int receivedToken, bool result) {
+        if (receivedToken == *token)
+            promise->set_value(result);
+    });
+
+    std::promise<bool> deliveryPromise;
+    auto deliveryFuture = deliveryPromise.get_future();
+    instance->setDeliveryCompletedCb([promise = &deliveryPromise, token = &token](int receivedToken) {
+        if (receivedToken == *token)
+            promise->set_value(true);
+    });
+
+    const std::string topic = "test/topic";
+    const std::string data = "test data";
+
+    const auto start{std::chrono::steady_clock::now()};
+    ok = instance->publish(topic, (void *)(data.c_str()), data.size(), nullptr, 1, &token, false);
+    ASSERT_TRUE(ok);
+    ASSERT_TRUE(token != 0);
+
+
+    auto tout = std::chrono::milliseconds(successTimeout);
+    auto status = sendFuture.wait_for(tout);
+    ASSERT_TRUE(status == std::future_status::ready);
+    ASSERT_TRUE(sendFuture.get());
+
+    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - start);
+    std::chrono::milliseconds newTout = (elapsed_ms >= tout) ? std::chrono::milliseconds(0)
+                                                             : tout - elapsed_ms;
+    status = deliveryFuture.wait_for(newTout);
+    ASSERT_TRUE(status == std::future_status::ready);
+    ASSERT_TRUE(deliveryFuture.get());
+}
+
+TEST_F(MqttStreamingProtocolTest, PublishingWithoutConnection)
+{
+    const std::string topic = "test/topic";
+    const std::string data = "test data";
+    int token = 0;
+    auto ok = instance->publish(topic, (void *)(data.c_str()), data.size(), nullptr, 1, &token, false);
+    ASSERT_FALSE(ok);
 }

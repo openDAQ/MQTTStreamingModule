@@ -57,6 +57,8 @@ public:
     void setMessageArrivedCb(std::string topic, std::function<MsgArrivedCb_type> cb);
     void setMessageArrivedCb(std::function<MsgArrivedCb_type> cb);
     void setDisconnectCb(std::function<void(bool)> cb);
+    void setSentCb(std::function<void(int, bool)> cb);
+    void setDeliveryCompletedCb(std::function<void(int)> cb);
 
     void setServerURL(std::string serverUrl);
     std::string getServerUrl() const;
@@ -81,9 +83,9 @@ private:
     std::recursive_mutex cbMtx;
 
     std::function<void()> onConnectedCb;
-    std::function<void(int)> onSentSuccessCb;
+    std::function<void(int, bool)> onSentCb;
     std::function<void(bool)> onDisconnectCb;
-    std::function<void(int)> onSentFailCb;
+    std::function<void(int)> onDeliveryCompletedCb;
     std::function<MsgArrivedCb_type> onMsgArrivedCmnCb;
     std::unordered_map<std::string, std::function<MsgArrivedCb_type>> onMsgArrivedCbs;
 
