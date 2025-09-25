@@ -185,11 +185,11 @@ void MqttAsyncClient::onDeliveryCompleted(void *context, MQTTAsync_token token) 
 
 void MqttAsyncClient::onConnected(void *context, char *cause) {
     if (context != nullptr) {
-        auto publisher = (MqttAsyncClient *) context;
-        publisher->pendingConnect = false;
-        auto lock = publisher->getCbLock();
-        if (publisher->onConnectedCb)
-            publisher->onConnectedCb();
+        auto clienttInst = (MqttAsyncClient *) context;
+        clienttInst->pendingConnect = false;
+        auto lock = clienttInst->getCbLock();
+        if (clienttInst->onConnectedCb)
+            clienttInst->onConnectedCb();
     }
 }
 
@@ -197,8 +197,8 @@ void MqttAsyncClient::onConnectionLost(void *context, char *cause) {
     (void) cause;
     // Reconnect procedure here!
     if (context != nullptr) {
-        auto publisher = (MqttAsyncClient *) context;
-        publisher->pendingConnect = false;
+        auto clienttInst = (MqttAsyncClient *) context;
+        clienttInst->pendingConnect = false;
     }
 }
 
@@ -233,20 +233,20 @@ int MqttAsyncClient::onMsgArrived(void *context,
 
 void MqttAsyncClient::onSendSuccess(void *context, MQTTAsync_successData *data) {
     if (context != nullptr && data != nullptr) {
-        auto publisher = (MqttAsyncClient *) context;
-        auto lock = publisher->getCbLock();
-        if (publisher->onSentSuccessCb)
-            publisher->onSentSuccessCb(data->token);
+        auto clienttInst = (MqttAsyncClient *) context;
+        auto lock = clienttInst->getCbLock();
+        if (clienttInst->onSentSuccessCb)
+            clienttInst->onSentSuccessCb(data->token);
     }
 }
 
 void MqttAsyncClient::onSendFailure(void *context, MQTTAsync_failureData *data)
 {
     if (context != nullptr && data != nullptr) {
-        auto publisher = (MqttAsyncClient *) context;
-        auto lock = publisher->getCbLock();
-        if (publisher->onSentFailCb)
-            publisher->onSentFailCb(data->token);
+        auto clienttInst = (MqttAsyncClient *) context;
+        auto lock = clienttInst->getCbLock();
+        if (clienttInst->onSentFailCb)
+            clienttInst->onSentFailCb(data->token);
     }
 }
 
@@ -254,8 +254,8 @@ void MqttAsyncClient::onConnectSuccess(void *context, MQTTAsync_successData data
 {
     // TODO : check when this is called
     if (context != nullptr) {
-        auto publisher = (MqttAsyncClient *) context;
-        publisher->pendingConnect = false;
+        auto clienttInst = (MqttAsyncClient *) context;
+        clienttInst->pendingConnect = false;
     }
 }
 
@@ -263,8 +263,8 @@ void MqttAsyncClient::onConnectFailure(void *context, MQTTAsync_failureData data
 {
     // TODO : check when this is called
     if (context != nullptr) {
-        auto publisher = (MqttAsyncClient *) context;
-        publisher->pendingConnect = false;
+        auto clienttInst = (MqttAsyncClient *) context;
+        clienttInst->pendingConnect = false;
     }
 }
 
