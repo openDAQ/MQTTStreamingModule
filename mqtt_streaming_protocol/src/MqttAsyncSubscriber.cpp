@@ -217,23 +217,27 @@ int MqttAsyncSubscriber::onMsgArrived(void *context,
                                     int topicLen,
                                     MQTTAsync_message *message)
 {
-    MqttAsyncSubscriber *subscriber = (MqttAsyncSubscriber *) context;
-    {
-        auto lock = subscriber->getCbLock();
-        auto it = subscriber->onMsgArrivedCbs.find(topicName);
-        if (subscriber->onMsgArrivedCmnCb || it != subscriber->onMsgArrivedCbs.end()) {
-            mqtt::MqttMessage msg;
-            msg.setTopic(topicName);
-            msg.addData((uint8_t *) message->payload, message->payloadlen);
-            if (subscriber->onMsgArrivedCmnCb)
-                subscriber->onMsgArrivedCmnCb(*subscriber, msg);
-            if (it != subscriber->onMsgArrivedCbs.end() && it->second)
-                it->second(*subscriber, msg);
+    if (context != nullptr && message != nullptr) {
+        MqttAsyncSubscriber *subscriber = (MqttAsyncSubscriber *) context;
+        {
+            auto lock = subscriber->getCbLock();
+            auto it = (topicName != nullptr) ?
+                subscriber->onMsgArrivedCbs.find(topicName)
+                : subscriber->onMsgArrivedCbs.end();
+            if (subscriber->onMsgArrivedCmnCb || it != subscriber->onMsgArrivedCbs.end()) {
+                mqtt::MqttMessage msg;
+                msg.setTopic(topicName);
+                msg.addData((uint8_t *) message->payload, message->payloadlen);
+                if (subscriber->onMsgArrivedCmnCb)
+                    subscriber->onMsgArrivedCmnCb(*subscriber, msg);
+                if (it != subscriber->onMsgArrivedCbs.end() && it->second)
+                    it->second(*subscriber, msg);
+            }
         }
     }
-    MQTTAsync_freeMessage(&message);
-    if (topicLen > 0)
-        MQTTAsync_free(topicName);
+    if (message != nullptr)
+        MQTTAsync_freeMessage(&message);
+    MQTTAsync_free(topicName);
     return 1;
 }
 
@@ -261,8 +265,10 @@ void MqttAsyncSubscriber::onConnectSuccess(void *context, MQTTAsync_successData 
 
 void MqttAsyncSubscriber::onConnectFailure(void *context, MQTTAsync_failureData data)
 {
-    auto subscriber = (MqttAsyncSubscriber *) context;
-    subscriber->pendingConnect = false;
+    if (context != nullptr) {
+        auto subscriber = (MqttAsyncSubscriber *) context;
+        subscriber->pendingConnect = false;
+    }
 }
 
 } // namespace mqtt

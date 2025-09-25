@@ -212,35 +212,46 @@ int MqttAsyncPublisher::onMsgArrived(void *context,
                                      int topicLen,
                                      MQTTAsync_message *message)
 {
-    MQTTAsync_freeMessage(&message);
+    if (message != nullptr)
+        MQTTAsync_freeMessage(&message);
     MQTTAsync_free(topicName);
     return 1;
 }
 
 void MqttAsyncPublisher::onSend(void *context, MQTTAsync_successData *data) {
-    auto publisher = (MqttAsyncPublisher *) context;
-    auto lock = publisher->getCbLock();
-    if (publisher->onSentSuccessCb)
-        publisher->onSentSuccessCb(data->token);
+    if (context != nullptr && data != nullptr) {
+        auto publisher = (MqttAsyncPublisher *) context;
+        auto lock = publisher->getCbLock();
+        if (publisher->onSentSuccessCb)
+            publisher->onSentSuccessCb(data->token);
+    }
 }
 
 void MqttAsyncPublisher::onSendFailure(void *context, MQTTAsync_failureData *data)
 {
-    auto publisher = (MqttAsyncPublisher *) context;
-    auto lock = publisher->getCbLock();
-    if (publisher->onSentFailCb)
-        publisher->onSentFailCb(data->token);
+    if (context != nullptr && data != nullptr) {
+        auto publisher = (MqttAsyncPublisher *) context;
+        auto lock = publisher->getCbLock();
+        if (publisher->onSentFailCb)
+            publisher->onSentFailCb(data->token);
+    }
 }
 
 void MqttAsyncPublisher::onConnectSuccess(void *context, MQTTAsync_successData data)
 {
     // TODO : check when this is called
+    if (context != nullptr) {
+        auto publisher = (MqttAsyncPublisher *) context;
+        publisher->pendingConnect = false;
+    }
 }
 
 void MqttAsyncPublisher::onConnectFailure(void *context, MQTTAsync_failureData data)
 {
     // TODO : check when this is called
-    auto publisher = (MqttAsyncPublisher *) context;
-    publisher->pendingConnect = false;
+    if (context != nullptr) {
+        auto publisher = (MqttAsyncPublisher *) context;
+        publisher->pendingConnect = false;
+    }
 }
 } // namespace mqtt
