@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include "MqttAsyncSubscriber.h"
+#include "MqttAsyncClient.h"
 #include "MqttSettings.h"
 #include <future>
 #include <mqtt_streaming_client_module/common.h>
@@ -47,14 +47,14 @@ protected:
     FunctionBlockPtr onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config) override;
 
     void setupMqttSubscriber();
-    void onSignalsMessage(const mqtt::IMqttSubscriber& subscriber, mqtt::MqttMessage& msg);
+    void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg);
 
     DictObjectPtr<IDict, IString, IFunctionBlockType> fbTypes;
 
     StringPtr connectionString;
     EnumerationPtr connectionStatus;
 
-    std::shared_ptr<mqtt::MqttAsyncSubscriber> subscriber;
+    std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
     Mqtt::Utils::Settings::MqttConnectionSettings connectionSettings;
 
     std::promise<bool> connectedPromise;

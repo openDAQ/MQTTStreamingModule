@@ -25,7 +25,7 @@
 //#include <native_streaming_protocol/native_streaming_server_handler.h>
 #include <opendaq/connection_internal.h>
 #include <tsl/ordered_map.h>
-#include <MqttAsyncPublisher.h>
+#include <MqttAsyncClient.h>
 #include <MqttSettings.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_SERVER_MODULE
@@ -90,7 +90,7 @@ protected:
     bool serverStopped;
     size_t maxPacketReadCount;
     std::chrono::milliseconds processingThreadSleepTime;
-    mqtt::MqttAsyncPublisher publisher;
+    mqtt::MqttAsyncClient publisher;
     Mqtt::Utils::Settings::MqttConnectionSettings connectionSettings;
     std::mutex readersSync;
     bool processingThreadRunning;

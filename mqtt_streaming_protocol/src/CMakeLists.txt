@@ -1,14 +1,9 @@
 set(LIB_NAME mqtt_streaming_protocol)
 
-set(SRC_Cpp MqttAsyncPublisher.cpp
-            MqttAsyncSubscriber.cpp
+set(SRC_Cpp MqttAsyncClient.cpp
 )
 
-set(SRC_PublicHeaders   IMqttBase.h
-			IMqttPublisher.h
-			MqttAsyncPublisher.h
-			IMqttSubscriber.h
-			MqttAsyncSubscriber.h
+set(SRC_PublicHeaders   MqttAsyncClient.h
 			MqttMessage.h
 			MqttSettings.h
 )

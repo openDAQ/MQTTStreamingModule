@@ -22,7 +22,7 @@ MqttStreamingDeviceImpl::MqttStreamingDeviceImpl(const ContextPtr& ctx,
                                                      const PropertyObjectPtr& config)
      : Device(ctx, parent, getLocalId())
     , connectionStatus(Enumeration("ConnectionStatusType", "Connected", this->context.getTypeManager()))
-    , subscriber(std::make_shared<mqtt::MqttAsyncSubscriber>())
+    , subscriber(std::make_shared<mqtt::MqttAsyncClient>())
 {
     this->name = MQTT_DEVICE_NAME;
 
@@ -78,7 +78,7 @@ void MqttStreamingDeviceImpl::setupMqttSubscriber()
     subscriber->setClientId(connectionSettings.clientId);
     subscriber->setUsernamePasswrod(connectionSettings.username, connectionSettings.password);
 
-    subscriber->setOnConnected([this] {
+    subscriber->setConnectedCb([this] {
         connectedPromise.set_value(true);
     });
 
@@ -86,7 +86,7 @@ void MqttStreamingDeviceImpl::setupMqttSubscriber()
     subscriber->connect();
 }
 
-void MqttStreamingDeviceImpl::onSignalsMessage(const mqtt::IMqttSubscriber& subscriber, mqtt::MqttMessage& msg)
+void MqttStreamingDeviceImpl::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg)
 {
     const std::string topic = msg.getTopic();
     std::vector<std::string> list;

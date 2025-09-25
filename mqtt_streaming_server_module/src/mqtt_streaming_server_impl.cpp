@@ -162,7 +162,7 @@ void MqttStreamingServerImpl::setupMqttPublisher()
     publisher.setServerURL(connectionSettings.mqttUrl);
     publisher.setClientId(connectionSettings.clientId);
     publisher.setUsernamePasswrod(connectionSettings.username, connectionSettings.password);
-    publisher.setOnConnected([this]() { LOG_I("MQTT: Connection established"); });
+    publisher.setConnectedCb([this]() { LOG_I("MQTT: Connection established"); });
 
     LOG_I("MQTT: Trying to connect to MQTT broker ({})", connectionSettings.mqttUrl);
     publisher.connect();

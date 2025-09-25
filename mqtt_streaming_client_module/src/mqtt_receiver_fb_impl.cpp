@@ -19,7 +19,7 @@ MqttReceiverFbImpl::MqttReceiverFbImpl(const ContextPtr& ctx,
                                        const ComponentPtr& parent,
                                        const FunctionBlockTypePtr& type,
                                        const StringPtr& localId,
-                                       std::shared_ptr<mqtt::MqttAsyncSubscriber> subscriber,
+                                       std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                        const PropertyObjectPtr& config)
     : FunctionBlock(type, ctx, parent, localId)
     , subscriber(subscriber)
@@ -48,7 +48,7 @@ MqttReceiverFbImpl::~MqttReceiverFbImpl()
         subscriber->unsubscribe(topic);
     }
 }
-void MqttReceiverFbImpl::onSignalsMessage(const mqtt::IMqttSubscriber& subscriber, mqtt::MqttMessage& msg)
+void MqttReceiverFbImpl::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg)
 {
     parseMessage(msg);
 }

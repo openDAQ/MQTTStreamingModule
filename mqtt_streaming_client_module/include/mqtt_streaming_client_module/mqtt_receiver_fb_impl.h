@@ -21,7 +21,7 @@
 #include <opendaq/function_block_impl.h>
 #include <opendaq/signal_config_ptr.h>
 
-#include "MqttAsyncSubscriber.h"
+#include "MqttAsyncClient.h"
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
     
@@ -32,7 +32,7 @@ public:
                                 const ComponentPtr& parent,
                                 const FunctionBlockTypePtr& type,
                                 const StringPtr& localId,
-                                std::shared_ptr<mqtt::MqttAsyncSubscriber> subscriber,
+                                std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                 const PropertyObjectPtr& config = nullptr);
     ~MqttReceiverFbImpl() override;
 
@@ -40,7 +40,7 @@ private:
     std::unordered_map<std::string, SignalConfigPtr> outputSignals;
     std::unordered_map<std::string, SignalConfigPtr> outputDomainSignals;
 
-    std::shared_ptr<mqtt::MqttAsyncSubscriber> subscriber;
+    std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
     std::vector<std::string> subscribedTopics;
 
     std::mutex sync;
@@ -56,7 +56,7 @@ private:
     void propertyChanged(bool configure);
     void readProperties();
 
-    void onSignalsMessage(const mqtt::IMqttSubscriber& subscriber, mqtt::MqttMessage& msg);
+    void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg);
 
     std::string buildSignalNameFromTopic(std::string topic) const;
     std::string buildDomainSignalNameFromTopic(std::string topic) const;
