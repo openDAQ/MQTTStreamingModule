@@ -57,6 +57,7 @@ public:
     void setConnectedCb(std::function<void()> cb);
     void setMessageArrivedCb(std::string topic, std::function<MsgArrivedCb_type> cb);
     void setMessageArrivedCb(std::function<MsgArrivedCb_type> cb);
+    void setDisconnectCb(std::function<void(bool)> cb);
 
     void setServerURL(std::string serverUrl);
     std::string getServerUrl() const;
@@ -74,6 +75,7 @@ private:
 
     MQTTAsync client;
     MQTTAsync_connectOptions connOpts;
+    MQTTAsync_disconnectOptions disconnOpts;
     MQTTAsync_createOptions createOpts;
     MQTTAsync_SSLOptions sslOpts = MQTTAsync_SSLOptions_initializer;
 
@@ -81,6 +83,7 @@ private:
 
     std::function<void()> onConnectedCb;
     std::function<void(int)> onSentSuccessCb;
+    std::function<void(bool)> onDisconnectCb;
     std::function<void(int)> onSentFailCb;
     std::function<MsgArrivedCb_type> onMsgArrivedCmnCb;
     std::unordered_map<std::string, std::function<MsgArrivedCb_type>> onMsgArrivedCbs;
@@ -95,8 +98,10 @@ private:
     static int onMsgArrived(void* context, char* topicName, int topicLen, MQTTAsync_message* message);
     static void onSendSuccess(void* context, MQTTAsync_successData* data);
     static void onSendFailure(void* context, MQTTAsync_failureData* data);
-    static void onConnectSuccess(void * context, MQTTAsync_successData data);
-    static void onConnectFailure(void* context, MQTTAsync_failureData data);
+    static void onConnectSuccess(void* context, MQTTAsync_successData* data);
+    static void onConnectFailure(void* context, MQTTAsync_failureData* data);
+    static void onDisconnectSuccess(void* context, MQTTAsync_successData* data);
+    static void onDisconnectFailure(void* context, MQTTAsync_failureData* data);
     static void onSubscribeSuccess(void* context, MQTTAsync_successData* response);
     static void onSubscribeFailure(void* context, MQTTAsync_failureData* response);
     static void onUnsubscribeSuccess(void* context, MQTTAsync_successData* response);

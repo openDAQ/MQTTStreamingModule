@@ -27,21 +27,24 @@ MqttAsyncClient::MqttAsyncClient(std::string serverUrl,
     connOpts.maxRetryInterval = 10;
     connOpts.ssl = &sslOpts;
     connOpts.context = this;
+
+    disconnOpts = MQTTAsync_disconnectOptions_initializer;
+    disconnOpts.onSuccess = (MQTTAsync_onSuccess *) &MqttAsyncClient::onDisconnectSuccess;
+    disconnOpts.onFailure = (MQTTAsync_onFailure *) &MqttAsyncClient::onDisconnectFailure;
+    disconnOpts.context = this;
+
     createOpts = MQTTAsync_createOptions_initializer;
     sslOpts = MQTTAsync_SSLOptions_initializer;
 }
 
 MqttAsyncClient::~MqttAsyncClient() {
     if (client != nullptr) {
-        disconnect();
         MQTTAsync_destroy(&client);
     }
 }
 
 bool MqttAsyncClient::connect() {
     if (client != nullptr) {
-        // Signal stop reconnecting
-        disconnect();
         MQTTAsync_destroy(&client);
     }
 
@@ -84,7 +87,8 @@ bool MqttAsyncClient::connect() {
 }
 
 bool MqttAsyncClient::disconnect() {
-    return MQTTAsync_disconnect(client, NULL) == MQTTASYNC_SUCCESS;
+    // It is only the result of the request to disconnect (queuing)
+    return MQTTAsync_disconnect(client, &disconnOpts) == MQTTASYNC_SUCCESS;
 }
 
 MqttConnectionStatus MqttAsyncClient::isConnected() const{
@@ -97,7 +101,7 @@ MqttConnectionStatus MqttAsyncClient::isConnected() const{
 
 std::lock_guard<std::recursive_mutex> MqttAsyncClient::getCbLock()
 {
-    return std::lock_guard<std::recursive_mutex>(cbMtx);
+    return std::lock_guard<decltype(cbMtx)>(cbMtx);
 }
 
 void MqttAsyncClient::setUsernamePasswrod(std::string username, std::string password)
@@ -147,8 +151,8 @@ bool MqttAsyncClient::subscribe(std::string topic, int qos) {
 
 bool MqttAsyncClient::unsubscribe(std::string topic) {
     MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
-    opts.onSuccess = MqttAsyncClient::onUnsubscribeSuccess;
-    opts.onFailure = MqttAsyncClient::onUnsubscribeFailure;
+    opts.onSuccess = (MQTTAsync_onSuccess *) &MqttAsyncClient::onUnsubscribeSuccess;
+    opts.onFailure = (MQTTAsync_onFailure *) &MqttAsyncClient::onUnsubscribeFailure;
     opts.context = this;
     int rc = MQTTAsync_unsubscribe(client, topic.c_str(), &opts);
     auto it = std::find_if(subscriptions.begin(),
@@ -250,7 +254,7 @@ void MqttAsyncClient::onSendFailure(void *context, MQTTAsync_failureData *data)
     }
 }
 
-void MqttAsyncClient::onConnectSuccess(void *context, MQTTAsync_successData data)
+void MqttAsyncClient::onConnectSuccess(void *context, MQTTAsync_successData* data)
 {
     // TODO : check when this is called
     if (context != nullptr) {
@@ -259,12 +263,34 @@ void MqttAsyncClient::onConnectSuccess(void *context, MQTTAsync_successData data
     }
 }
 
-void MqttAsyncClient::onConnectFailure(void *context, MQTTAsync_failureData data)
+void MqttAsyncClient::onConnectFailure(void *context, MQTTAsync_failureData* data)
 {
     // TODO : check when this is called
     if (context != nullptr) {
         auto clienttInst = (MqttAsyncClient *) context;
         clienttInst->pendingConnect = false;
+    }
+}
+
+void MqttAsyncClient::onDisconnectSuccess(void *context, MQTTAsync_successData* data)
+{
+    // TODO : check when this is called
+    if (context != nullptr) {
+        auto clienttInst = (MqttAsyncClient *) context;
+        auto lock = clienttInst->getCbLock();
+        if (clienttInst->onDisconnectCb)
+            clienttInst->onDisconnectCb(true);
+    }
+}
+
+void MqttAsyncClient::onDisconnectFailure(void *context, MQTTAsync_failureData* data)
+{
+    // TODO : check when this is called
+    if (context != nullptr) {
+        auto clienttInst = (MqttAsyncClient *) context;
+        auto lock = clienttInst->getCbLock();
+        if (clienttInst->onDisconnectCb)
+            clienttInst->onDisconnectCb(false);
     }
 }
 
@@ -303,5 +329,10 @@ void MqttAsyncClient::setMessageArrivedCb(std::string topic, std::function<MsgAr
 void MqttAsyncClient::setMessageArrivedCb(std::function<MsgArrivedCb_type> cb) {
     auto lock = getCbLock();
     onMsgArrivedCmnCb = cb;
+}
+
+void MqttAsyncClient::setDisconnectCb(std::function<void(bool)> cb) {
+    auto lock = getCbLock();
+    onDisconnectCb = cb;
 }
 } // namespace mqtt

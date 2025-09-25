@@ -49,6 +49,25 @@ TEST_F(MqttStreamingProtocolTest, Connection)
     ASSERT_TRUE(connectedFuture.get());
 }
 
+TEST_F(MqttStreamingProtocolTest, Reconnection)
+{
+    auto ok = createConnection("127.0.0.1", clientId);
+    ASSERT_TRUE(ok);
+
+    auto status = connectedFuture.wait_for(std::chrono::milliseconds(successTimeout));
+
+    ASSERT_TRUE(status == std::future_status::ready);
+    ASSERT_TRUE(connectedFuture.get());
+
+    ok = createConnection("127.0.0.1", clientId);
+    ASSERT_TRUE(ok);
+
+    status = connectedFuture.wait_for(std::chrono::milliseconds(successTimeout));
+
+    ASSERT_TRUE(status == std::future_status::ready);
+    ASSERT_TRUE(connectedFuture.get());
+}
+
 TEST_F(MqttStreamingProtocolTest, WrongUrlConnection)
 {
     auto ok = createConnection("", clientId);
@@ -105,7 +124,16 @@ TEST_F(MqttStreamingProtocolTest, Disconnection)
     auto disconnectionOk = instance->disconnect();
     ASSERT_TRUE(disconnectionOk);
     // It is necessary to give the client time to disconnect.
-    // ASSERT_TRUE(instance->isConnected() == MqttConnectionStatus::not_connected);
+    std::promise<bool> disconnectedPromise;
+    auto disconnectedFuture = disconnectedPromise.get_future();
+    instance->setDisconnectCb([promise = &disconnectedPromise](bool result) {
+        promise->set_value(result);
+    });
+    status = disconnectedFuture.wait_for(std::chrono::milliseconds(successTimeout));
+
+    ASSERT_TRUE(status == std::future_status::ready);
+    ASSERT_TRUE(disconnectedFuture.get());
+    ASSERT_TRUE(instance->isConnected() == MqttConnectionStatus::not_connected);
 }
 
 TEST_F(MqttStreamingProtocolTest, NotConnected)
