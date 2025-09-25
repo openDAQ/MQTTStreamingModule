@@ -6,30 +6,39 @@
 
 using namespace mqtt;
 
-class MqttStreamingProtocolTest : public ::testing::Test {
+class MqttStreamingProtocolTest : public ::testing::TestWithParam<std::shared_ptr<IMqttBase>> {
 protected:
-    MqttAsyncPublisher publisher;
+    std::shared_ptr<IMqttBase> instance;
 
     std::promise<bool> connectedPromise;
     std::future<bool> connectedFuture;
+
     int successTimeout = 5000;
     int failureTimeout = 3000;
 
+    void SetUp() override {
+        instance = GetParam();
+    }
+
+    void TearDown() override {
+        instance->disconnect();
+    }
+
     bool createConnection(std::string url, std::string id) {
-        publisher.setServerURL(url);
-        publisher.setClientId(id);
+        instance->setServerURL(url);
+        instance->setClientId(id);
 
         connectedPromise = std::promise<bool>();
         connectedFuture = connectedPromise.get_future();
 
-        publisher.setOnConnected([this]() {
+        instance->setOnConnected([this]() {
             connectedPromise.set_value(true);
         });
-        return publisher.connect();
+        return instance->connect();
     }
 };
 
-TEST_F(MqttStreamingProtocolTest, Connection)
+TEST_P(MqttStreamingProtocolTest, Connection)
 {
     auto ok = createConnection("127.0.0.1", "testPublisherId");
     ASSERT_TRUE(ok);
@@ -40,7 +49,7 @@ TEST_F(MqttStreamingProtocolTest, Connection)
     ASSERT_TRUE(connectedFuture.get());
 }
 
-TEST_F(MqttStreamingProtocolTest, WrongUrlConnection)
+TEST_P(MqttStreamingProtocolTest, WrongUrlConnection)
 {
     auto ok = createConnection("", "testPublisherId");
     ASSERT_FALSE(ok);
@@ -50,7 +59,7 @@ TEST_F(MqttStreamingProtocolTest, WrongUrlConnection)
     ASSERT_TRUE(status == std::future_status::timeout);
 }
 
-TEST_F(MqttStreamingProtocolTest, WrongIdConnection)
+TEST_P(MqttStreamingProtocolTest, WrongIdConnection)
 {
     auto ok = createConnection("127.0.0.1", "");
     ASSERT_FALSE(ok);
@@ -60,7 +69,7 @@ TEST_F(MqttStreamingProtocolTest, WrongIdConnection)
     ASSERT_TRUE(status == std::future_status::timeout);
 }
 
-TEST_F(MqttStreamingProtocolTest, WrongPortConnection)
+TEST_P(MqttStreamingProtocolTest, WrongPortConnection)
 {
     auto ok = createConnection("127.0.0.1:1888", "testPublisherId");
     ASSERT_TRUE(ok);
@@ -70,7 +79,7 @@ TEST_F(MqttStreamingProtocolTest, WrongPortConnection)
     ASSERT_TRUE(status == std::future_status::timeout);
 }
 
-TEST_F(MqttStreamingProtocolTest, Connected)
+TEST_P(MqttStreamingProtocolTest, Connected)
 {
     auto ok = createConnection("127.0.0.1", "testPublisherId");
     ASSERT_TRUE(ok);
@@ -79,10 +88,10 @@ TEST_F(MqttStreamingProtocolTest, Connected)
 
     ASSERT_TRUE(status == std::future_status::ready);
     ASSERT_TRUE(connectedFuture.get());
-    ASSERT_TRUE(publisher.isConnected() == MqttConnectionStatus::connected);
+    ASSERT_TRUE(instance->isConnected() == MqttConnectionStatus::connected);
 }
 
-TEST_F(MqttStreamingProtocolTest, Disconnection)
+TEST_P(MqttStreamingProtocolTest, Disconnection)
 {
     auto ok = createConnection("127.0.0.1", "testPublisherId");
     ASSERT_TRUE(ok);
@@ -91,13 +100,24 @@ TEST_F(MqttStreamingProtocolTest, Disconnection)
 
     ASSERT_TRUE(status == std::future_status::ready);
     ASSERT_TRUE(connectedFuture.get());
-    ASSERT_TRUE(publisher.isConnected() == MqttConnectionStatus::connected);
+    ASSERT_TRUE(instance->isConnected() == MqttConnectionStatus::connected);
 
-    auto disconnectionOk = publisher.disconnect();
+    auto disconnectionOk = instance->disconnect();
     ASSERT_TRUE(disconnectionOk);
+    // It is necessary to give the client time to disconnect.
+    // ASSERT_TRUE(instance->isConnected() == MqttConnectionStatus::not_connected);
 }
 
-TEST_F(MqttStreamingProtocolTest, NotConnected)
+TEST_P(MqttStreamingProtocolTest, NotConnected)
 {
-    ASSERT_TRUE(publisher.isConnected() == MqttConnectionStatus::not_connected);
+    ASSERT_TRUE(instance->isConnected() == MqttConnectionStatus::not_connected);
 }
+
+// Instantiate with values
+INSTANTIATE_TEST_SUITE_P(PublisherGroup,
+                         MqttStreamingProtocolTest,
+                         ::testing::Values(std::make_shared<MqttAsyncPublisher>()));
+
+INSTANTIATE_TEST_SUITE_P(SubscriberGroup,
+                         MqttStreamingProtocolTest,
+                         ::testing::Values(std::make_shared<MqttAsyncSubscriber>()));
