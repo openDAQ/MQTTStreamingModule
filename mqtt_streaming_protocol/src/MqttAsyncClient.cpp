@@ -249,6 +249,8 @@ int MqttAsyncClient::onMsgArrived(void *context,
                 mqtt::MqttMessage msg;
                 msg.setTopic(topicName);
                 msg.addData((uint8_t *) message->payload, message->payloadlen);
+                msg.setQos(message->qos);
+                msg.setRetained(message->retained != 0);
                 if (client->onMsgArrivedCmnCb)
                     client->onMsgArrivedCmnCb(*client, msg);
                 if (it != client->onMsgArrivedCbs.end() && it->second)
