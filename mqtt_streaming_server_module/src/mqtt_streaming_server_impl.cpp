@@ -299,8 +299,8 @@ void MqttStreamingServerImpl::processingThreadFunc()
 
 void MqttStreamingServerImpl::startProcessingThread()
 {
-    assert(!processingThreadRunning);
-    processingThreadRunning = true;
+    if (processingThreadRunning.exchange(true))
+        return;
     processingThread = std::thread(&MqttStreamingServerImpl::processingThreadFunc, this);
 }
 
@@ -316,10 +316,9 @@ void MqttStreamingServerImpl::stopProcessingThread()
 
 void MqttStreamingServerImpl::stopServerInternal()
 {
-    if (serverStopped)
-        return;
 
-    serverStopped = true;
+    if (serverStopped.exchange(true))
+        return;
 
     this->context.getOnCoreEvent() -= event(&MqttStreamingServerImpl::coreEventCallback);
     if (const DevicePtr rootDevice = this->rootDeviceRef.assigned() ? this->rootDeviceRef.getRef() : nullptr;

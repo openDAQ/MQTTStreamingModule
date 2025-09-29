@@ -36,29 +36,17 @@ MqttStreamingDeviceImpl::MqttStreamingDeviceImpl(const ContextPtr& ctx,
 
     int initTimeout = config.getPropertyValue(PROPERTY_NAME_INIT_DELAY);
 
-    initComponentStatus();
-
-    connectedPromise = std::promise<bool>();
-    connectedFuture = connectedPromise.get_future();
+    initComponentStatus();  
 
     setupMqttSubscriber();
-    if (connectedFuture.wait_for(std::chrono::milliseconds(initTimeout)) != std::future_status::ready || connectedFuture.get() == false)
+    if (!waitForConnection(initTimeout))
     {
         LOG_E("MQTT: could not connect to MQTT broker within {} ms", initTimeout);
         DAQ_THROW_EXCEPTION(CreateFailedException, "could not connect to MQTT broker within {} ms", initTimeout);
     }
 
     LOG_I("MQTT: Connection established");
-
-    subscriber->setMessageArrivedCb(
-        std::bind(&MqttStreamingDeviceImpl::onSignalsMessage, this, std::placeholders::_1, std::placeholders::_2)
-        );
-    subscriber->subscribe(TOPIC_ALL_SIGNALS, 1);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(initTimeout));    // TODO : remove it!
-
-    subscriber->unsubscribe(TOPIC_ALL_SIGNALS);
-    subscriber->setMessageArrivedCb(nullptr);
+    receiveSignalTopics(initTimeout);
 }
 
 void MqttStreamingDeviceImpl::removed()
@@ -78,12 +66,41 @@ void MqttStreamingDeviceImpl::setupMqttSubscriber()
     subscriber->setClientId(connectionSettings.clientId);
     subscriber->setUsernamePasswrod(connectionSettings.username, connectionSettings.password);
 
+    connectedDone = false;
+    connectedPromise = std::promise<bool>();
+    connectedFuture = connectedPromise.get_future();
+
     subscriber->setConnectedCb([this] {
-        connectedPromise.set_value(true);
+        bool expected = false;
+        if (connectedDone.compare_exchange_strong(expected, true)) {
+            connectedPromise.set_value(true);
+        }
     });
 
     LOG_I("MQTT: Trying to connect to MQTT broker ({})", connectionSettings.mqttUrl);
     subscriber->connect();
+}
+
+bool MqttStreamingDeviceImpl::waitForConnection(const int timeoutMs)
+{
+    bool res = (connectedFuture.wait_for(std::chrono::milliseconds(timeoutMs))
+                    == std::future_status::ready
+                && connectedFuture.get() == true);
+    subscriber->setConnectedCb(nullptr);
+    return res;
+}
+
+void MqttStreamingDeviceImpl::receiveSignalTopics(const int timeoutMs)
+{
+    subscriber->setMessageArrivedCb(
+        std::bind(&MqttStreamingDeviceImpl::onSignalsMessage, this, std::placeholders::_1, std::placeholders::_2)
+        );
+    subscriber->subscribe(TOPIC_ALL_SIGNALS, 1);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(timeoutMs));    // TODO : remove it!
+
+    subscriber->unsubscribe(TOPIC_ALL_SIGNALS);
+    subscriber->setMessageArrivedCb(nullptr);
 }
 
 void MqttStreamingDeviceImpl::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg)

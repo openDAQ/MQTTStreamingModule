@@ -47,6 +47,8 @@ protected:
     FunctionBlockPtr onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config) override;
 
     void setupMqttSubscriber();
+    bool waitForConnection(const int timeoutMs);
+    void receiveSignalTopics(const int timeoutMs);
     void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg);
 
     DictObjectPtr<IDict, IString, IFunctionBlockType> fbTypes;
@@ -59,6 +61,7 @@ protected:
 
     std::promise<bool> connectedPromise;
     std::future<bool> connectedFuture;
+    std::atomic<bool> connectedDone{false};
     std::unordered_map<std::string, std::vector<std::string>> deviceMap;
 };
 

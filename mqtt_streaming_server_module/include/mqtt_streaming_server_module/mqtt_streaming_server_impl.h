@@ -87,13 +87,13 @@ protected:
     LoggerPtr logger;
     LoggerComponentPtr loggerComponent;
 
-    bool serverStopped;
+    std::atomic<bool> serverStopped;
     size_t maxPacketReadCount;
     std::chrono::milliseconds processingThreadSleepTime;
     mqtt::MqttAsyncClient publisher;
     Mqtt::Utils::Settings::MqttConnectionSettings connectionSettings;
     std::mutex readersSync;
-    bool processingThreadRunning;
+    std::atomic<bool> processingThreadRunning;
     std::thread processingThread;
     std::atomic<bool> topicsAreSent = false;
 

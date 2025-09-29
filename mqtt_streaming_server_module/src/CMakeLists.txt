@@ -29,6 +29,7 @@ source_group("module" FILES ${MODULE_HEADERS_DIR}/mqtt_streaming_server_module_i
                             ${MODULE_HEADERS_DIR}/module_dll.h
                             module_dll.cpp
                             mqtt_streaming_server_module_impl.cpp
+                            mqtt_streaming_server_impl.cpp
 )
 
 

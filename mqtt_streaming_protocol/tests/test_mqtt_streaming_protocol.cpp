@@ -48,11 +48,15 @@ public:
         instance->setServerURL(url);
         instance->setClientId(id);
 
+        connectedDone = false;
         connectedPromise = std::promise<bool>();
         connectedFuture = connectedPromise.get_future();
 
         instance->setConnectedCb([this]() {
-            connectedPromise.set_value(true);
+            bool expected = false;
+            if (connectedDone.compare_exchange_strong(expected, true)) {
+                connectedPromise.set_value(true);
+            }
         });
         return instance->connect();
     }
@@ -137,6 +141,7 @@ public:
     std::shared_ptr<MqttAsyncClient> instance;
     std::promise<bool> connectedPromise;
     std::future<bool> connectedFuture;
+    std::atomic<bool> connectedDone{false};
 
     int successTimeout = 5000;
     int failureTimeout = 3000;
