@@ -85,10 +85,30 @@ std::string MqttDataWrapper::serializeSignalDescriptors(
     std::string result;
     rapidjson::Document doc;
     doc.SetArray();
+
+    auto& allocator = doc.GetAllocator();
+
     for (const auto& signal : signals) {
-        rapidjson::Value topicValue;
-        topicValue.SetString(buildTopicFromId(signal.getGlobalId().toStdString()).c_str(), doc.GetAllocator());
-        doc.PushBack(topicValue, doc.GetAllocator());
+        rapidjson::Value obj(rapidjson::kObjectType);
+
+        // topic
+        std::string topic = buildTopicFromId(signal.getGlobalId().toStdString());
+        obj.AddMember("topic", rapidjson::Value(topic.c_str(), allocator), allocator);
+
+        // name
+        std::string name = "";
+        if (signal.getName().assigned())
+            name = signal.getName().toStdString();
+        obj.AddMember("name", rapidjson::Value(name.c_str(), allocator), allocator);
+
+        // unit
+        auto unit = signal.getDescriptor().getUnit();
+        std::string unitStr = "";
+        if (unit.assigned())
+            unitStr = unit.getSymbol().toStdString();
+        obj.AddMember("unit", rapidjson::Value(unitStr.c_str(), allocator), allocator);
+
+        doc.PushBack(obj, allocator);
     }
 
     // Serialize to string
@@ -130,9 +150,19 @@ MqttDataWrapper::parseSignalDescriptors(const std::string& topic, const std::str
 
     signalDesc.reserve(array.Size());
     for (const auto& v : array) {
-        if (v.IsString()) {
+        if (v.IsObject()) {
             SignalDescriptor sd;
-            sd.topic = v.GetString();
+            if (v.HasMember("topic") && v["topic"].IsString()) {
+                sd.topic = v["topic"].GetString();
+            }
+
+            if (v.HasMember("name") && v["name"].IsString()) {
+                sd.name = v["name"].GetString();
+            }
+
+            if (v.HasMember("unit") && v["unit"].IsString()) {
+                sd.unit = v["unit"].GetString();
+            }
             signalDesc.emplace_back(std::move(sd));
         }
     }
