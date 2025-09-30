@@ -59,30 +59,25 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    using namespace std::chrono_literals;
-    StringPtr loggerPath = "ref_device_simulator.log";
-
-    auto users = List<IUser>();
-    users.pushBack(User("opendaq", "$2b$10$bqZWNEd.g1R1Q1inChdAiuDr5lbal33bBNOehlCwuWcxRH5weF3hu")); // password: opendaq
-    users.pushBack(User("root", "$2b$10$k/Tj3yqFV7uQz42UCJK2n.4ECd.ySQ2Sfd81Kx.xfuMOeluvA/Vpy", {"admin"})); // password: root
-    const AuthenticationProviderPtr authenticationProvider = StaticAuthenticationProvider(true, users);
-
-    PropertyObjectPtr config = PropertyObject();
-    config.addProperty(StringProperty("Name", "Reference device simulator"));
-    config.addProperty(StringProperty("LocalId", "RefDevSimulator"));
-    config.addProperty(StringProperty("SerialNumber", "sim01"));
-    config.addProperty(BoolProperty("EnableLogging", true));
-    config.addProperty(StringProperty("LoggingPath", loggerPath));
-
     const InstancePtr instance = InstanceBuilder().addModulePath(MODULE_PATH)
-                                     .addDiscoveryServer("mdns")
-                                     .setRootDevice("daqref://device1", config)
-                                     .setLogger(Logger(loggerPath))
-                                     .setAuthenticationProvider(authenticationProvider)
+                                     .setRootDevice("daqref://device0")
                                      .build();
+    auto refDevice = instance.getRootDevice();
+    refDevice.setPropertyValue("NumberOfChannels", 4);
 
-    auto refDevice = instance.addDevice("daqref://device0");
-    refDevice.setPropertyValue("EnableProtectedChannel", true);
+
+    const auto channels = refDevice.getChannelsRecursive();
+    channels[0].setPropertyValue("UseGlobalSampleRate", false);
+    channels[0].setPropertyValue("SampleRate", 10);
+    channels[0].setPropertyValue("Frequency", 1);
+    channels[0].setPropertyValue("Waveform", 1);
+    channels[1].setPropertyValue("UseGlobalSampleRate", false);
+    channels[1].setPropertyValue("SampleRate", 20);
+    channels[1].setPropertyValue("Frequency", 1);
+    channels[1].setPropertyValue("Waveform", 3);
+    channels[2].setPropertyValue("UseGlobalSampleRate", false);
+    channels[2].setPropertyValue("SampleRate", 200);
+    channels[2].setPropertyValue("Frequency", 4);
 
     auto serverConfig = instance.getAvailableServerTypes().get("OpenDAQMQTT").createDefaultConfig();
     serverConfig.setPropertyValue("MqttBrokerAddress", "127.0.0.1");
