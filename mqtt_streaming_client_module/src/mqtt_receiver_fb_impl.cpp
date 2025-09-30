@@ -12,6 +12,7 @@
 #include <rapidjson/document.h>
 #include <boost/algorithm/string.hpp>
 #include "mqtt_streaming_client_module/constants.h"
+#include "MqttDataWrapper.h"
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 
@@ -32,7 +33,7 @@ MqttReceiverFbImpl::MqttReceiverFbImpl(const ContextPtr& ctx,
         initProperties(type.createDefaultConfig());
     createSignals();
 
-    for (const auto& topic : subscribedTopics)
+    for (const auto& topic : subscribedSignals.getKeys())
     {
         subscriber->setMessageArrivedCb(topic, std::bind(&MqttReceiverFbImpl::onSignalsMessage, this, std::placeholders::_1, std::placeholders::_2));
         subscriber->subscribe(topic, 1);
@@ -42,7 +43,7 @@ MqttReceiverFbImpl::MqttReceiverFbImpl(const ContextPtr& ctx,
 
 MqttReceiverFbImpl::~MqttReceiverFbImpl()
 {
-    for (const auto& topic : subscribedTopics)
+    for (const auto& topic : subscribedSignals.getKeys())
     {
         subscriber->setMessageArrivedCb(topic, nullptr);
         subscriber->unsubscribe(topic);
@@ -77,14 +78,15 @@ void MqttReceiverFbImpl::propertyChanged(bool configure)
 void MqttReceiverFbImpl::readProperties()
 {
     auto lock = std::lock_guard<std::mutex>(sync);
-    auto prop = objPtr.getPropertyValue(PROPERTY_NAME_SIGNAL_LIST).asPtr<IList>().toVector();
-    for (const auto& item : prop)
+    auto prop = objPtr.getPropertyValue(PROPERTY_NAME_SIGNAL_LIST).asPtr<IDict>();
+    subscribedSignals = Dict<IString, IDataDescriptor>();
+    for (const auto& [topic, descriptor] : prop)
     {
-        auto signalId = item.asPtr<IString>();
+        auto signalId = topic.asPtr<IString>();
         if (signalId.assigned())
         {
             LOG_I("Signal in list: {}", signalId.toStdString());
-            subscribedTopics.push_back(signalId.toStdString());
+            subscribedSignals.set(signalId, descriptor);
         }
     }
 }
@@ -119,60 +121,26 @@ void MqttReceiverFbImpl::parseMessage(mqtt::MqttMessage& msg)
 {
     std::string topic(msg.getTopic());
     std::string jsonObjStr(msg.getData().begin(), msg.getData().end());
-    try {
-        rapidjson::Document jsonDocument;
-        jsonDocument.Parse(jsonObjStr);
-        if (jsonDocument.HasParseError()) {
-            LOG_E("Error parsing mqtt payload as JSON");
-            return;
+    auto [status, data] = mqtt::MqttDataWrapper::parseSampleData(jsonObjStr);
+    if (status.ok) {
+        createDataPacket(topic, data.value, data.timestamp);
+    } else {
+        for (const auto& s : status.msg) {
+            LOG_W("Data parsing: {}", s);
         }
-
-        if (jsonDocument.IsObject()) {
-            double val = 0.0;
-            UInt timestamp = 0;
-            int successCnt = 0;
-            for (auto it = jsonDocument.MemberBegin(); it != jsonDocument.MemberEnd(); ++it) {
-                const std::string name = it->name.GetString();
-                if (name == "value") {
-                    if (jsonDocument[name].IsDouble() || jsonDocument[name].IsInt() || jsonDocument[name].IsFloat()){
-                        val = jsonDocument[name].GetDouble();
-                        successCnt++;
-                    } else {
-                        LOG_W("Value is not supported.");
-                    }
-                } else if (name == "timestamp") {
-                    if (jsonDocument[name].IsInt() || jsonDocument[name].IsUint64() || jsonDocument[name].IsInt64()){
-                        timestamp = jsonDocument[name].GetUint64();
-                        successCnt++;
-                    } else {
-                        LOG_W("Value is not supported.");
-                    }
-                } else {
-                    LOG_W("Field \"{}\" is not supported.", name);
-                }
-            }
-            if (successCnt == 2) {
-                createDataPacket(topic, val, timestamp);
-            } else {
-                LOG_W("Not all required fields are present.");
-            }
-        }
-    }
-    catch (DeserializeException ex) {
-        LOG_E("Error deserializing mqtt payload");
     }
 }
 
 void MqttReceiverFbImpl::createSignals()
 {
     auto lock = std::lock_guard<std::mutex>(sync);
-    for (const auto& topic : subscribedTopics)
+    for (const auto& [topic, descriptor] : subscribedSignals)
     {
         LOG_I("Subscribing to topic: {}", topic);
         std::string signalName = topic;
         boost::replace_all(signalName, "/", "_");
 
-        auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::Float64).build();
+        auto signalDsc = descriptor;
         auto getEpoch = []()  ->std::string {
             const std::time_t epochTime = std::chrono::system_clock::to_time_t(std::chrono::time_point<std::chrono::system_clock>{});
             char buf[48];

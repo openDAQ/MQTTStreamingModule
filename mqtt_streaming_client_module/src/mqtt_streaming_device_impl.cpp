@@ -105,36 +105,15 @@ void MqttStreamingDeviceImpl::receiveSignalTopics(const int timeoutMs)
 
 void MqttStreamingDeviceImpl::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg)
 {
-    const std::string topic = msg.getTopic();
-    std::vector<std::string> list;
-    boost::split(list, topic, boost::is_any_of("/"));
-
-    if (list.size() != 3
-        || list[0] != TOPIC_ALL_SIGNALS_PREFIX
-        || list[2] != DEVICE_SIGNAL_LIST) {
-        return;         // not a signal list message
-    }
-
-    std::string& deviceName = list[1];
     const std::string signalList(msg.getData().begin(), msg.getData().end());
-
-    rapidjson::Document doc;
-
-    if (doc.Parse(signalList.c_str()).HasParseError() || !doc.IsArray()) {
-        LOG_W("{} - Signal list format is not correct: {}", topic, signalList);
-        return;
+    const std::string topic = msg.getTopic();
+    auto [status, data] = mqtt::MqttDataWrapper::parseSignalDescriptors(topic, signalList);
+    if (status.ok) {
+        deviceMap.insert({std::move(data.first), std::move(data.second)});
+    } else {
+        for (const auto& s : status.msg)
+            LOG_W("Data error: {}", s);
     }
-
-    const auto array = doc.GetArray();
-    std::vector<std::string> deviceSignals;
-    deviceSignals.reserve(array.Size());
-    for (const auto& v : array) {
-        if (v.IsString()) {
-            deviceSignals.push_back(v.GetString());
-        }
-    }
-
-    deviceMap.insert({std::move(deviceName), std::move(deviceSignals)});
 }
 
 DictPtr<IString, IFunctionBlockType> MqttStreamingDeviceImpl::onGetAvailableFunctionBlockTypes()
@@ -143,10 +122,18 @@ DictPtr<IString, IFunctionBlockType> MqttStreamingDeviceImpl::onGetAvailableFunc
     for (const auto& device : deviceMap)
     {
         auto defaultConfig = PropertyObject();
-        auto signalList = List<IString>();
-        for (const auto& signal : device.second)
-            signalList.pushBack(signal);
-        defaultConfig.addProperty(ListProperty(PROPERTY_NAME_SIGNAL_LIST, signalList));
+        auto signalDict = Dict<IString, IDataDescriptor>();
+        for (const auto& signal : device.second) {
+            auto builder = DataDescriptorBuilder().setSampleType(SampleType::Float64);
+            if (!signal.name.empty())
+                builder.setName(signal.name);
+            if (!signal.unit.empty()) {
+                builder.setUnit(Unit(signal.unit));
+            }
+            auto signalDsc = builder.build();
+            signalDict.set(signal.topic, signalDsc);
+        }
+        defaultConfig.addProperty(DictProperty(PROPERTY_NAME_SIGNAL_LIST, signalDict));
 
         const auto fbType = FunctionBlockType(device.first,
                                               device.first,

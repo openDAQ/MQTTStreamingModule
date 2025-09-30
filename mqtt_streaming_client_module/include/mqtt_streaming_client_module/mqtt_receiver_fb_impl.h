@@ -41,7 +41,7 @@ private:
     std::unordered_map<std::string, SignalConfigPtr> outputDomainSignals;
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
-    std::vector<std::string> subscribedTopics;
+    DictObjectPtr<IDict, IString, IDataDescriptor> subscribedSignals;
 
     std::mutex sync;
 

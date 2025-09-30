@@ -20,6 +20,7 @@
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 #include <mqtt_streaming_server_module/constants.h>
+#include <MqttDataWrapper.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_SERVER_MODULE
 using namespace daq;
@@ -173,7 +174,7 @@ void MqttStreamingServerImpl::sendData(const std::string& topic, const ChannelDa
     if (readAmount == 0)
         return;
 
-    const auto jsonMessages = prepareJsonMessages(topic, data, readAmount);
+    const auto jsonMessages = prepareJsonMessages(data, readAmount);
     if (publisher.isConnected() == mqtt::MqttConnectionStatus::connected) {
         for (const auto& jsonMessage : jsonMessages) {
             std::string err;
@@ -185,22 +186,12 @@ void MqttStreamingServerImpl::sendData(const std::string& topic, const ChannelDa
     }
 }
 
-std::vector<std::string> MqttStreamingServerImpl::prepareJsonMessages(const std::string& topic, const ChannelData& data, SizeT dataAmount)
+std::vector<std::string> MqttStreamingServerImpl::prepareJsonMessages(const ChannelData& data, SizeT dataAmount)
 {
     std::vector<std::string> result;
 
     for (size_t i = 0; i < dataAmount; ++i) {
-        rapidjson::Document doc;
-        doc.SetObject();
-        doc.AddMember("value", rapidjson::Value(data.data[i]), doc.GetAllocator());
-        doc.AddMember("timestamp", rapidjson::Value(data.timestamps[i]), doc.GetAllocator());
-
-        // Serialize to string
-        rapidjson::StringBuffer buffer;
-        rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-        doc.Accept(writer);
-
-        result.emplace_back(buffer.GetString());
+        result.emplace_back(mqtt::MqttDataWrapper::serializeSampleData({data.data[i], data.timestamps[i]}));
     }
 
     return result;
@@ -208,39 +199,12 @@ std::vector<std::string> MqttStreamingServerImpl::prepareJsonMessages(const std:
 
 std::string MqttStreamingServerImpl::prepareJsonTopics()
 {
-    std::string result;
-    rapidjson::Document doc;
-    doc.SetArray();
-    for (const auto& signal : signals) {
-        rapidjson::Value topicValue;
-        topicValue.SetString(buildTopicFromId(signal.getGlobalId().toStdString()).c_str(), doc.GetAllocator());
-        doc.PushBack(topicValue, doc.GetAllocator());
-    }
-
-    // Serialize to string
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    doc.Accept(writer);
-
-    result = buffer.GetString();
-
-
-    return result;
-}
-
-std::string MqttStreamingServerImpl::buildTopicFromId(const std::string& globalId)
-{
-    return (TOPIC_ALL_SIGNALS_PREFIX + globalId);
-}
-
-std::string MqttStreamingServerImpl::buildSignalsTopic()
-{
-    return (TOPIC_ALL_SIGNALS_PREFIX + rootDeviceGlobalId + "/" + DEVICE_SIGNAL_LIST);
+    return mqtt::MqttDataWrapper::serializeSignalDescriptors(signals);
 }
 
 void MqttStreamingServerImpl::sendTopicList()
 {
-    std::string topic = buildSignalsTopic();
+    std::string topic = mqtt::MqttDataWrapper::buildSignalsTopic(rootDeviceGlobalId);
     auto topicsMessage = prepareJsonTopics();
     if (publisher.isConnected() == mqtt::MqttConnectionStatus::connected) {
         bool status = publisher.publish(topic, (void*) topicsMessage.c_str(), topicsMessage.length(), nullptr, 1, nullptr, true);
@@ -282,8 +246,10 @@ void MqttStreamingServerImpl::processingThreadFunc()
                         continue;
                     daq::SizeT readAmount = maxPacketReadCount;
                     reader.readWithDomain(buffer.data.data(), buffer.timestamps.data(), &readAmount);
-                    sendData(buildTopicFromId(signals[i].getGlobalId().toStdString()), buffer, readAmount);
-
+                    sendData(mqtt::MqttDataWrapper::buildTopicFromId(
+                                 signals[i].getGlobalId().toStdString()),
+                             buffer,
+                             readAmount);
 
                     if (reader.getAvailableCount() > 0)
                         hasPacketsToRead = true;

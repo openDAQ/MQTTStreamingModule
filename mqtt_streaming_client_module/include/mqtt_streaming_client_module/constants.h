@@ -29,8 +29,6 @@ static constexpr const char* PROPERTY_NAME_INIT_DELAY = "InitDelay";
 static constexpr const char* PROPERTY_NAME_SIGNAL_LIST = "SignalList";
 
 static const char* TOPIC_ALL_SIGNALS = "openDAQ/+/$signals";
-static const char* TOPIC_ALL_SIGNALS_PREFIX = "openDAQ";
-static const char* DEVICE_SIGNAL_LIST = "$signals";
 
 static const char* MQTT_LOCAL_DEVICE_ID_PREFIX = "MqttDevice";
 static const char* MQTT_DEVICE_NAME = "MqttStreamingClientPseudoDevice";

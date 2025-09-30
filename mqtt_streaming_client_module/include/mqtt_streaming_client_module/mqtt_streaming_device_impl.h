@@ -21,6 +21,7 @@
 #include <mqtt_streaming_client_module/common.h>
 #include <opendaq/device_impl.h>
 #include <opendaq/streaming_ptr.h>
+#include "MqttDataWrapper.h"
 
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
@@ -62,7 +63,7 @@ protected:
     std::promise<bool> connectedPromise;
     std::future<bool> connectedFuture;
     std::atomic<bool> connectedDone{false};
-    std::unordered_map<std::string, std::vector<std::string>> deviceMap;
+    std::unordered_map<std::string, std::vector<mqtt::SignalDescriptor>> deviceMap;
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

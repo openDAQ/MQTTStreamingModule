@@ -1,11 +1,13 @@
 set(LIB_NAME mqtt_streaming_protocol)
 
 set(SRC_Cpp MqttAsyncClient.cpp
+            MqttDataWrapper.cpp
 )
 
 set(SRC_PublicHeaders   MqttAsyncClient.h
 			MqttMessage.h
 			MqttSettings.h
+                        MqttDataWrapper.h
 )
 
 set(INCLUDE_DIR ../include)
@@ -40,8 +42,10 @@ if(PAHO_BUILD_STATIC)
 	set(PAHO_LIB ${PAHO_LIB}-static)
 endif()
 
-target_link_libraries(${LIB_NAME} PUBLIC ${PAHO_LIB})
-target_link_libraries(${LIB_NAME} PUBLIC rapidjson)
+target_link_libraries(${LIB_NAME} PUBLIC ${PAHO_LIB}
+                                         daq::opendaq
+                                         rapidjson
+)
 
 if (WIN32)
     target_link_libraries(${LIB_NAME} PUBLIC

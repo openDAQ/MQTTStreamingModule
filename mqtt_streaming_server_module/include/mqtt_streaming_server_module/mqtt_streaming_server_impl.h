@@ -22,7 +22,6 @@
 #include <opendaq/server.h>
 #include <opendaq/server_impl.h>
 #include <coretypes/intfs.h>
-//#include <native_streaming_protocol/native_streaming_server_handler.h>
 #include <opendaq/connection_internal.h>
 #include <tsl/ordered_map.h>
 #include <MqttAsyncClient.h>
@@ -66,10 +65,8 @@ protected:
 
     void setupMqttPublisher();
     void sendData(const std::string& topic, const ChannelData& data, SizeT readAmount);
-    std::vector<std::string> prepareJsonMessages(const std::string& topic, const ChannelData& data, SizeT dataAmount);
+    std::vector<std::string> prepareJsonMessages(const ChannelData& data, SizeT dataAmount);
     std::string prepareJsonTopics();
-    std::string buildTopicFromId(const std::string& globalId);
-    std::string buildSignalsTopic();
     void sendTopicList();
     void readMqttSettings();
 
