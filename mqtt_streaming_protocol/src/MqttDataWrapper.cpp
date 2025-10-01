@@ -92,21 +92,35 @@ std::string MqttDataWrapper::serializeSignalDescriptors(
         rapidjson::Value obj(rapidjson::kObjectType);
 
         // topic
-        std::string topic = buildTopicFromId(signal.getGlobalId().toStdString());
-        obj.AddMember("topic", rapidjson::Value(topic.c_str(), allocator), allocator);
+        {
+            std::string topic = buildTopicFromId(signal.getGlobalId().toStdString());
+            obj.AddMember("topic", rapidjson::Value(topic.c_str(), allocator), allocator);
+        }
 
         // name
-        std::string name = "";
-        if (signal.getName().assigned())
-            name = signal.getName().toStdString();
-        obj.AddMember("name", rapidjson::Value(name.c_str(), allocator), allocator);
+        {
+            std::string name = "";
+            if (signal.getName().assigned())
+                name = signal.getName().toStdString();
+            obj.AddMember("name", rapidjson::Value(name.c_str(), allocator), allocator);
+        }
 
         // unit
-        auto unit = signal.getDescriptor().getUnit();
-        std::string unitStr = "";
-        if (unit.assigned())
-            unitStr = unit.getSymbol().toStdString();
-        obj.AddMember("unit", rapidjson::Value(unitStr.c_str(), allocator), allocator);
+        {
+            auto unit = signal.getDescriptor().getUnit();
+            rapidjson::Value unitArray(rapidjson::kArrayType);
+
+            if (unit.assigned()) {
+                auto addUnitInfo = [&unitArray, &allocator](daq::StringPtr unitInfo) {
+                    if (unitInfo.assigned())
+                        unitArray.PushBack(rapidjson::Value(unitInfo.toStdString().c_str(), allocator), allocator);
+                };
+                addUnitInfo(unit.getSymbol());
+                addUnitInfo(unit.getName());
+                addUnitInfo(unit.getQuantity());
+            }
+            obj.AddMember("unit", unitArray, allocator);
+        }
 
         doc.PushBack(obj, allocator);
     }
@@ -160,8 +174,11 @@ MqttDataWrapper::parseSignalDescriptors(const std::string& topic, const std::str
                 sd.name = v["name"].GetString();
             }
 
-            if (v.HasMember("unit") && v["unit"].IsString()) {
-                sd.unit = v["unit"].GetString();
+            if (v.HasMember("unit") && v["unit"].IsArray()) {
+                for (auto& u : v["unit"].GetArray()) {
+                    if (u.IsString())
+                        sd.unit.emplace_back(u.GetString());
+                }
             }
             signalDesc.emplace_back(std::move(sd));
         }

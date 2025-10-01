@@ -23,7 +23,7 @@ struct Result {
 struct SignalDescriptor {
     std::string topic;
     std::string name;
-    std::string unit;
+    std::vector<std::string> unit;
 };
 
 class MqttDataWrapper final {

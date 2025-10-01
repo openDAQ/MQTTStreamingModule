@@ -128,7 +128,16 @@ DictPtr<IString, IFunctionBlockType> MqttStreamingDeviceImpl::onGetAvailableFunc
             if (!signal.name.empty())
                 builder.setName(signal.name);
             if (!signal.unit.empty()) {
-                builder.setUnit(Unit(signal.unit));
+                std::string symbol{""};
+                std::string name{""};
+                std::string quantity{""};
+                if (signal.unit.size() > 0)
+                    symbol = signal.unit[0];
+                if (signal.unit.size() > 1)
+                    name = signal.unit[1];
+                if (signal.unit.size() > 2)
+                    quantity = signal.unit[2];
+                builder.setUnit(Unit(symbol, -1, name, quantity));
             }
             auto signalDsc = builder.build();
             signalDict.set(signal.topic, signalDsc);
