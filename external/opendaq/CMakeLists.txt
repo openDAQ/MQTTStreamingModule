@@ -3,7 +3,7 @@ set(OPENDAQ_ENABLE_TESTS false)
 FetchContent_Declare(
      opendaq
      GIT_REPOSITORY git@github.com:openDAQ/openDAQ.git
-     GIT_TAG v3.20.4
+     GIT_TAG v3.29.0-rc
      GIT_PROGRESS   ON
      EXCLUDE_FROM_ALL
      SYSTEM
