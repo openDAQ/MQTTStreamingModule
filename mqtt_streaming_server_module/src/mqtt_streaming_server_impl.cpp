@@ -17,8 +17,6 @@
 
 
 #include <rapidjson/document.h>
-#include "rapidjson/writer.h"
-#include "rapidjson/stringbuffer.h"
 #include <mqtt_streaming_server_module/constants.h>
 #include <MqttDataWrapper.h>
 
@@ -59,8 +57,6 @@ MqttStreamingServerImpl::MqttStreamingServerImpl(const DevicePtr &rootDevice,
 
     info.asPtr<IDeviceInfoInternal>(true).addServerCapability(serverCapabilityStreaming);
 
-    this->context.getOnCoreEvent() += event(&MqttStreamingServerImpl::coreEventCallback);
-
     maxPacketReadCount = config.getPropertyValue(PROPERTY_NAME_MAX_PACKET_READ_COUNT);
     processingThreadSleepTime = std::chrono::milliseconds(
         config.getPropertyValue(PROPERTY_NAME_POLLING_PERIOD));
@@ -76,85 +72,6 @@ MqttStreamingServerImpl::MqttStreamingServerImpl(const DevicePtr &rootDevice,
 MqttStreamingServerImpl::~MqttStreamingServerImpl()
 {
     stopServerInternal();
-}
-
-void MqttStreamingServerImpl::addSignalsOfComponent(ComponentPtr& component)
-{
-    if (component.supportsInterface<ISignal>())
-    {
-        LOG_I("Added Signal: {};", component.getGlobalId());
-        //serverHandler->addSignal(component.asPtr<ISignal>(true));
-    }
-    else if (component.supportsInterface<IFolder>())
-    {
-        auto nestedComponents = component.asPtr<IFolder>().getItems(search::Recursive(search::Any()));
-        for (const auto& nestedComponent : nestedComponents)
-        {
-            if (nestedComponent.supportsInterface<ISignal>())
-            {
-                LOG_I("Added Signal: {};", nestedComponent.getGlobalId());
-                //serverHandler->addSignal(nestedComponent.asPtr<ISignal>(true));
-            }
-        }
-    }
-}
-
-void MqttStreamingServerImpl::componentAdded(ComponentPtr& /*sender*/, CoreEventArgsPtr& eventArgs)
-{
-    ComponentPtr addedComponent = eventArgs.getParameters().get("Component");
-
-    auto addedComponentGlobalId = addedComponent.getGlobalId().toStdString();
-    if (addedComponentGlobalId.find(rootDeviceGlobalId) != 0)
-        return;
-
-    LOG_I("Added Component: {};", addedComponentGlobalId);
-    addSignalsOfComponent(addedComponent);
-}
-
-void MqttStreamingServerImpl::componentRemoved(ComponentPtr& sender, CoreEventArgsPtr& eventArgs)
-{
-    StringPtr removedComponentLocalId = eventArgs.getParameters().get("Id");
-
-    auto removedComponentGlobalId =
-        sender.getGlobalId().toStdString() + "/" + removedComponentLocalId.toStdString();
-    if (removedComponentGlobalId.find(rootDeviceGlobalId) != 0)
-        return;
-
-    LOG_I("Component: {}; is removed", removedComponentGlobalId);
-    //serverHandler->removeComponentSignals(removedComponentGlobalId);
-}
-
-void MqttStreamingServerImpl::componentUpdated(ComponentPtr& updatedComponent)
-{
-    auto updatedComponentGlobalId = updatedComponent.getGlobalId().toStdString();
-    if (updatedComponentGlobalId.find(rootDeviceGlobalId) != 0)
-        return;
-
-    LOG_I("Component: {}; is updated", updatedComponentGlobalId);
-
-    // remove all registered signal of updated component since those might be modified or removed
-    //serverHandler->removeComponentSignals(updatedComponentGlobalId);
-
-    // add updated versions of signals
-    addSignalsOfComponent(updatedComponent);
-}
-
-void MqttStreamingServerImpl::coreEventCallback(ComponentPtr& sender, CoreEventArgsPtr& eventArgs)
-{
-    switch (static_cast<CoreEventId>(eventArgs.getEventId()))
-    {
-        case CoreEventId::ComponentAdded:
-            componentAdded(sender, eventArgs);
-            break;
-        case CoreEventId::ComponentRemoved:
-            componentRemoved(sender, eventArgs);
-            break;
-        case CoreEventId::ComponentUpdateEnd:
-            componentUpdated(sender);
-            break;
-        default:
-            break;
-    }
 }
 
 void MqttStreamingServerImpl::setupMqttPublisher()
@@ -227,8 +144,8 @@ void MqttStreamingServerImpl::readMqttSettings()
 
 void MqttStreamingServerImpl::processingThreadFunc()
 {
-    daqNameThread("MqttC2DSread");
-    LOG_I("Streaming-to-device read thread started")
+    daqNameThread("MqttStrmSrvRead");
+    LOG_I("Streaming read thread started")
     while (processingThreadRunning)
     {
         {
@@ -260,7 +177,7 @@ void MqttStreamingServerImpl::processingThreadFunc()
 
         std::this_thread::sleep_for(processingThreadSleepTime);
     }
-    LOG_I("Streaming-to-device read thread stopped");
+    LOG_I("Streaming read thread stopped");
 }
 
 void MqttStreamingServerImpl::startProcessingThread()
@@ -286,7 +203,6 @@ void MqttStreamingServerImpl::stopServerInternal()
     if (serverStopped.exchange(true))
         return;
 
-    this->context.getOnCoreEvent() -= event(&MqttStreamingServerImpl::coreEventCallback);
     if (const DevicePtr rootDevice = this->rootDeviceRef.assigned() ? this->rootDeviceRef.getRef() : nullptr;
         rootDevice.assigned() && !rootDevice.isRemoved())
     {
@@ -448,11 +364,6 @@ void MqttStreamingServerImpl::onStopServer()
     stopServerInternal();
 }
 
-StreamingPtr MqttStreamingServerImpl::onGetStreaming()
-{
-    return nullptr;
-}
-
 void MqttStreamingServerImpl::addReader(SignalPtr signalToRead)
 {
     std::scoped_lock lock(readersSync);
@@ -463,11 +374,6 @@ void MqttStreamingServerImpl::addReader(SignalPtr signalToRead)
                                     .setDomainReadType(SampleType::Int64)
                                     .setSkipEvents(true)
                                     .build());
-}
-
-void MqttStreamingServerImpl::removeReader(SignalPtr signalToRead)
-{
-
 }
 
 OPENDAQ_DEFINE_CLASS_FACTORY_WITH_INTERFACE(

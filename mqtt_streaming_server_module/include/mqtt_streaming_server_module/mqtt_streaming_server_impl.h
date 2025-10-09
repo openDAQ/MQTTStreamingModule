@@ -48,20 +48,12 @@ public:
 
 protected:
     void onStopServer() override;
-    StreamingPtr onGetStreaming();
     void connectSignalReaders();
     bool isSignalCompatible(const SignalPtr& signal);
 
     void addReader(SignalPtr signalToRead);
-    void removeReader(SignalPtr signalToRead);
 
     void stopServerInternal();
-
-    void addSignalsOfComponent(ComponentPtr& component);
-    void componentAdded(ComponentPtr& sender, CoreEventArgsPtr& eventArgs);
-    void componentRemoved(ComponentPtr& sender, CoreEventArgsPtr& eventArgs);
-    void componentUpdated(ComponentPtr& updatedComponent);
-    void coreEventCallback(ComponentPtr& sender, CoreEventArgsPtr& eventArgs);
 
     void setupMqttPublisher();
     void sendData(const std::string& topic, const ChannelData& data, SizeT readAmount);

@@ -68,13 +68,6 @@ void MqttReceiverFbImpl::initProperties(const PropertyObjectPtr& config)
     readProperties();
 }
 
-void MqttReceiverFbImpl::propertyChanged(bool configure)
-{
-    readProperties();
-    if (configure)
-        this->configure();
-}
-
 void MqttReceiverFbImpl::readProperties()
 {
     auto lock = std::lock_guard<std::mutex>(sync);
@@ -89,11 +82,6 @@ void MqttReceiverFbImpl::readProperties()
             subscribedSignals.set(signalId, descriptor);
         }
     }
-}
-
-void MqttReceiverFbImpl::configure()
-{
-
 }
 
 void MqttReceiverFbImpl::createDataPacket(const std::string& topic, double value, UInt timestamp)

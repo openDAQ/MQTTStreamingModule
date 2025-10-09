@@ -50,10 +50,7 @@ private:
     void parseMessage(mqtt::MqttMessage& msg);
     void createDataPacket(const std::string& topic, double value, UInt timestamp);
 
-    void configure();
-
     void initProperties(const PropertyObjectPtr& config);
-    void propertyChanged(bool configure);
     void readProperties();
 
     void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg);
