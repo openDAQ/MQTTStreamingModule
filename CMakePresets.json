@@ -1,0 +1,182 @@
+{
+    "version": 4,
+    "configurePresets": [
+        {
+            "name": "debug",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            },
+            "binaryDir": "build/${presetName}"
+        },
+        {
+            "name": "release",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            },
+            "binaryDir": "build/${presetName}"
+        },
+        {
+            "name": "gcc",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++"
+            }
+        },
+        {
+            "name": "clang",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++"
+            }
+        },
+        {
+            "name": "ninja",
+            "hidden": true,
+            "generator": "Ninja"
+        },
+        {
+            "name": "msvc-17",
+            "hidden": true,
+            "generator": "Visual Studio 15 2017",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "hostOS": [ "Windows" ]
+                }
+            }
+        },
+        {
+            "name": "msvc-22",
+            "hidden": true,
+            "generator": "Visual Studio 17 2022",
+            "inherits": [
+                "msvc-17"
+            ]
+        },
+        {
+            "name": "msvc-x86",
+            "hidden": true,
+            "architecture": "Win32",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "hostOS": [ "Windows" ]
+                }
+            }
+        },
+        {
+            "name": "msvc-x64",
+            "hidden": true,
+            "architecture": "x64",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "hostOS": [ "Windows" ]
+                }
+            }
+        },
+        {
+            "name": "full",
+            "hidden": true,
+            "cacheVariables": {
+                "OPENDAQ_DEVICE_EXAMPLE_ENABLE_EXAMPLE_APPS": "true"
+            }
+        },
+        {
+            "name": "x86/msvc-17",
+            "displayName": "[MSVC 17] Release - x86",
+            "inherits": [
+                "full",
+                "release",
+                "msvc-17",
+                "msvc-x86"
+            ]
+        },
+        {
+            "name": "x64/msvc-17",
+            "displayName": "[MSVC 17] Release - x64",
+            "inherits": [
+                "full",
+                "release",
+                "msvc-17",
+                "msvc-x64"
+            ]
+        },
+        {
+            "name": "x86/msvc-22",
+            "displayName": "[MSVC 22] Release - x86",
+            "inherits": [
+                "full",
+                "release",
+                "msvc-22",
+                "msvc-x86"
+            ]
+        },
+        {
+            "name": "x64/msvc-22",
+            "displayName": "[MSVC 22] Release - x64",
+            "inherits": [
+                "full",
+                "release",
+                "msvc-22",
+                "msvc-x64"
+            ]
+        },
+        {
+            "name": "x64/gcc/debug",
+            "displayName": "[GCC] Debug - x64",
+            "inherits": [
+                "full",
+                "debug",
+                "gcc",
+                "ninja"
+            ]
+        },
+        {
+            "name": "x64/gcc/release",
+            "displayName": "[GCC] Release - x64",
+            "inherits": [
+                "full",
+                "release",
+                "gcc",
+                "ninja"
+            ]
+        },
+        {
+            "name": "x64/clang/debug",
+            "displayName": "[Clang] Debug - x64",
+            "inherits": [
+                "full",
+                "debug",
+                "clang",
+                "ninja"
+            ]
+        },
+        {
+            "name": "x64/clang/release",
+            "displayName": "[Clang] Release - x64",
+            "inherits": [
+                "full",
+                "release",
+                "clang",
+                "ninja"
+            ]
+        }
+    ]
+}
