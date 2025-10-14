@@ -21,7 +21,6 @@ MqttAsyncClient::MqttAsyncClient(std::string serverUrl, std::string clientId, bo
     connOpts.automaticReconnect = true;
     connOpts.minRetryInterval = 1;
     connOpts.maxRetryInterval = 10;
-    connOpts.ssl = &sslOpts;
     connOpts.context = this;
 
     disconnOpts = MQTTAsync_disconnectOptions_initializer;
@@ -30,7 +29,6 @@ MqttAsyncClient::MqttAsyncClient(std::string serverUrl, std::string clientId, bo
     disconnOpts.context = this;
 
     createOpts = MQTTAsync_createOptions_initializer;
-    sslOpts = MQTTAsync_SSLOptions_initializer;
 }
 
 MqttAsyncClient::~MqttAsyncClient() {

@@ -78,7 +78,6 @@ private:
     MQTTAsync_connectOptions connOpts;
     MQTTAsync_disconnectOptions disconnOpts;
     MQTTAsync_createOptions createOpts;
-    MQTTAsync_SSLOptions sslOpts = MQTTAsync_SSLOptions_initializer;
 
     std::recursive_mutex cbMtx;
 
