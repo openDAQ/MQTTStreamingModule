@@ -1,4 +1,4 @@
-﻿# CMakeList.txt : CMake project for OpenDAQHistorianFB, include source and define
+﻿# CMakeList.txt : CMake project for MQTTStreamingModule, include source and define
 # project specific logic here.
 #
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
@@ -31,14 +31,13 @@ set(CMAKE_MESSAGE_CONTEXT_SHOW ON CACHE BOOL "Show CMake message context")
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-option(OPENDAQ_DEVICE_EXAMPLE_ENABLE_EXAMPLE_APPS "Enable building example applications" OFF)
 option(OPENDAQ_MQTT_MODULE_ENABLE_SSL "Enable building with openSSL" OFF)
 
 include(CommonUtils)
 setup_repo(${REPO_OPTION_PREFIX})
 
 if(OPENDAQ_DEVICE_EXAMPLE_ENABLE_EXAMPLE_APPS)
-	set(DAQMODULES_REF_DEVICE_MODULE ON CACHE BOOL "" FORCE)
+    set(DAQMODULES_REF_DEVICE_MODULE ON CACHE BOOL "" FORCE)
 endif()
 
 if(OPENDAQ_MQTT_MODULE_ENABLE_SSL)
@@ -54,30 +53,3 @@ endif()
 add_subdirectory(external)
 add_subdirectory(mqtt_streaming_protocol)
 add_subdirectory(mqtt_streaming_server_module)
-
-if(OPENDAQ_DEVICE_EXAMPLE_ENABLE_EXAMPLE_APPS)
-    message(STATUS "Example applications have been enabled")
-    add_subdirectory(examples)
-endif()
-
-
-
-# Set CPack variables
-set(CPACK_COMPONENTS_ALL RUNTIME)
-set(CPACK_PROJECT_NAME ${PROJECT_NAME})
-set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
-set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
-set(CPACK_OUTPUT_FILE_PREFIX "${CMAKE_BINARY_DIR}/package")
-
-# Set the CPack generator based on the platform
-if (WIN32)
-    set(CPACK_GENERATOR "ZIP")
-elseif (UNIX AND NOT APPLE)
-    cmake_host_system_information(RESULT DISTRO_ID QUERY DISTRIB_ID)
-    cmake_host_system_information(RESULT DISTRO_VERSION_ID QUERY DISTRIB_VERSION_ID)
-    set(CPACK_SYSTEM_NAME "${DISTRO_ID}${DISTRO_VERSION_ID}")
-    set(CPACK_GENERATOR "TGZ")
-endif()
-
-# Include CPack for packaging
-include(CPack)

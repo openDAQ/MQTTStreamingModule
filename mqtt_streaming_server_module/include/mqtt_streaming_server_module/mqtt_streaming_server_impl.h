@@ -22,23 +22,13 @@
 #include <opendaq/server.h>
 #include <opendaq/server_impl.h>
 #include <coretypes/intfs.h>
-//#include <native_streaming_protocol/native_streaming_server_handler.h>
 #include <opendaq/connection_internal.h>
 #include <tsl/ordered_map.h>
-#include <MqttAsyncPublisher.h>
+#include <MqttAsyncClient.h>
+#include <MqttSettings.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_SERVER_MODULE
 
-
-namespace Mqtt::Utils::Settings {
-    struct MqttConnectionSettings {
-        std::string mqttUrl;
-        int port;
-        std::string username;
-        std::string password;
-        std::string clientId;
-    };
-}
 
 struct ChannelData {
     std::vector<double> data;
@@ -57,29 +47,18 @@ public:
     static PropertyObjectPtr populateDefaultConfig(const PropertyObjectPtr& config, const ContextPtr& context);
 
 protected:
-    PropertyObjectPtr getDiscoveryConfig() override;
     void onStopServer() override;
-    StreamingPtr onGetStreaming();
     void connectSignalReaders();
     bool isSignalCompatible(const SignalPtr& signal);
 
     void addReader(SignalPtr signalToRead);
-    void removeReader(SignalPtr signalToRead);
 
     void stopServerInternal();
 
-    void addSignalsOfComponent(ComponentPtr& component);
-    void componentAdded(ComponentPtr& sender, CoreEventArgsPtr& eventArgs);
-    void componentRemoved(ComponentPtr& sender, CoreEventArgsPtr& eventArgs);
-    void componentUpdated(ComponentPtr& updatedComponent);
-    void coreEventCallback(ComponentPtr& sender, CoreEventArgsPtr& eventArgs);
-
     void setupMqttPublisher();
     void sendData(const std::string& topic, const ChannelData& data, SizeT readAmount);
-    std::vector<std::string> prepareJsonMessages(const std::string& topic, const ChannelData& data, SizeT dataAmount);
+    std::vector<std::string> prepareJsonMessages(const ChannelData& data, SizeT dataAmount);
     std::string prepareJsonTopics();
-    std::string buildTopicFromId(const std::string& globalId);
-    std::string buildSignalsTopic();
     void sendTopicList();
     void readMqttSettings();
 
@@ -97,13 +76,13 @@ protected:
     LoggerPtr logger;
     LoggerComponentPtr loggerComponent;
 
-    bool serverStopped;
+    std::atomic<bool> serverStopped;
     size_t maxPacketReadCount;
     std::chrono::milliseconds processingThreadSleepTime;
-    mqtt::MqttAsyncPublisher publisher;
+    mqtt::MqttAsyncClient publisher;
     Mqtt::Utils::Settings::MqttConnectionSettings connectionSettings;
     std::mutex readersSync;
-    bool processingThreadRunning;
+    std::atomic<bool> processingThreadRunning;
     std::thread processingThread;
     std::atomic<bool> topicsAreSent = false;
 

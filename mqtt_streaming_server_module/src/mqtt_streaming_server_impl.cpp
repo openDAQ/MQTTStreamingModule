@@ -16,28 +16,15 @@
 
 
 #include <rapidjson/document.h>
-#include "rapidjson/writer.h"
-#include "rapidjson/stringbuffer.h"
+#include <mqtt_streaming_server_module/constants.h>
+#include <MqttDataWrapper.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_SERVER_MODULE
 using namespace daq;
 
-static constexpr size_t DEFAULT_MAX_PACKET_READ_COUNT = 1000;
-static constexpr uint16_t DEFAULT_POLLING_PERIOD = 20;
-static constexpr uint16_t DEFAULT_PORT = 1883;
-static constexpr const char* DEFAULT_ADDRESS = "127.0.0.1";
-static constexpr const char* DEFAULT_USERNAME = "";
-static constexpr const char* DEFAULT_PASSWORD = "";
-static constexpr const char* SERVER_ID_AND_CAPABILITY = "OpenDAQMQTT";
-
-static constexpr const char* PROPERTY_NAME_MQTT_BROKER_URL = "BrokerAddress";
-static constexpr const char* PROPERTY_NAME_MQTT_BROKER_PORT = "MqttBrokerPort";
-static constexpr const char* PROPERTY_NAME_MQTT_USERNAME = "MqttUsername";
-static constexpr const char* PROPERTY_NAME_MQTT_PASSWORD = "MqttPassword";
-
-MqttStreamingServerImpl::MqttStreamingServerImpl(const DevicePtr& rootDevice,
-                                                     const PropertyObjectPtr& config,
-                                                     const ContextPtr& context)
+MqttStreamingServerImpl::MqttStreamingServerImpl(const DevicePtr &rootDevice,
+                                                 const PropertyObjectPtr &config,
+                                                 const ContextPtr &context)
     : Server(SERVER_ID_AND_CAPABILITY, config, rootDevice, context)
     , signals(List<ISignal>())
     , rootDeviceGlobalId(rootDevice.getGlobalId().toStdString())
@@ -45,29 +32,17 @@ MqttStreamingServerImpl::MqttStreamingServerImpl(const DevicePtr& rootDevice,
     , loggerComponent(logger.getOrAddComponent(id))
     , serverStopped(false)
     , publisher()
-    , connectionSettings({ "", DEFAULT_PORT, "", "", rootDevice.getGlobalId().toStdString()})
+    , connectionSettings({DEFAULT_BROKER_ADDRESS,
+                          DEFAULT_PORT,
+                          DEFAULT_USERNAME,
+                          DEFAULT_PASSWORD,
+                          rootDevice.getGlobalId().toStdString()})
 {
-    auto info = rootDevice.getInfo();
-    if (info.hasServerCapability(SERVER_ID_AND_CAPABILITY))
-        DAQ_THROW_EXCEPTION(InvalidStateException, fmt::format("Device \"{}\" already has an {} server capability.", info.getName(), SERVER_ID_AND_CAPABILITY));
-
     readMqttSettings();
 
-    StringPtr path = config.getPropertyValue("Path");
-
-    ServerCapabilityConfigPtr serverCapabilityStreaming =
-        ServerCapability(SERVER_ID_AND_CAPABILITY, SERVER_ID_AND_CAPABILITY, ProtocolType::Streaming)
-        .setPrefix("daq.mqtts")
-        .setConnectionType("TCP/IP")
-        .setPort(connectionSettings.port);
-
-    serverCapabilityStreaming.addProperty(StringProperty("Path", path == "/" ? "" : path));
-    info.asPtr<IDeviceInfoInternal>(true).addServerCapability(serverCapabilityStreaming);
-
-    this->context.getOnCoreEvent() += event(&MqttStreamingServerImpl::coreEventCallback);
-
-    maxPacketReadCount = config.getPropertyValue("MaxPacketReadCount");
-    processingThreadSleepTime = std::chrono::milliseconds(config.getPropertyValue("StreamingDataPollingPeriod"));
+    maxPacketReadCount = config.getPropertyValue(PROPERTY_NAME_MAX_PACKET_READ_COUNT);
+    processingThreadSleepTime = std::chrono::milliseconds(
+        config.getPropertyValue(PROPERTY_NAME_POLLING_PERIOD));
 
     buffer.data.resize(maxPacketReadCount);
     buffer.timestamps.resize(maxPacketReadCount);
@@ -82,99 +57,19 @@ MqttStreamingServerImpl::~MqttStreamingServerImpl()
     stopServerInternal();
 }
 
-void MqttStreamingServerImpl::addSignalsOfComponent(ComponentPtr& component)
-{
-    if (component.supportsInterface<ISignal>())
-    {
-        LOG_I("Added Signal: {};", component.getGlobalId());
-        //serverHandler->addSignal(component.asPtr<ISignal>(true));
-    }
-    else if (component.supportsInterface<IFolder>())
-    {
-        auto nestedComponents = component.asPtr<IFolder>().getItems(search::Recursive(search::Any()));
-        for (const auto& nestedComponent : nestedComponents)
-        {
-            if (nestedComponent.supportsInterface<ISignal>())
-            {
-                LOG_I("Added Signal: {};", nestedComponent.getGlobalId());
-                //serverHandler->addSignal(nestedComponent.asPtr<ISignal>(true));
-            }
-        }
-    }
-}
-
-void MqttStreamingServerImpl::componentAdded(ComponentPtr& /*sender*/, CoreEventArgsPtr& eventArgs)
-{
-    ComponentPtr addedComponent = eventArgs.getParameters().get("Component");
-
-    auto addedComponentGlobalId = addedComponent.getGlobalId().toStdString();
-    if (addedComponentGlobalId.find(rootDeviceGlobalId) != 0)
-        return;
-
-    LOG_I("Added Component: {};", addedComponentGlobalId);
-    addSignalsOfComponent(addedComponent);
-}
-
-void MqttStreamingServerImpl::componentRemoved(ComponentPtr& sender, CoreEventArgsPtr& eventArgs)
-{
-    StringPtr removedComponentLocalId = eventArgs.getParameters().get("Id");
-
-    auto removedComponentGlobalId =
-        sender.getGlobalId().toStdString() + "/" + removedComponentLocalId.toStdString();
-    if (removedComponentGlobalId.find(rootDeviceGlobalId) != 0)
-        return;
-
-    LOG_I("Component: {}; is removed", removedComponentGlobalId);
-    //serverHandler->removeComponentSignals(removedComponentGlobalId);
-}
-
-void MqttStreamingServerImpl::componentUpdated(ComponentPtr& updatedComponent)
-{
-    auto updatedComponentGlobalId = updatedComponent.getGlobalId().toStdString();
-    if (updatedComponentGlobalId.find(rootDeviceGlobalId) != 0)
-        return;
-
-    LOG_I("Component: {}; is updated", updatedComponentGlobalId);
-
-    // remove all registered signal of updated component since those might be modified or removed
-    //serverHandler->removeComponentSignals(updatedComponentGlobalId);
-
-    // add updated versions of signals
-    addSignalsOfComponent(updatedComponent);
-}
-
-void MqttStreamingServerImpl::coreEventCallback(ComponentPtr& sender, CoreEventArgsPtr& eventArgs)
-{
-    switch (static_cast<CoreEventId>(eventArgs.getEventId()))
-    {
-        case CoreEventId::ComponentAdded:
-            componentAdded(sender, eventArgs);
-            break;
-        case CoreEventId::ComponentRemoved:
-            componentRemoved(sender, eventArgs);
-            break;
-        case CoreEventId::ComponentUpdateEnd:
-            componentUpdated(sender);
-            break;
-        default:
-            break;
-    }
-}
-
 void MqttStreamingServerImpl::setupMqttPublisher()
 {
     publisher.disconnect();
     publisher.setServerURL(connectionSettings.mqttUrl);
     publisher.setClientId(connectionSettings.clientId);
     publisher.setUsernamePasswrod(connectionSettings.username, connectionSettings.password);
-    publisher.setOnConnect([this]() { LOG_I("MQTT: Connection established"); });
+    publisher.setConnectedCb([this]() { LOG_I("MQTT: Connection established"); });
 
     LOG_I("MQTT: Trying to connect to MQTT broker ({})", connectionSettings.mqttUrl);
     if (!publisher.connect())
     {
         LOG_E("MQTT: Connection failed");
     }
-
 }
 
 void MqttStreamingServerImpl::sendData(const std::string& topic, const ChannelData& data, SizeT readAmount)
@@ -182,7 +77,7 @@ void MqttStreamingServerImpl::sendData(const std::string& topic, const ChannelDa
     if (readAmount == 0)
         return;
 
-    const auto jsonMessages = prepareJsonMessages(topic, data, readAmount);
+    const auto jsonMessages = prepareJsonMessages(data, readAmount);
     if (publisher.isConnected() == mqtt::MqttConnectionStatus::connected) {
         for (const auto& jsonMessage : jsonMessages) {
             std::string err;
@@ -194,22 +89,12 @@ void MqttStreamingServerImpl::sendData(const std::string& topic, const ChannelDa
     }
 }
 
-std::vector<std::string> MqttStreamingServerImpl::prepareJsonMessages(const std::string& topic, const ChannelData& data, SizeT dataAmount)
+std::vector<std::string> MqttStreamingServerImpl::prepareJsonMessages(const ChannelData& data, SizeT dataAmount)
 {
     std::vector<std::string> result;
 
     for (size_t i = 0; i < dataAmount; ++i) {
-        rapidjson::Document doc;
-        doc.SetObject();
-        doc.AddMember("value", rapidjson::Value(data.data[i]), doc.GetAllocator());
-        doc.AddMember("timestamp", rapidjson::Value(data.timestamps[i]), doc.GetAllocator());
-
-        // Serialize to string
-        rapidjson::StringBuffer buffer;
-        rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-        doc.Accept(writer);
-
-        result.emplace_back(buffer.GetString());
+        result.emplace_back(mqtt::MqttDataWrapper::serializeSampleData({data.data[i], data.timestamps[i]}));
     }
 
     return result;
@@ -217,39 +102,12 @@ std::vector<std::string> MqttStreamingServerImpl::prepareJsonMessages(const std:
 
 std::string MqttStreamingServerImpl::prepareJsonTopics()
 {
-    std::string result;
-    rapidjson::Document doc;
-    doc.SetArray();
-    for (const auto& signal : signals) {
-        rapidjson::Value topicValue;
-        topicValue.SetString(buildTopicFromId(signal.getGlobalId().toStdString()).c_str(), doc.GetAllocator());
-        doc.PushBack(topicValue, doc.GetAllocator());
-    }
-
-    // Serialize to string
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    doc.Accept(writer);
-
-    result = buffer.GetString();
-
-
-    return result;
-}
-
-std::string MqttStreamingServerImpl::buildTopicFromId(const std::string& globalId)
-{
-    return ("openDAQ" + globalId);
-}
-
-std::string MqttStreamingServerImpl::buildSignalsTopic()
-{
-    return ("openDAQ" + rootDeviceGlobalId + "/$signals");
+    return mqtt::MqttDataWrapper::serializeSignalDescriptors(signals);
 }
 
 void MqttStreamingServerImpl::sendTopicList()
 {
-    std::string topic = buildSignalsTopic();
+    std::string topic = mqtt::MqttDataWrapper::buildSignalsTopic(rootDeviceGlobalId);
     auto topicsMessage = prepareJsonTopics();
     if (publisher.isConnected() == mqtt::MqttConnectionStatus::connected) {
         bool status = publisher.publish(topic, (void*) topicsMessage.c_str(), topicsMessage.length(), nullptr, 1, nullptr, true);
@@ -263,7 +121,7 @@ void MqttStreamingServerImpl::sendTopicList()
 
 void MqttStreamingServerImpl::readMqttSettings()
 {
-    connectionSettings.mqttUrl = (std::string)config.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_URL);
+    connectionSettings.mqttUrl = (std::string)config.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_ADDRESS);
     connectionSettings.port = config.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_PORT);
     connectionSettings.username = (std::string)config.getPropertyValue(PROPERTY_NAME_MQTT_USERNAME);
     connectionSettings.password = (std::string)config.getPropertyValue(PROPERTY_NAME_MQTT_PASSWORD);
@@ -272,8 +130,8 @@ void MqttStreamingServerImpl::readMqttSettings()
 
 void MqttStreamingServerImpl::processingThreadFunc()
 {
-    daqNameThread("MqttC2DSread");
-    LOG_I("Streaming-to-device read thread started")
+    daqNameThread("MqttStrmSrvRead");
+    LOG_I("Streaming read thread started")
     while (processingThreadRunning)
     {
         {
@@ -291,8 +149,10 @@ void MqttStreamingServerImpl::processingThreadFunc()
                         continue;
                     daq::SizeT readAmount = maxPacketReadCount;
                     reader.readWithDomain(buffer.data.data(), buffer.timestamps.data(), &readAmount);
-                    sendData(buildTopicFromId(signals[i].getGlobalId().toStdString()), buffer, readAmount);
-
+                    sendData(mqtt::MqttDataWrapper::buildTopicFromId(
+                                 signals[i].getGlobalId().toStdString()),
+                             buffer,
+                             readAmount);
 
                     if (reader.getAvailableCount() > 0)
                         hasPacketsToRead = true;
@@ -303,13 +163,13 @@ void MqttStreamingServerImpl::processingThreadFunc()
 
         std::this_thread::sleep_for(processingThreadSleepTime);
     }
-    LOG_I("Streaming-to-device read thread stopped");
+    LOG_I("Streaming read thread stopped");
 }
 
 void MqttStreamingServerImpl::startProcessingThread()
 {
-    assert(!processingThreadRunning);
-    processingThreadRunning = true;
+    if (processingThreadRunning.exchange(true))
+        return;
     processingThread = std::thread(&MqttStreamingServerImpl::processingThreadFunc, this);
 }
 
@@ -325,12 +185,10 @@ void MqttStreamingServerImpl::stopProcessingThread()
 
 void MqttStreamingServerImpl::stopServerInternal()
 {
-    if (serverStopped)
+
+    if (serverStopped.exchange(true))
         return;
 
-    serverStopped = true;
-
-    this->context.getOnCoreEvent() -= event(&MqttStreamingServerImpl::coreEventCallback);
     if (const DevicePtr rootDevice = this->rootDeviceRef.assigned() ? this->rootDeviceRef.getRef() : nullptr;
         rootDevice.assigned() && !rootDevice.isRemoved())
     {
@@ -420,7 +278,7 @@ PropertyObjectPtr MqttStreamingServerImpl::createDefaultConfig(const ContextPtr&
     //auto defaultConfig = MqttStreamingServerHandler::createDefaultConfig();
     auto defaultConfig = PropertyObject();
 
-    const auto pollingPeriodProp = IntPropertyBuilder("StreamingDataPollingPeriod", DEFAULT_POLLING_PERIOD)
+    const auto pollingPeriodProp = IntPropertyBuilder(PROPERTY_NAME_POLLING_PERIOD, DEFAULT_POLLING_PERIOD)
                                        .setMinValue(1)
                                        .setMaxValue(65535)
                                        .setDescription("Polling period in milliseconds "
@@ -429,7 +287,7 @@ PropertyObjectPtr MqttStreamingServerImpl::createDefaultConfig(const ContextPtr&
                                        .build();
     defaultConfig.addProperty(pollingPeriodProp);
 
-    const auto maxPacketReadCountProp = IntPropertyBuilder("MaxPacketReadCount", DEFAULT_MAX_PACKET_READ_COUNT)
+    const auto maxPacketReadCountProp = IntPropertyBuilder(PROPERTY_NAME_MAX_PACKET_READ_COUNT, DEFAULT_MAX_PACKET_READ_COUNT)
                                                 .setMinValue(1)
                                                 .setDescription("Specifies the size of a pre-allocated packet buffer into "
                                                                 "which packets are dequeued. The size determines the amount of "
@@ -439,7 +297,7 @@ PropertyObjectPtr MqttStreamingServerImpl::createDefaultConfig(const ContextPtr&
                                                 .build();
     defaultConfig.addProperty(maxPacketReadCountProp);
 
-    const auto url = StringPropertyBuilder(PROPERTY_NAME_MQTT_BROKER_URL, DEFAULT_ADDRESS)
+    const auto url = StringPropertyBuilder(PROPERTY_NAME_MQTT_BROKER_ADDRESS, DEFAULT_BROKER_ADDRESS)
                           .setDescription("")
                           .build();
     defaultConfig.addProperty(url);
@@ -461,11 +319,6 @@ PropertyObjectPtr MqttStreamingServerImpl::createDefaultConfig(const ContextPtr&
                          .build();
     defaultConfig.addProperty(password);
 
-    const auto path = StringPropertyBuilder("Path", "")
-                          .setDescription("")
-                          .build();
-    defaultConfig.addProperty(path);
-
     populateDefaultConfigFromProvider(context, defaultConfig);
     return defaultConfig;
 }
@@ -483,17 +336,6 @@ PropertyObjectPtr MqttStreamingServerImpl::populateDefaultConfig(const PropertyO
     return defConfig;
 }
 
-PropertyObjectPtr MqttStreamingServerImpl::getDiscoveryConfig()
-{
-    auto discoveryConfig = PropertyObject();
-    discoveryConfig.addProperty(StringProperty("ServiceName", "_opendaq-streaming-mqtt._tcp.local."));
-    discoveryConfig.addProperty(StringProperty("ServiceCap", "OPENDAQ_MQTTS"));
-    discoveryConfig.addProperty(StringProperty("Path", config.getPropertyValue("Path")));
-    discoveryConfig.addProperty(IntProperty("Port", 0));
-    discoveryConfig.addProperty(StringProperty("ProtocolVersion", std::to_string(/*GetLatestConfigProtocolVersion()*/0)));
-    return discoveryConfig;
-}
-
 ServerTypePtr MqttStreamingServerImpl::createType(const ContextPtr& context)
 {
     return ServerType(
@@ -508,27 +350,16 @@ void MqttStreamingServerImpl::onStopServer()
     stopServerInternal();
 }
 
-StreamingPtr MqttStreamingServerImpl::onGetStreaming()
-{
-    return nullptr;
-}
-
 void MqttStreamingServerImpl::addReader(SignalPtr signalToRead)
 {
     std::scoped_lock lock(readersSync);
     signals.pushBack(signalToRead);
     streamReaders.emplace_back(StreamReaderBuilder()
                                     .setSignal(signalToRead)
-                                    .setInputPortNotificationMethod(PacketReadyNotification::None)
                                     .setValueReadType(SampleType::Float64)
                                     .setDomainReadType(SampleType::Int64)
                                     .setSkipEvents(true)
                                     .build());
-}
-
-void MqttStreamingServerImpl::removeReader(SignalPtr signalToRead)
-{
-
 }
 
 OPENDAQ_DEFINE_CLASS_FACTORY_WITH_INTERFACE(
