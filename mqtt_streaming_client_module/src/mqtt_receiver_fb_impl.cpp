@@ -60,10 +60,13 @@ void MqttReceiverFbImpl::initProperties(const PropertyObjectPtr& config)
     {
         const auto propName = prop.getName();
         if (!objPtr.hasProperty(propName))
+        {
             if (const auto internalProp = prop.asPtrOrNull<IPropertyInternal>(true); internalProp.assigned())
             {
                 objPtr.addProperty(internalProp.clone());
             }
+        }
+        objPtr.setPropertyValue(propName, prop.getValue());
     }
     readProperties();
 }
