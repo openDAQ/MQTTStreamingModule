@@ -9,6 +9,7 @@
 #include <iostream>
 #include <mutex>
 #include <atomic>
+#include <algorithm>
 
 namespace mqtt
 {

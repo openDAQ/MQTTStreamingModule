@@ -6,6 +6,7 @@
 #include "MQTTClientType.h"
 #include <thread>
 #include <mutex>
+#include <algorithm>
 
 namespace mqtt
 {
