@@ -37,8 +37,12 @@ MqttAsyncPublisher::MqttAsyncPublisher(std::string serverUrl,
     this->connOpts.minRetryInterval = 1;
     this->connOpts.maxRetryInterval = 10;
     this->createOpts = MQTTAsync_createOptions_initializer;
+
+#ifdef OPENDAQ_MQTT_MODULE_ENABLE_SSL
     this->ssl_opts = MQTTAsync_SSLOptions_initializer;
     this->connOpts.ssl = &this->ssl_opts;
+#endif
+
     this->client = nullptr;
     setServerURL(serverUrl);
 }

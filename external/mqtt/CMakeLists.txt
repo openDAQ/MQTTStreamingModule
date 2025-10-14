@@ -12,7 +12,13 @@ FetchContent_Populate(paho_mqtt_c)
 
 # Set build options BEFORE add_subdirectory
 set(PAHO_HIGH_PERFORMANCE OFF CACHE BOOL "Enable PAHO High performance" FORCE)
-set(PAHO_WITH_SSL ON CACHE BOOL "Enable SSL support" FORCE)
+
+if(OPENDAQ_MQTT_MODULE_ENABLE_SSL)
+    set(PAHO_WITH_SSL ON CACHE BOOL "Enable SSL support" FORCE)
+else()
+    set(PAHO_WITH_SSL OFF CACHE BOOL "Enable SSL support" FORCE)
+endif()
+
 set(PAHO_BUILD_STATIC ON CACHE BOOL "Build static paho library" FORCE)
 set(PAHO_BUILD_SHARED OFF CACHE BOOL "Build dynamic paho library" FORCE)
 set(CMAKE_POSITION_INDEPENDENT_CODE ${PAHO_BUILD_STATIC} CACHE BOOL "" FORCE)
