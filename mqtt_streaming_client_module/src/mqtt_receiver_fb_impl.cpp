@@ -36,7 +36,9 @@ MqttReceiverFbImpl::MqttReceiverFbImpl(const ContextPtr& ctx,
     for (const auto& topic : subscribedSignals.getKeys())
     {
         subscriber->setMessageArrivedCb(topic, std::bind(&MqttReceiverFbImpl::onSignalsMessage, this, std::placeholders::_1, std::placeholders::_2));
-        subscriber->subscribe(topic, 1);
+        auto ok = subscriber->subscribe(topic, 1);
+        if (!ok)
+            LOG_W("Failed to subscribe to the topic: {}", topic);
     }
     setComponentStatus(ComponentStatus::Ok);
 }
