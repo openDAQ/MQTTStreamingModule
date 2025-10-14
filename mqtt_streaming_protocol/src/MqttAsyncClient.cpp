@@ -1,4 +1,5 @@
 #include "MqttAsyncClient.h"
+#include <algorithm>
 
 namespace mqtt {
 

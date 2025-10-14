@@ -1,14 +1,30 @@
 #include "MqttDataWrapper.h"
 
-#include <boost/algorithm/string.hpp>
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include "rapidjson/writer.h"
+
+#include <string>
+#include <vector>
+#include <sstream>
+
 
 namespace mqtt {
 
 static const char* TOPIC_ALL_SIGNALS_PREFIX = "openDAQ";
 static const char* DEVICE_SIGNAL_LIST = "$signals";
+
+static std::vector<std::string> split(const std::string& s, char delimiter)
+{
+    std::vector<std::string> tokens;
+    std::string token;
+    std::istringstream tokenStream(s);
+    while (std::getline(tokenStream, token, delimiter))
+    {
+        tokens.push_back(token);
+    }
+    return tokens;
+}
 
 std::pair<Result, SampleData> MqttDataWrapper::parseSampleData(const std::string &json)
 {
@@ -142,7 +158,7 @@ MqttDataWrapper::parseSignalDescriptors(const std::string& topic, const std::str
     auto& [deviceName, signalDesc] = res.second;
     {
         std::vector<std::string> list;
-        boost::split(list, topic, boost::is_any_of("/"));
+        list = split(topic, '/');
 
         if (list.size() != 3
             || list[0] != TOPIC_ALL_SIGNALS_PREFIX
