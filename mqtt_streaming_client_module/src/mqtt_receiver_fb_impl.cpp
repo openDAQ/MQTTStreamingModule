@@ -76,15 +76,17 @@ void MqttReceiverFbImpl::initProperties(const PropertyObjectPtr& config)
 void MqttReceiverFbImpl::readProperties()
 {
     auto lock = std::lock_guard<std::mutex>(sync);
-    auto prop = objPtr.getPropertyValue(PROPERTY_NAME_SIGNAL_LIST).asPtr<IDict>();
-    subscribedSignals = Dict<IString, IDataDescriptor>();
-    for (const auto& [topic, descriptor] : prop)
-    {
-        auto signalId = topic.asPtr<IString>();
-        if (signalId.assigned())
-        {
-            LOG_I("Signal in list: {}", signalId.toStdString());
-            subscribedSignals.set(signalId, descriptor);
+    subscribedSignals = Dict<IString, IString>();
+    if (objPtr.hasProperty(PROPERTY_NAME_SIGNAL_LIST)) {
+        auto prop = objPtr.getPropertyValue(PROPERTY_NAME_SIGNAL_LIST).asPtrOrNull<IDict>();
+        if (prop.assigned()) {
+            for (const auto& [topic, descriptor] : prop) {
+                auto signalId = topic.asPtr<IString>();
+                if (signalId.assigned()) {
+                    LOG_I("Signal in list: {}", signalId.toStdString());
+                    subscribedSignals.set(signalId, descriptor);
+                }
+            }
         }
     }
 }
@@ -133,7 +135,8 @@ void MqttReceiverFbImpl::createSignals()
         std::string signalName = topic;
         boost::replace_all(signalName, "/", "_");
 
-        auto signalDsc = descriptor;
+        auto signalDsc = JsonDeserializer().deserialize(descriptor).asPtrOrNull<IDataDescriptor>();
+
         auto getEpoch = []()  ->std::string {
             const std::time_t epochTime = std::chrono::system_clock::to_time_t(std::chrono::time_point<std::chrono::system_clock>{});
             char buf[48];

@@ -122,7 +122,7 @@ DictPtr<IString, IFunctionBlockType> MqttStreamingDeviceImpl::onGetAvailableFunc
     for (const auto& device : deviceMap)
     {
         auto defaultConfig = PropertyObject();
-        auto signalDict = Dict<IString, IDataDescriptor>();
+        auto signalDict = Dict<IString, IString>();
         for (const auto& signal : device.second) {
             auto builder = DataDescriptorBuilder().setSampleType(SampleType::Float64);
             if (!signal.name.empty())
@@ -139,8 +139,10 @@ DictPtr<IString, IFunctionBlockType> MqttStreamingDeviceImpl::onGetAvailableFunc
                     quantity = signal.unit[2];
                 builder.setUnit(Unit(symbol, -1, name, quantity));
             }
-            auto signalDsc = builder.build();
-            signalDict.set(signal.topic, signalDsc);
+
+            const auto serializer = JsonSerializer();
+            builder.build().serialize(serializer);
+            signalDict.set(signal.topic, serializer.getOutput());
         }
         defaultConfig.addProperty(DictProperty(PROPERTY_NAME_SIGNAL_LIST, signalDict));
 
