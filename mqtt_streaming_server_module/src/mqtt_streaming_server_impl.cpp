@@ -11,7 +11,6 @@
 #include <opendaq/device_info_factory.h>
 #include <opendaq/device_info_internal_ptr.h>
 
-#include <boost/asio/dispatch.hpp>
 #include <opendaq/input_port_factory.h>
 #include <opendaq/thread_name.h>
 
@@ -171,7 +170,11 @@ void MqttStreamingServerImpl::setupMqttPublisher()
     publisher.setOnConnect([this]() { LOG_I("MQTT: Connection established"); });
 
     LOG_I("MQTT: Trying to connect to MQTT broker ({})", connectionSettings.mqttUrl);
-    publisher.connect();
+    if (!publisher.connect())
+    {
+        LOG_E("MQTT: Connection failed");
+    }
+
 }
 
 void MqttStreamingServerImpl::sendData(const std::string& topic, const ChannelData& data, SizeT readAmount)
