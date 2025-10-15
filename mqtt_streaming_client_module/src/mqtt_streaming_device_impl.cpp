@@ -1,4 +1,5 @@
 #include "mqtt_streaming_client_module/mqtt_receiver_fb_impl.h"
+#include "mqtt_streaming_client_module/mqtt_raw_receiver_fb_impl.h"
 #include <mqtt_streaming_client_module/mqtt_streaming_device_impl.h>
 #include "mqtt_streaming_client_module/constants.h"
 
@@ -154,6 +155,16 @@ DictPtr<IString, IFunctionBlockType> MqttStreamingDeviceImpl::onGetAvailableFunc
 
         fbTypes.set(fbType.getId(), fbType);
     }
+
+    {
+        auto defaultConfig = PropertyObject();
+        defaultConfig.addProperty(ListProperty(PROPERTY_NAME_SIGNAL_LIST, List<IString>()));
+        const auto fbType = FunctionBlockType(RAW_FB_NAME,
+                                              RAW_FB_NAME,
+                                              "",
+                                              defaultConfig);
+        fbTypes.set(fbType.getId(), fbType);
+    }
     return fbTypes;
 }
 
@@ -165,7 +176,15 @@ FunctionBlockPtr MqttStreamingDeviceImpl::onAddFunctionBlock(const StringPtr& ty
         if (fbTypes.hasKey(typeId))
         {
             auto fbTypePtr = fbTypes.getOrDefault(typeId);
-            nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttReceiverFbImpl>(context, functionBlocks, fbTypePtr, typeId, subscriber, config);
+            if (fbTypePtr.getName() == RAW_FB_NAME)
+            {
+                nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttRawReceiverFbImpl>(context, functionBlocks, fbTypePtr, typeId, subscriber, config);
+            }
+            else
+            {
+                nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttReceiverFbImpl>(context, functionBlocks, fbTypePtr, typeId, subscriber, config);
+            }
+
             addNestedFunctionBlock(nestedFunctionBlock);
             setComponentStatus(ComponentStatus::Ok);
         } else {

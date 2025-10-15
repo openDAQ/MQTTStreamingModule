@@ -28,6 +28,8 @@ static constexpr const char* PROPERTY_NAME_MQTT_PASSWORD = "MqttPassword";
 static constexpr const char* PROPERTY_NAME_INIT_DELAY = "InitDelay";
 static constexpr const char* PROPERTY_NAME_SIGNAL_LIST = "SignalList";
 
+static constexpr const char* RAW_FB_NAME = "@rawMqttFb";
+
 static const char* TOPIC_ALL_SIGNALS = "openDAQ/+/$signals";
 
 static const char* MQTT_LOCAL_DEVICE_ID_PREFIX = "MqttDevice";

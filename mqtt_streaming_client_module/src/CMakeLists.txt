@@ -6,6 +6,7 @@ set(SRC_Include common.h
                 mqtt_streaming_client_module_impl.h
                 mqtt_streaming_device_impl.h
                 mqtt_receiver_fb_impl.h
+                mqtt_raw_receiver_fb_impl.h
                 constants.h
 )
 
@@ -13,6 +14,7 @@ set(SRC_Srcs module_dll.cpp
              mqtt_streaming_client_module_impl.cpp
              mqtt_streaming_device_impl.cpp
              mqtt_receiver_fb_impl.cpp
+             mqtt_raw_receiver_fb_impl.cpp
 )
 
 prepend_include(${TARGET_FOLDER_NAME} SRC_Include)
@@ -32,8 +34,9 @@ source_group("device" FILES ${MODULE_HEADERS_DIR}/mqtt_streaming_device_impl.h
 )
 
 source_group("functionalBlock" FILES ${MODULE_HEADERS_DIR}/mqtt_receiver_fb_impl.h
-                            dispatch.h
                             mqtt_receiver_fb_impl.cpp
+                            ${MODULE_HEADERS_DIR}/mqtt_raw_receiver_fb_impl.h
+                            mqtt_raw_receiver_fb_impl.cpp
 )
 
 add_library(${LIB_NAME} SHARED ${SRC_Include}
