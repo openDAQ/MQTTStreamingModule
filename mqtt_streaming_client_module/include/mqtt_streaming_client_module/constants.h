@@ -29,6 +29,7 @@ static constexpr const char* PROPERTY_NAME_INIT_DELAY = "InitDelay";
 static constexpr const char* PROPERTY_NAME_SIGNAL_LIST = "SignalList";
 
 static constexpr const char* RAW_FB_NAME = "@rawMqttFb";
+static constexpr const char* JSON_FB_NAME = "@jsonMqttFb";
 
 static const char* TOPIC_ALL_SIGNALS = "openDAQ/+/$signals";
 

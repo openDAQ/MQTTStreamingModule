@@ -108,54 +108,41 @@ void MqttStreamingDeviceImpl::onSignalsMessage(const mqtt::MqttAsyncClient& subs
 {
     const std::string signalList(msg.getData().begin(), msg.getData().end());
     const std::string topic = msg.getTopic();
-    auto [status, data] = mqtt::MqttDataWrapper::parseSignalDescriptors(topic, signalList);
-    if (status.ok) {
-        deviceMap.insert({std::move(data.first), std::move(data.second)});
-    } else {
-        for (const auto& s : status.msg)
-            LOG_W("Data error: {}", s);
+    std::string deviceName = mqtt::MqttDataWrapper::extractDeviceName(topic);
+    if (!deviceName.empty()) {
+        deviceMap.insert({std::move(deviceName), std::move(signalList)});
     }
 }
 
 DictPtr<IString, IFunctionBlockType> MqttStreamingDeviceImpl::onGetAvailableFunctionBlockTypes()
 {
     fbTypes = Dict<IString, IFunctionBlockType>();
-    for (const auto& device : deviceMap)
+    // Add function block types from deviceMap (devices that sent signal lists)
+    for (const auto& [deviceName, config] : deviceMap)
     {
         auto defaultConfig = PropertyObject();
-        auto signalDict = Dict<IString, IString>();
-        for (const auto& signal : device.second) {
-            auto builder = DataDescriptorBuilder().setSampleType(SampleType::Float64);
-            if (!signal.name.empty())
-                builder.setName(signal.name);
-            if (!signal.unit.empty()) {
-                std::string symbol{""};
-                std::string name{""};
-                std::string quantity{""};
-                if (signal.unit.size() > 0)
-                    symbol = signal.unit[0];
-                if (signal.unit.size() > 1)
-                    name = signal.unit[1];
-                if (signal.unit.size() > 2)
-                    quantity = signal.unit[2];
-                builder.setUnit(Unit(symbol, -1, name, quantity));
-            }
+        defaultConfig.addProperty(StringProperty(PROPERTY_NAME_SIGNAL_LIST, config));
 
-            const auto serializer = JsonSerializer();
-            builder.build().serialize(serializer);
-            signalDict.set(signal.topic, serializer.getOutput());
-        }
-        defaultConfig.addProperty(DictProperty(PROPERTY_NAME_SIGNAL_LIST, signalDict));
-
-        const auto fbType = FunctionBlockType(device.first,
-                                              device.first,
+        const auto fbType = FunctionBlockType(deviceName,
+                                              deviceName,
                                               "",
                                               defaultConfig);
 
+        fbTypes.set(fbType.getId(), fbType);
+    }
+    // Add a function block type for manual JSON configuration
+    {
+        auto defaultConfig = PropertyObject();
+        defaultConfig.addProperty(StringProperty(PROPERTY_NAME_SIGNAL_LIST, String("")));
+
+        const auto fbType = FunctionBlockType(JSON_FB_NAME,
+                                              JSON_FB_NAME,
+                                              "",
+                                              defaultConfig);
 
         fbTypes.set(fbType.getId(), fbType);
     }
-
+    // Add a function block type for raw MQTT messages
     {
         auto defaultConfig = PropertyObject();
         defaultConfig.addProperty(ListProperty(PROPERTY_NAME_SIGNAL_LIST, List<IString>()));

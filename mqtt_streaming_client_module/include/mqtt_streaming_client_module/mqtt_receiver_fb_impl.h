@@ -20,8 +20,10 @@
 #include <opendaq/function_block_type_factory.h>
 #include <opendaq/function_block_impl.h>
 #include <opendaq/signal_config_ptr.h>
+#include <set>
 
 #include "MqttAsyncClient.h"
+#include "MqttDataWrapper.h"
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
     
@@ -37,27 +39,28 @@ public:
     ~MqttReceiverFbImpl() override;
 
 private:
-    std::unordered_map<std::string, SignalConfigPtr> outputSignals;
-    std::unordered_map<std::string, SignalConfigPtr> outputDomainSignals;
+    mqtt::MqttDataWrapper jsonDataWorker;
+    std::unordered_map<mqtt::SignalId, SignalConfigPtr> outputSignals;
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
-    DictObjectPtr<IDict, IString, IString> subscribedSignals;
+    //DictObjectPtr<IDict, IString, IDataDescriptor> subscribedSignals;
+    std::unordered_map<mqtt::SignalId, DataDescriptorPtr> subscribedSignals;
 
-    std::mutex sync;
+    mutable std::mutex sync;
 
     void createSignals();
 
     void parseMessage(mqtt::MqttMessage& msg);
-    void createDataPacket(const std::string& topic, double value, UInt timestamp);
+    void createDataPacket(const std::string& topic, const std::string& json);
 
     void initProperties(const PropertyObjectPtr& config);
     void readProperties();
 
     void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg);
 
-    std::string buildSignalNameFromTopic(std::string topic) const;
-    std::string buildDomainSignalNameFromTopic(std::string topic) const;
-
+    std::string buildSignalNameFromTopic(std::string topic, const std::string& signalName) const;
+    std::string buildDomainSignalNameFromTopic(std::string topic, const std::string& signalName) const;
+    std::set<std::string> getSubscribedTopics() const;
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
