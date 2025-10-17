@@ -75,17 +75,40 @@ int main(int argc, char* argv[])
 
     std::thread readerThread([readers]() {
         constexpr int size = 1000;
-        double samples[size];
-        uint64_t timestamps[size];
+
+        std::vector<double> samplesVec(size);
+        std::vector<uint64_t> timestampsVec(size);
+        auto samples = samplesVec.data();
+        auto timestamps = timestampsVec.data();
+
+        auto readWithDomain = [samples, timestamps](const daq::GenericSignalPtr<> signal, const daq::StreamReaderPtr reader)
+        {
+            daq::SizeT count = size;
+            reader.readWithDomain(samples, timestamps, &count);
+            const std::string sampleUnit = (signal.getDescriptor().assigned() && signal.getDescriptor().getUnit().assigned()) ?
+                                               " " + signal.getDescriptor().getUnit().getSymbol().toStdString() : "";
+            for (daq::SizeT i = 0; i < count; ++i)
+                std::cout << signal.getName() << " - Sample: " << samples[i] << sampleUnit << " Timestamp: " << timestamps[i] << std::endl;
+        };
+
+        auto read = [samples](const daq::GenericSignalPtr<> signal, const daq::StreamReaderPtr reader)
+        {
+            daq::SizeT count = size;
+            reader.read(samples, &count);
+            const std::string sampleUnit = (signal.getDescriptor().assigned() && signal.getDescriptor().getUnit().assigned()) ?
+                                               " " + signal.getDescriptor().getUnit().getSymbol().toStdString() : "";
+            for (daq::SizeT i = 0; i < count; ++i)
+                std::cout << signal.getName() << " - Sample: " << samples[i] << sampleUnit << std::endl;
+        };
+
         while (true) {
             for (const auto& [signal, reader] : readers) {
                 while (!reader.getEmpty()) {
-                    daq::SizeT count = size;
-                    reader.readWithDomain(samples, timestamps, &count);
-                    const std::string sampleUnit = (signal.getDescriptor().assigned() && signal.getDescriptor().getUnit().assigned()) ?
-                        " " + signal.getDescriptor().getUnit().getSymbol().toStdString() : "";
-                    for (daq::SizeT i = 0; i < count; ++i)
-                        std::cout << signal.getName() << " - Sample: " << samples[i] << sampleUnit << " Timestamp: " << timestamps[i] << std::endl;
+                    if (signal.getDomainSignal().assigned())
+                        readWithDomain(signal, reader);
+                    else
+                        read(signal, reader);
+
                 }
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(20));

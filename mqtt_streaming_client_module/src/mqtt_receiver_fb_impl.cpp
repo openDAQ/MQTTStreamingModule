@@ -113,23 +113,25 @@ void MqttReceiverFbImpl::createSignals()
 
         auto signalDsc = descriptor;
 
-        auto getEpoch = []()  ->std::string {
-            const std::time_t epochTime = std::chrono::system_clock::to_time_t(std::chrono::time_point<std::chrono::system_clock>{});
-            char buf[48];
-            strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%SZ", gmtime(&epochTime));
-            return { buf };
-        };
-
-        const auto domainSignalDsc =
-            DataDescriptorBuilder()
-                .setSampleType(SampleType::UInt64)
-                .setUnit(Unit("s", -1, "seconds", "time"))
-                .setTickResolution(Ratio(1, 1'000'000))
-                .setOrigin(getEpoch())
-                .setName("Time").build();
-
         auto refS = outputSignals.emplace(std::make_pair(signalId, createAndAddSignal(buildSignalNameFromTopic(topic, signalId.signalName), signalDsc))).first;
-        refS->second->setDomainSignal(createAndAddSignal(buildDomainSignalNameFromTopic(topic, signalId.signalName), domainSignalDsc, false));
+        if (jsonDataWorker.hasDomainSignal(signalId))
+        {
+            auto getEpoch = []()  ->std::string {
+                const std::time_t epochTime = std::chrono::system_clock::to_time_t(std::chrono::time_point<std::chrono::system_clock>{});
+                char buf[48];
+                strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%SZ", gmtime(&epochTime));
+                return { buf };
+            };
+
+            const auto domainSignalDsc =
+                DataDescriptorBuilder()
+                    .setSampleType(SampleType::UInt64)
+                    .setUnit(Unit("s", -1, "seconds", "time"))
+                    .setTickResolution(Ratio(1, 1'000'000))
+                    .setOrigin(getEpoch())
+                    .setName("Time").build();
+            refS->second->setDomainSignal(createAndAddSignal(buildDomainSignalNameFromTopic(topic, signalId.signalName), domainSignalDsc, false));
+        }
     }
     jsonDataWorker.setOutputSignals(&outputSignals);
 }

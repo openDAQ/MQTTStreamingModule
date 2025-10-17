@@ -43,7 +43,6 @@ private:
     std::unordered_map<mqtt::SignalId, SignalConfigPtr> outputSignals;
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
-    //DictObjectPtr<IDict, IString, IDataDescriptor> subscribedSignals;
     std::unordered_map<mqtt::SignalId, DataDescriptorPtr> subscribedSignals;
 
     mutable std::mutex sync;

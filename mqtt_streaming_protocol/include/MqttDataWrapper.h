@@ -62,6 +62,7 @@ public:
     std::unordered_map<mqtt::SignalId, daq::DataDescriptorPtr> extractDescription();
     void setOutputSignals(std::unordered_map<SignalId, daq::SignalConfigPtr>* const outputSignals);
     void createAndSendDataPacket(const std::string& topic, const std::string& json);
+    bool hasDomainSignal(const SignalId& signalId) const;
 
 private:
     std::string config;
@@ -77,6 +78,11 @@ private:
         const std::string& topic, const MqttMsgDescriptor& msgDescriptor, const std::string& json);
     void sendDataSamples(const SignalId& signalId, const DataPackets& dataPackets);
     DataPackets buildDataPackets(const SignalId& signalId, double value, uint64_t timestamp);
+    DataPackets buildDataPackets(const SignalId& signalId, double value);
+    daq::DataPacketPtr buildDomainDataPacket(daq::GenericSignalConfigPtr<> signalConfig, uint64_t timestamp);
+    daq::DataPacketPtr buildDataPacket(daq::GenericSignalConfigPtr<> signalConfig,
+                                       double value,
+                                       const daq::DataPacketPtr domainPacket);
     daq::UnitPtr extractSignalUnit(const rapidjson::Value& signalObj);
     std::string extractValueFieldName(const rapidjson::Value& signalObj);
     std::string extractTimestampFieldName(const rapidjson::Value& signalObj);

@@ -198,11 +198,28 @@ void MqttDataWrapper::createAndSendDataPacket(const std::string& topic, const st
     for (const auto& dsc : msgDescriptors->second)
     {
         auto packets = extractDataSamples(topic, dsc, json);
-        for (const auto& data : packets)
+        for (const auto& [signalId, data] : packets)
         {
-            sendDataSamples(data.first, data.second);
+            sendDataSamples(signalId, data);
         }
     }
+}
+
+bool MqttDataWrapper::hasDomainSignal(const SignalId& signalId) const
+{
+    auto it = topicDescriptors.find(signalId.topic);
+    if (it != topicDescriptors.end())
+    {
+
+        for (const auto& desc : it->second)
+        {
+            if (desc.signalName == signalId.signalName)
+            {
+                return !desc.tsFieldName.empty();
+            }
+        }
+    }
+    return false;
 }
 
 std::vector<std::pair<SignalId, DataPackets>> MqttDataWrapper::extractDataSamples(
@@ -211,6 +228,8 @@ std::vector<std::pair<SignalId, DataPackets>> MqttDataWrapper::extractDataSample
     std::vector<std::pair<SignalId, DataPackets>> res;
     double value = 0.0;
     uint64_t ts = 0;
+    bool hasTS = false;
+    bool hasValue = false;
     try
     {
         rapidjson::Document jsonDocument;
@@ -223,36 +242,34 @@ std::vector<std::pair<SignalId, DataPackets>> MqttDataWrapper::extractDataSample
 
         if (jsonDocument.IsObject())
         {
-
-            int successCnt = 0;
             for (auto it = jsonDocument.MemberBegin(); it != jsonDocument.MemberEnd(); ++it)
             {
                 const std::string name = it->name.GetString();
-                if (name == msgDescriptor.valueFieldName)
+                if (!msgDescriptor.valueFieldName.empty() && name == msgDescriptor.valueFieldName)
                 {
                     if (jsonDocument[name].IsDouble() || jsonDocument[name].IsInt() ||
                         jsonDocument[name].IsFloat())
                     {
                         value = jsonDocument[name].GetDouble();
-                        successCnt++;
+                        hasValue = true;
                     }
                     else
                     {
                         LOG_W("Value is not supported.");
                     }
                 }
-                else if (name == msgDescriptor.tsFieldName)
+                else if (!msgDescriptor.tsFieldName.empty() && name == msgDescriptor.tsFieldName)
                 {
                     if (jsonDocument[name].IsInt() || jsonDocument[name].IsUint64() ||
                         jsonDocument[name].IsInt64())
                     {
                         ts = utils::numericToMicroseconds(jsonDocument[name].GetUint64());
-                        successCnt++;
+                        hasTS = true;
                     }
                     else if (jsonDocument[name].IsString())
                     {
                         ts = utils::toUnixTicks(jsonDocument[name].GetString());
-                        successCnt++;
+                        hasTS = true;
                     }
                     else
                     {
@@ -264,22 +281,27 @@ std::vector<std::pair<SignalId, DataPackets>> MqttDataWrapper::extractDataSample
                     LOG_T("Field \"{}\" is not supported.", name);
                 }
             }
-            if (successCnt != 2)
-            {
-                LOG_W("Not all required fields are present.");
-            }
-            else
-            {
-                // TODO : value [1, 2, 3, ...] support
-                SignalId signalId{topic, msgDescriptor.signalName};
-                auto dataPackets = buildDataPackets(signalId, value, ts);
-                res.emplace_back(std::move(signalId), std::move(dataPackets));
-            }
         }
     }
     catch (...)
     {
         LOG_E("Error deserializing mqtt payload");
+    }
+
+    if (!hasValue)
+    {
+        LOG_W("Not all required fields are present.");
+    }
+    else
+    {
+        // TODO : value [1, 2, 3, ...] support
+        SignalId signalId{topic, msgDescriptor.signalName};
+        DataPackets dataPackets;
+        if (hasTS)
+            dataPackets = buildDataPackets(signalId, value, ts);
+        else
+            dataPackets = buildDataPackets(signalId, value);
+        res.emplace_back(std::move(signalId), std::move(dataPackets));
     }
     return res;
 }
@@ -312,24 +334,55 @@ MqttDataWrapper::buildDataPackets(const SignalId& signalId, double value, uint64
     }
 
     auto signal = signalIter->second;
-    auto domainSignal = signal.getDomainSignal();
 
-    if (domainSignal.assigned())
+    dataPackets.domainDataPacket = buildDomainDataPacket(signal, timestamp);
+    dataPackets.dataPacket = buildDataPacket(signal, value, dataPackets.domainDataPacket);
+
+    return dataPackets;
+}
+
+DataPackets
+MqttDataWrapper::buildDataPackets(const SignalId& signalId, double value)
+{
+    DataPackets dataPackets;
+    const auto signalIter = outputSignals->find(signalId);
+    if (signalIter == outputSignals->end())
     {
-        dataPackets.domainDataPacket = daq::DataPacket(signal.getDomainSignal().getDescriptor(), 1);
-        std::memcpy(dataPackets.domainDataPacket.getRawData(), &timestamp, sizeof(timestamp));
-        dataPackets.dataPacket =
-            DataPacketWithDomain(dataPackets.domainDataPacket, signal.getDescriptor(), 1);
+        return dataPackets;
+    }
+
+    auto signal = signalIter->second;
+    dataPackets.dataPacket = buildDataPacket(signal, value, daq::DataPacketPtr());
+
+    return dataPackets;
+}
+
+daq::DataPacketPtr MqttDataWrapper::buildDataPacket(daq::GenericSignalConfigPtr<> signalConfig, double value, const daq::DataPacketPtr domainPacket)
+{
+    daq::DataPacketPtr dataPacket;
+    if (signalConfig.getDomainSignal().assigned() && domainPacket.assigned())
+    {
+        dataPacket = DataPacketWithDomain(domainPacket, signalConfig.getDescriptor(), 1);
     }
     else
     {
-        dataPackets.dataPacket = DataPacket(signal.getDescriptor(), 1);
+        dataPacket = DataPacket(signalConfig.getDescriptor(), 1);
+    }
+    auto outputData = reinterpret_cast<daq::Float*>(dataPacket.getRawData());
+    *outputData = value;
+    return dataPacket;
+}
+
+daq::DataPacketPtr MqttDataWrapper::buildDomainDataPacket(daq::GenericSignalConfigPtr<> signalConfig, uint64_t timestamp)
+{
+    daq::DataPacketPtr dataPacket;
+    if (signalConfig.getDomainSignal().assigned())
+    {
+        dataPacket = daq::DataPacket(signalConfig.getDomainSignal().getDescriptor(), 1);
+        std::memcpy(dataPacket.getRawData(), &timestamp, sizeof(timestamp));
     }
 
-    auto outputData = reinterpret_cast<daq::Float*>(dataPackets.dataPacket.getRawData());
-    *outputData = value;
-
-    return dataPackets;
+    return dataPacket;
 }
 
 daq::UnitPtr MqttDataWrapper::extractSignalUnit(const rapidjson::Value& signalObj)
