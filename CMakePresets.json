@@ -96,7 +96,8 @@
             "hidden": true,
             "cacheVariables": {
                 "OPENDAQ_DEVICE_EXAMPLE_ENABLE_EXAMPLE_APPS": "true",
-                "OPENDAQ_MQTT_ENABLE_TESTS": "true"
+                "OPENDAQ_MQTT_ENABLE_TESTS": "true",
+                "OPENDAQ_MQTT_ENABLE_EXAMPLE_APPS": "true"
             }
         },
         {
