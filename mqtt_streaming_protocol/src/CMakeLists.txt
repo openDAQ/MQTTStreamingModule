@@ -8,12 +8,15 @@ set(SRC_PublicHeaders   MqttAsyncClient.h
 			MqttMessage.h
 			MqttSettings.h
                         MqttDataWrapper.h
+                        timestampConverter.h
 )
 
 set(INCLUDE_DIR ../include)
 prepend_include(${INCLUDE_DIR} SRC_PublicHeaders)
 
 source_group("include" FILES ${SRC_PublicHeaders})
+
+find_package(Boost REQUIRED COMPONENTS algorithm date_time)
 
 add_library(${LIB_NAME} STATIC ${SRC_Cpp}
                                ${SRC_PublicHeaders}
@@ -29,7 +32,7 @@ endif()
 
 target_include_directories(${LIB_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
                                               $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../include>
-                                              $<INSTALL_INTERFACE:include>
+                                              $<INSTALL_INTERFACE:include>                             
 )
 
 if(PAHO_WITH_SSL)
@@ -45,6 +48,8 @@ endif()
 target_link_libraries(${LIB_NAME} PUBLIC ${PAHO_LIB}
                                          daq::opendaq
                                          rapidjson
+                                  PRIVATE $<BUILD_INTERFACE:Boost::algorithm>
+                                          $<BUILD_INTERFACE:Boost::date_time>
 )
 
 if (WIN32)

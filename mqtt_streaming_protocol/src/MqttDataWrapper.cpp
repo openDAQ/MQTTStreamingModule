@@ -10,6 +10,8 @@
 
 #include <opendaq/custom_log.h>
 
+#include <timestampConverter.h>
+
 namespace mqtt
 {
 
@@ -244,7 +246,12 @@ std::vector<std::pair<SignalId, DataPackets>> MqttDataWrapper::extractDataSample
                     if (jsonDocument[name].IsInt() || jsonDocument[name].IsUint64() ||
                         jsonDocument[name].IsInt64())
                     {
-                        ts = jsonDocument[name].GetUint64();
+                        ts = utils::numericToMicroseconds(jsonDocument[name].GetUint64());
+                        successCnt++;
+                    }
+                    else if (jsonDocument[name].IsString())
+                    {
+                        ts = utils::toUnixTicks(jsonDocument[name].GetString());
                         successCnt++;
                     }
                     else
