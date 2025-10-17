@@ -8,4 +8,6 @@ message(STATUS "${MQTT_STREAMING_PROTOCOL_PRJ_NAME} version: ${MQTT_STREAMING_PR
 project(${MQTT_STREAMING_PROTOCOL_PRJ_NAME} VERSION ${MQTT_STREAMING_PROTOCOL_VERSION} LANGUAGES C CXX)
 
 add_subdirectory(src)
-add_subdirectory(tests)
+if (OPENDAQ_MQTT_ENABLE_TESTS)
+    add_subdirectory(tests)
+endif()
