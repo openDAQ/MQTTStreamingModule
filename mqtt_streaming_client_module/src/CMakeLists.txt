@@ -36,6 +36,8 @@ source_group("functionalBlock" FILES ${MODULE_HEADERS_DIR}/mqtt_receiver_fb_impl
                             mqtt_receiver_fb_impl.cpp
 )
 
+find_package(Boost REQUIRED COMPONENTS algorithm)
+
 add_library(${LIB_NAME} SHARED ${SRC_Include}
                                ${SRC_Srcs}
 )
@@ -47,13 +49,12 @@ endif()
 
 target_link_libraries(${LIB_NAME} PUBLIC  daq::opendaq
                                   PRIVATE mqtt_streaming_protocol
-                                          $<BUILD_INTERFACE:Boost::uuid>
+                                          $<BUILD_INTERFACE:Boost::algorithm>
 )
 
 target_include_directories(${LIB_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
                                               $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../include>
                                               $<INSTALL_INTERFACE:include>
-                                              ${Boost_INCLUDE_DIRS}
 )
 
 opendaq_set_module_properties(${LIB_NAME} ${PROJECT_VERSION_MAJOR})

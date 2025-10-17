@@ -15,6 +15,8 @@ prepend_include(${INCLUDE_DIR} SRC_PublicHeaders)
 
 source_group("include" FILES ${SRC_PublicHeaders})
 
+find_package(Boost REQUIRED COMPONENTS algorithm)
+
 add_library(${LIB_NAME} STATIC ${SRC_Cpp}
                                ${SRC_PublicHeaders}
 )
@@ -45,6 +47,7 @@ endif()
 target_link_libraries(${LIB_NAME} PUBLIC ${PAHO_LIB}
                                          daq::opendaq
                                          rapidjson
+                                  PRIVATE $<BUILD_INTERFACE:Boost::algorithm>
 )
 
 if (WIN32)
