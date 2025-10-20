@@ -16,6 +16,7 @@ set(PAHO_WITH_SSL ON CACHE BOOL "Enable SSL support" FORCE)
 set(PAHO_BUILD_STATIC ON CACHE BOOL "Build static paho library" FORCE)
 set(PAHO_BUILD_SHARED OFF CACHE BOOL "Build dynamic paho library" FORCE)
 set(CMAKE_POSITION_INDEPENDENT_CODE ${PAHO_BUILD_STATIC} CACHE BOOL "" FORCE)
+set(PAHO_ENABLE_TESTING ${OPENDAQ_MQTT_ENABLE_TESTS} CACHE BOOL "" FORCE)
 
 # Now add the project
 add_subdirectory(${paho_mqtt_c_SOURCE_DIR} ${paho_mqtt_c_BINARY_DIR})
