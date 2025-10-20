@@ -39,6 +39,8 @@ if(OPENDAQ_DEVICE_EXAMPLE_ENABLE_EXAMPLE_APPS)
 	set(DAQMODULES_REF_DEVICE_MODULE ON CACHE BOOL "" FORCE)
 endif()
 
+option(OPENDAQ_MQTT_ENABLE_TESTS "Enable module testing" OFF)
+option(OPENDAQ_MQTT_ENABLE_EXAMPLE_APPS "Enable example applications building" OFF)
 
 find_package(OpenSSL REQUIRED)
 if (OPENSSL_FOUND)
