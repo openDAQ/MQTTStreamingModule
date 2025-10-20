@@ -1,65 +1,54 @@
-#include <mqtt_streaming_server_module/mqtt_streaming_server_impl.h>
-#include <coretypes/impl.h>
-#include <coreobjects/property_object_factory.h>
 #include <coreobjects/property_factory.h>
-#include <opendaq/server_type_factory.h>
-#include <opendaq/device_private.h>
-#include <opendaq/reader_factory.h>
-#include <opendaq/search_filter_factory.h>
+#include <coreobjects/property_object_factory.h>
+#include <coretypes/impl.h>
+#include <mqtt_streaming_server_module/mqtt_streaming_server_impl.h>
 #include <opendaq/custom_log.h>
-#include <opendaq/event_packet_ids.h>
 #include <opendaq/device_info_factory.h>
 #include <opendaq/device_info_internal_ptr.h>
+#include <opendaq/device_private.h>
+#include <opendaq/event_packet_ids.h>
+#include <opendaq/reader_factory.h>
+#include <opendaq/search_filter_factory.h>
+#include <opendaq/server_type_factory.h>
 
 #include <boost/asio/dispatch.hpp>
 #include <opendaq/input_port_factory.h>
 #include <opendaq/thread_name.h>
 
-
-#include <rapidjson/document.h>
-#include <mqtt_streaming_server_module/constants.h>
 #include <MqttDataWrapper.h>
+#include <mqtt_streaming_server_module/constants.h>
+#include <rapidjson/document.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_SERVER_MODULE
 using namespace daq;
 
-MqttStreamingServerImpl::MqttStreamingServerImpl(const DevicePtr &rootDevice,
-                                                 const PropertyObjectPtr &config,
-                                                 const ContextPtr &context)
-    : Server(SERVER_ID_AND_CAPABILITY, config, rootDevice, context)
-    , signals(List<ISignal>())
-    , rootDeviceGlobalId(rootDevice.getGlobalId().toStdString())
-    , logger(context.getLogger())
-    , loggerComponent(logger.getOrAddComponent(id))
-    , serverStopped(false)
-    , publisher()
-    , connectionSettings({DEFAULT_BROKER_ADDRESS,
-                          DEFAULT_PORT,
-                          DEFAULT_USERNAME,
-                          DEFAULT_PASSWORD,
-                          rootDevice.getGlobalId().toStdString()})
+MqttStreamingServerImpl::MqttStreamingServerImpl(const DevicePtr& rootDevice, const PropertyObjectPtr& config, const ContextPtr& context)
+    : Server(SERVER_ID_AND_CAPABILITY, config, rootDevice, context),
+      signals(List<ISignal>()),
+      rootDeviceGlobalId(rootDevice.getGlobalId().toStdString()),
+      logger(context.getLogger()),
+      loggerComponent(logger.getOrAddComponent(id)),
+      serverStopped(false),
+      publisher(),
+      connectionSettings({DEFAULT_BROKER_ADDRESS, DEFAULT_PORT, DEFAULT_USERNAME, DEFAULT_PASSWORD, rootDevice.getGlobalId().toStdString()})
 {
     auto info = rootDevice.getInfo();
     if (info.hasServerCapability(SERVER_ID_AND_CAPABILITY))
         DAQ_THROW_EXCEPTION(InvalidStateException,
-                            fmt::format("Device \"{}\" already has an {} server capability.",
-                                        info.getName(),
-                                        SERVER_ID_AND_CAPABILITY));
+                            fmt::format("Device \"{}\" already has an {} server capability.", info.getName(), SERVER_ID_AND_CAPABILITY));
 
     readMqttSettings();
 
-    ServerCapabilityConfigPtr serverCapabilityStreaming = ServerCapability(SERVER_ID_AND_CAPABILITY,
-                                                                           SERVER_ID_AND_CAPABILITY,
-                                                                           ProtocolType::Streaming)
-                                                              .setPrefix(MQTT_PREFIX)
-                                                              .setConnectionType(CONNECTION_TYPE)
-                                                              .setPort(connectionSettings.port);
+    ServerCapabilityConfigPtr serverCapabilityStreaming =
+        ServerCapability(SERVER_ID_AND_CAPABILITY, SERVER_ID_AND_CAPABILITY, ProtocolType::Streaming)
+            .setPrefix(MQTT_PREFIX)
+            .setConnectionType(CONNECTION_TYPE)
+            .setPort(connectionSettings.port);
 
     info.asPtr<IDeviceInfoInternal>(true).addServerCapability(serverCapabilityStreaming);
 
     maxPacketReadCount = config.getPropertyValue(PROPERTY_NAME_MAX_PACKET_READ_COUNT);
-    processingThreadSleepTime = std::chrono::milliseconds(
-        config.getPropertyValue(PROPERTY_NAME_POLLING_PERIOD));
+    processingThreadSleepTime = std::chrono::milliseconds(config.getPropertyValue(PROPERTY_NAME_POLLING_PERIOD));
 
     buffer.data.resize(maxPacketReadCount);
     buffer.timestamps.resize(maxPacketReadCount);
@@ -92,11 +81,14 @@ void MqttStreamingServerImpl::sendData(const std::string& topic, const ChannelDa
         return;
 
     const auto jsonMessages = prepareJsonMessages(data, readAmount);
-    if (publisher.isConnected() == mqtt::MqttConnectionStatus::connected) {
-        for (const auto& jsonMessage : jsonMessages) {
+    if (publisher.isConnected() == mqtt::MqttConnectionStatus::connected)
+    {
+        for (const auto& jsonMessage : jsonMessages)
+        {
             std::string err;
-            auto status = publisher.publish(topic, (void*) jsonMessage.c_str(), jsonMessage.length(), &err);
-            if (!status) {
+            auto status = publisher.publish(topic, (void*)jsonMessage.c_str(), jsonMessage.length(), &err);
+            if (!status)
+            {
                 LOG_W("Failed to publish data to {}; reason - {}", topic, err);
             }
         }
@@ -107,7 +99,8 @@ std::vector<std::string> MqttStreamingServerImpl::prepareJsonMessages(const Chan
 {
     std::vector<std::string> result;
 
-    for (size_t i = 0; i < dataAmount; ++i) {
+    for (size_t i = 0; i < dataAmount; ++i)
+    {
         result.emplace_back(mqtt::MqttDataWrapper::serializeSampleData({data.data[i], data.timestamps[i]}));
     }
 
@@ -123,11 +116,15 @@ void MqttStreamingServerImpl::sendTopicList()
 {
     std::string topic = mqtt::MqttDataWrapper::buildSignalsTopic(rootDeviceGlobalId);
     auto topicsMessage = prepareJsonTopics();
-    if (publisher.isConnected() == mqtt::MqttConnectionStatus::connected) {
-        bool status = publisher.publish(topic, (void*) topicsMessage.c_str(), topicsMessage.length(), nullptr, 1, nullptr, true);
-        if (!status) {
+    if (publisher.isConnected() == mqtt::MqttConnectionStatus::connected)
+    {
+        bool status = publisher.publish(topic, (void*)topicsMessage.c_str(), topicsMessage.length(), nullptr, 1, nullptr, true);
+        if (!status)
+        {
             LOG_W("Failed to publish topics list to {}", topic);
-        } else {
+        }
+        else
+        {
             topicsAreSent = true;
         }
     }
@@ -163,16 +160,12 @@ void MqttStreamingServerImpl::processingThreadFunc()
                         continue;
                     daq::SizeT readAmount = maxPacketReadCount;
                     reader.readWithDomain(buffer.data.data(), buffer.timestamps.data(), &readAmount);
-                    sendData(mqtt::MqttDataWrapper::buildTopicFromId(
-                                 signals[i].getGlobalId().toStdString()),
-                             buffer,
-                             readAmount);
+                    sendData(mqtt::MqttDataWrapper::buildTopicFromId(signals[i].getGlobalId().toStdString()), buffer, readAmount);
 
                     if (reader.getAvailableCount() > 0)
                         hasPacketsToRead = true;
                 }
-            }
-            while(hasPacketsToRead);
+            } while (hasPacketsToRead);
         }
 
         std::this_thread::sleep_for(processingThreadSleepTime);
@@ -232,11 +225,13 @@ void MqttStreamingServerImpl::connectSignalReaders()
 
 bool MqttStreamingServerImpl::isSignalCompatible(const SignalPtr& signal)
 {
-    if (!signal.getDomainSignal().assigned()) {
+    if (!signal.getDomainSignal().assigned())
+    {
         LOG_I("Signal {} doesn't has domain signal assigned, skipping", signal.getGlobalId().toStdString());
         return false;
     }
-    if (!signal.getDescriptor().assigned()) {
+    if (!signal.getDescriptor().assigned())
+    {
         LOG_I("Signal {} doesn't has descriptor assigned, skipping", signal.getGlobalId().toStdString());
         return false;
     }
@@ -246,23 +241,16 @@ bool MqttStreamingServerImpl::isSignalCompatible(const SignalPtr& signal)
         return false;
     }
     if (const auto sampleType = signal.getDescriptor().getSampleType();
-        sampleType != SampleType::Float64 &&
-        sampleType != SampleType::Float32 &&
-        sampleType != SampleType::Int8 &&
-        sampleType != SampleType::Int16 &&
-        sampleType != SampleType::Int32 &&
-        sampleType != SampleType::Int64 &&
-        sampleType != SampleType::UInt8 &&
-        sampleType != SampleType::UInt16 &&
-        sampleType != SampleType::UInt32 &&
+        sampleType != SampleType::Float64 && sampleType != SampleType::Float32 && sampleType != SampleType::Int8 &&
+        sampleType != SampleType::Int16 && sampleType != SampleType::Int32 && sampleType != SampleType::Int64 &&
+        sampleType != SampleType::UInt8 && sampleType != SampleType::UInt16 && sampleType != SampleType::UInt32 &&
         sampleType != SampleType::UInt64)
     {
         LOG_I("Signal {} has uncompatible sample type, skipping", signal.getGlobalId().toStdString());
         return false;
     }
     if (const auto domainSampleType = signal.getDomainSignal().getDescriptor().getSampleType();
-        domainSampleType != SampleType::Int64 &&
-        domainSampleType != SampleType::UInt64)
+        domainSampleType != SampleType::Int64 && domainSampleType != SampleType::UInt64)
     {
         LOG_I("Signal {} has uncompatible domain signal sample type, skipping", signal.getGlobalId().toStdString());
         return false;
@@ -289,7 +277,7 @@ void MqttStreamingServerImpl::populateDefaultConfigFromProvider(const ContextPtr
 
 PropertyObjectPtr MqttStreamingServerImpl::createDefaultConfig(const ContextPtr& context)
 {
-    //auto defaultConfig = MqttStreamingServerHandler::createDefaultConfig();
+    // auto defaultConfig = MqttStreamingServerHandler::createDefaultConfig();
     auto defaultConfig = PropertyObject();
 
     const auto pollingPeriodProp = IntPropertyBuilder(PROPERTY_NAME_POLLING_PERIOD, DEFAULT_POLLING_PERIOD)
@@ -302,35 +290,29 @@ PropertyObjectPtr MqttStreamingServerImpl::createDefaultConfig(const ContextPtr&
     defaultConfig.addProperty(pollingPeriodProp);
 
     const auto maxPacketReadCountProp = IntPropertyBuilder(PROPERTY_NAME_MAX_PACKET_READ_COUNT, DEFAULT_MAX_PACKET_READ_COUNT)
-                                                .setMinValue(1)
-                                                .setDescription("Specifies the size of a pre-allocated packet buffer into "
-                                                                "which packets are dequeued. The size determines the amount of "
-                                                                "packets that can be read in one dequeue call. Should be greater "
-                                                                "than the amount of packets generated per polling period for best "
-                                                                "performance.")
-                                                .build();
+                                            .setMinValue(1)
+                                            .setDescription("Specifies the size of a pre-allocated packet buffer into "
+                                                            "which packets are dequeued. The size determines the amount of "
+                                                            "packets that can be read in one dequeue call. Should be greater "
+                                                            "than the amount of packets generated per polling period for best "
+                                                            "performance.")
+                                            .build();
     defaultConfig.addProperty(maxPacketReadCountProp);
 
-    const auto url = StringPropertyBuilder(PROPERTY_NAME_MQTT_BROKER_ADDRESS, DEFAULT_BROKER_ADDRESS)
-                          .setDescription("")
-                          .build();
+    const auto url = StringPropertyBuilder(PROPERTY_NAME_MQTT_BROKER_ADDRESS, DEFAULT_BROKER_ADDRESS).setDescription("").build();
     defaultConfig.addProperty(url);
 
     const auto port = IntPropertyBuilder(PROPERTY_NAME_MQTT_BROKER_PORT, DEFAULT_PORT)
-                                            .setMinValue(1)
-                                            .setMaxValue(65535)
-                                            .setDescription("Port is not used")
-                                            .build();
+                          .setMinValue(1)
+                          .setMaxValue(65535)
+                          .setDescription("Port is not used")
+                          .build();
     defaultConfig.addProperty(port);
 
-    const auto username = StringPropertyBuilder(PROPERTY_NAME_MQTT_USERNAME, DEFAULT_USERNAME)
-                              .setDescription("")
-                              .build();
+    const auto username = StringPropertyBuilder(PROPERTY_NAME_MQTT_USERNAME, DEFAULT_USERNAME).setDescription("").build();
     defaultConfig.addProperty(username);
 
-    const auto password = StringPropertyBuilder(PROPERTY_NAME_MQTT_PASSWORD, DEFAULT_PASSWORD)
-                         .setDescription("")
-                         .build();
+    const auto password = StringPropertyBuilder(PROPERTY_NAME_MQTT_PASSWORD, DEFAULT_PASSWORD).setDescription("").build();
     defaultConfig.addProperty(password);
 
     populateDefaultConfigFromProvider(context, defaultConfig);
@@ -352,11 +334,10 @@ PropertyObjectPtr MqttStreamingServerImpl::populateDefaultConfig(const PropertyO
 
 ServerTypePtr MqttStreamingServerImpl::createType(const ContextPtr& context)
 {
-    return ServerType(
-        SERVER_ID_AND_CAPABILITY,
-        "openDAQ MQTT Streaming server",
-        "Streams data over MQTT",
-        MqttStreamingServerImpl::createDefaultConfig(context));
+    return ServerType(SERVER_ID_AND_CAPABILITY,
+                      "openDAQ MQTT Streaming server",
+                      "Streams data over MQTT",
+                      MqttStreamingServerImpl::createDefaultConfig(context));
 }
 
 void MqttStreamingServerImpl::onStopServer()
@@ -369,18 +350,14 @@ void MqttStreamingServerImpl::addReader(SignalPtr signalToRead)
     std::scoped_lock lock(readersSync);
     signals.pushBack(signalToRead);
     streamReaders.emplace_back(StreamReaderBuilder()
-                                    .setSignal(signalToRead)
-                                    .setValueReadType(SampleType::Float64)
-                                    .setDomainReadType(SampleType::Int64)
-                                    .setSkipEvents(true)
-                                    .build());
+                                   .setSignal(signalToRead)
+                                   .setValueReadType(SampleType::Float64)
+                                   .setDomainReadType(SampleType::Int64)
+                                   .setSkipEvents(true)
+                                   .build());
 }
 
 OPENDAQ_DEFINE_CLASS_FACTORY_WITH_INTERFACE(
-    INTERNAL_FACTORY, MqttStreamingServer, daq::IServer,
-    daq::DevicePtr, rootDevice,
-    PropertyObjectPtr, config,
-    const ContextPtr&, context
-)
+    INTERNAL_FACTORY, MqttStreamingServer, daq::IServer, daq::DevicePtr, rootDevice, PropertyObjectPtr, config, const ContextPtr&, context)
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_SERVER_MODULE

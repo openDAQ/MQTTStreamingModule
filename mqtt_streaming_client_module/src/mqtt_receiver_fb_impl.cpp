@@ -1,7 +1,10 @@
-#include <mqtt_streaming_client_module/mqtt_receiver_fb_impl.h>
+#include "MqttDataWrapper.h"
+#include "mqtt_streaming_client_module/constants.h"
 #include "opendaq/data_packet_ptr.h"
 #include "opendaq/packet_factory.h"
+#include <boost/algorithm/string.hpp>
 #include <coreobjects/eval_value_factory.h>
+#include <mqtt_streaming_client_module/mqtt_receiver_fb_impl.h>
 #include <opendaq/custom_log.h>
 #include <opendaq/data_descriptor_ptr.h>
 #include <opendaq/event_packet_params.h>
@@ -10,9 +13,6 @@
 #include <opendaq/reusable_data_packet_ptr.h>
 #include <opendaq/signal_factory.h>
 #include <rapidjson/document.h>
-#include <boost/algorithm/string.hpp>
-#include "mqtt_streaming_client_module/constants.h"
-#include "MqttDataWrapper.h"
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 
@@ -22,8 +22,8 @@ MqttReceiverFbImpl::MqttReceiverFbImpl(const ContextPtr& ctx,
                                        const StringPtr& localId,
                                        std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                        const PropertyObjectPtr& config)
-    : FunctionBlock(type, ctx, parent, localId)
-    , subscriber(subscriber)
+    : FunctionBlock(type, ctx, parent, localId),
+      subscriber(subscriber)
 {
     initComponentStatus();
 
@@ -35,7 +35,9 @@ MqttReceiverFbImpl::MqttReceiverFbImpl(const ContextPtr& ctx,
 
     for (const auto& topic : subscribedSignals.getKeys())
     {
-        subscriber->setMessageArrivedCb(topic, std::bind(&MqttReceiverFbImpl::onSignalsMessage, this, std::placeholders::_1, std::placeholders::_2));
+        subscriber
+            ->setMessageArrivedCb(topic,
+                                  std::bind(&MqttReceiverFbImpl::onSignalsMessage, this, std::placeholders::_1, std::placeholders::_2));
         auto ok = subscriber->subscribe(topic, 1);
         if (!ok)
             LOG_W("Failed to subscribe to the topic: {}", topic);
@@ -94,7 +96,8 @@ void MqttReceiverFbImpl::createDataPacket(const std::string& topic, double value
     auto lock = std::lock_guard<std::mutex>(sync);
     auto signalIter = outputSignals.find(topic);
     auto dSignalIter = outputDomainSignals.find(topic);
-    if (signalIter == outputSignals.end() || dSignalIter == outputDomainSignals.end()) {
+    if (signalIter == outputSignals.end() || dSignalIter == outputDomainSignals.end())
+    {
         return;
     }
     auto signal = signalIter->second;
@@ -115,10 +118,14 @@ void MqttReceiverFbImpl::parseMessage(mqtt::MqttMessage& msg)
     std::string topic(msg.getTopic());
     std::string jsonObjStr(msg.getData().begin(), msg.getData().end());
     auto [status, data] = mqtt::MqttDataWrapper::parseSampleData(jsonObjStr);
-    if (status.ok) {
+    if (status.ok)
+    {
         createDataPacket(topic, data.value, data.timestamp);
-    } else {
-        for (const auto& s : status.msg) {
+    }
+    else
+    {
+        for (const auto& s : status.msg)
+        {
             LOG_W("Data parsing: {}", s);
         }
     }
@@ -134,23 +141,26 @@ void MqttReceiverFbImpl::createSignals()
         boost::replace_all(signalName, "/", "_");
 
         auto signalDsc = descriptor;
-        auto getEpoch = []()  ->std::string {
+        auto getEpoch = []() -> std::string
+        {
             const std::time_t epochTime = std::chrono::system_clock::to_time_t(std::chrono::time_point<std::chrono::system_clock>{});
             char buf[48];
             strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%SZ", gmtime(&epochTime));
-            return { buf };
+            return {buf};
         };
 
-        const auto domainSignalDsc =
-            DataDescriptorBuilder()
-                .setSampleType(SampleType::UInt64)
-                .setUnit(Unit("s", -1, "seconds", "time"))
-                .setTickResolution(Ratio(1, 1'000'000))
-                .setOrigin(getEpoch())
-                .setName("Time").build();
+        const auto domainSignalDsc = DataDescriptorBuilder()
+                                         .setSampleType(SampleType::UInt64)
+                                         .setUnit(Unit("s", -1, "seconds", "time"))
+                                         .setTickResolution(Ratio(1, 1'000'000))
+                                         .setOrigin(getEpoch())
+                                         .setName("Time")
+                                         .build();
 
         auto refS = outputSignals.emplace(std::make_pair(topic, createAndAddSignal(buildSignalNameFromTopic(topic), signalDsc))).first;
-        auto refSD = outputDomainSignals.emplace(std::make_pair(topic, createAndAddSignal(buildDomainSignalNameFromTopic(topic), domainSignalDsc, false))).first;
+        auto refSD = outputDomainSignals
+                         .emplace(std::make_pair(topic, createAndAddSignal(buildDomainSignalNameFromTopic(topic), domainSignalDsc, false)))
+                         .first;
         refS->second->setDomainSignal(refSD->second);
     }
 }
