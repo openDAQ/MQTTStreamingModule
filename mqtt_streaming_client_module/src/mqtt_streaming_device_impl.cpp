@@ -159,7 +159,6 @@ FunctionBlockPtr MqttStreamingDeviceImpl::onAddFunctionBlock(const StringPtr& ty
 {
     FunctionBlockPtr nestedFunctionBlock;
     {
-        auto lock = this->getAcquisitionLock();
         if (fbTypes.hasKey(typeId))
         {
             auto fbTypePtr = fbTypes.getOrDefault(typeId);
