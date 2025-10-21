@@ -1,31 +1,27 @@
-set(BASE_NAME mqtt_streaming_protocol)
-set(LIB_NAME ${BASE_NAME})
+set(LIB_NAME mqtt_streaming_protocol)
 
-set(SRC_Cpp MqttAsyncPublisher.cpp
-            MqttAsyncSubscriber.cpp
+set(SRC_Cpp MqttAsyncClient.cpp
+            MqttDataWrapper.cpp
 )
 
-set(SRC_PublicHeaders   IMqttBase.h
-			IMqttPublisher.h
-			MqttAsyncPublisher.h
-			IMqttSubscriber.h
-			MqttAsyncSubscriber.h
-			MQTTClientType.h
+set(SRC_PublicHeaders   MqttAsyncClient.h
 			MqttMessage.h
+			MqttSettings.h
+                        MqttDataWrapper.h
 )
 
 set(INCLUDE_DIR ../include)
 prepend_include(${INCLUDE_DIR} SRC_PublicHeaders)
 
+source_group("include" FILES ${SRC_PublicHeaders})
 
-set(SRC_PrivateHeaders )
+find_package(Boost REQUIRED COMPONENTS algorithm)
 
 add_library(${LIB_NAME} STATIC ${SRC_Cpp}
                                ${SRC_PublicHeaders}
-                               ${SRC_PrivateHeaders}
 )
 
-add_library(${SDK_TARGET_NAMESPACE}::${BASE_NAME} ALIAS ${LIB_NAME})
+add_library(${SDK_TARGET_NAMESPACE}::${LIB_NAME} ALIAS ${LIB_NAME})
 
 if(BUILD_64Bit OR BUILD_ARM)
     set_target_properties(${LIB_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -48,8 +44,11 @@ if(PAHO_BUILD_STATIC)
 	set(PAHO_LIB ${PAHO_LIB}-static)
 endif()
 
-target_link_libraries(${LIB_NAME} PUBLIC ${PAHO_LIB})
-target_link_libraries(${LIB_NAME} PUBLIC rapidjson)
+target_link_libraries(${LIB_NAME} PUBLIC ${PAHO_LIB}
+                                         daq::opendaq
+                                         rapidjson
+                                  PRIVATE $<BUILD_INTERFACE:Boost::algorithm>
+)
 
 if (WIN32)
     target_link_libraries(${LIB_NAME} PUBLIC

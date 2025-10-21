@@ -1,4 +1,4 @@
-﻿# CMakeList.txt : CMake project for OpenDAQHistorianFB, include source and define
+﻿# CMakeList.txt : CMake project for MQTTStreamingModule, include source and define
 # project specific logic here.
 #
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
@@ -32,6 +32,12 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 option(OPENDAQ_DEVICE_EXAMPLE_ENABLE_EXAMPLE_APPS "Enable building example applications" OFF)
 
+if ((CMAKE_COMPILER_IS_GNUCXX OR CMAKE_COMPILER_IS_CLANGXX) AND NOT MSVC)
+    if (NOT WIN32)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+    endif()
+endif()
+
 include(CommonUtils)
 setup_repo(${REPO_OPTION_PREFIX})
 
@@ -39,6 +45,8 @@ if(OPENDAQ_DEVICE_EXAMPLE_ENABLE_EXAMPLE_APPS)
 	set(DAQMODULES_REF_DEVICE_MODULE ON CACHE BOOL "" FORCE)
 endif()
 
+option(OPENDAQ_MQTT_ENABLE_TESTS "Enable module testing" OFF)
+option(OPENDAQ_MQTT_ENABLE_EXAMPLE_APPS "Enable example applications building" OFF)
 
 find_package(OpenSSL REQUIRED)
 if (OPENSSL_FOUND)
@@ -50,30 +58,9 @@ endif()
 add_subdirectory(external)
 add_subdirectory(mqtt_streaming_protocol)
 add_subdirectory(mqtt_streaming_server_module)
+add_subdirectory(mqtt_streaming_client_module)
 
 if(OPENDAQ_DEVICE_EXAMPLE_ENABLE_EXAMPLE_APPS)
     message(STATUS "Example applications have been enabled")
     add_subdirectory(examples)
 endif()
-
-
-
-# Set CPack variables
-set(CPACK_COMPONENTS_ALL RUNTIME)
-set(CPACK_PROJECT_NAME ${PROJECT_NAME})
-set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
-set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
-set(CPACK_OUTPUT_FILE_PREFIX "${CMAKE_BINARY_DIR}/package")
-
-# Set the CPack generator based on the platform
-if (WIN32)
-    set(CPACK_GENERATOR "ZIP")
-elseif (UNIX AND NOT APPLE)
-    cmake_host_system_information(RESULT DISTRO_ID QUERY DISTRIB_ID)
-    cmake_host_system_information(RESULT DISTRO_VERSION_ID QUERY DISTRIB_VERSION_ID)
-    set(CPACK_SYSTEM_NAME "${DISTRO_ID}${DISTRO_VERSION_ID}")
-    set(CPACK_GENERATOR "TGZ")
-endif()
-
-# Include CPack for packaging
-include(CPack)

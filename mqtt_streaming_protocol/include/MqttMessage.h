@@ -11,10 +11,24 @@ namespace mqtt
 class MqttMessage
 {
 public:
-    void setToken(int token)
+    MqttMessage() = default;
+    MqttMessage(std::string topic, std::vector<uint8_t> data, int qos, bool retained)
+        : topic(topic)
+        , data(data)
+        , qos(qos)
+        , retained(retained)
+    {}
+    bool operator==(const MqttMessage &other) const
     {
-        this->token = token;
+        return topic == other.topic && data == other.data && qos == other.qos;
     }
+
+    bool operator!=(const MqttMessage &other) const
+    {
+        return !(*this == other);
+    }
+
+    void setToken(int token) { this->token = token; }
 
     int getToken()
     {
@@ -33,6 +47,11 @@ public:
     }
 
     std::vector<uint8_t>& getData()
+    {
+        return data;
+    }
+
+    const std::vector<uint8_t>& getData() const
     {
         return data;
     }
