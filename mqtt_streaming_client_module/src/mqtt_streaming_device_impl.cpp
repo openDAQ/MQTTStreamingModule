@@ -17,6 +17,8 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 
 std::atomic<int> MqttStreamingDeviceImpl::localIndex = 0;
 
+constexpr int MQTT_CLIENT_SYNC_DISCONNECT_TOUT = 3000;
+
 MqttStreamingDeviceImpl::MqttStreamingDeviceImpl(const ContextPtr& ctx, const ComponentPtr& parent, const PropertyObjectPtr& config)
     : Device(ctx, parent, getLocalId()),
       connectionStatus(Enumeration("ConnectionStatusType", "Connected", this->context.getTypeManager())),
@@ -37,7 +39,7 @@ MqttStreamingDeviceImpl::MqttStreamingDeviceImpl(const ContextPtr& ctx, const Co
 
     initComponentStatus();
 
-    setupMqttSubscriber();
+    initMqttSubscriber();
     if (!waitForConnection(initTimeout))
     {
         LOG_E("MQTT: could not connect to MQTT broker within {} ms", initTimeout);
@@ -50,6 +52,9 @@ MqttStreamingDeviceImpl::MqttStreamingDeviceImpl(const ContextPtr& ctx, const Co
 
 void MqttStreamingDeviceImpl::removed()
 {
+    bool disRes = subscriber->syncDisconnect(MQTT_CLIENT_SYNC_DISCONNECT_TOUT);
+    if (!disRes)
+        LOG_E("MQTT: disconnection was unsuccessful");
     Device::removed();
 }
 
@@ -58,9 +63,8 @@ DeviceInfoPtr MqttStreamingDeviceImpl::onGetInfo()
     return DeviceInfo(connectionString, MQTT_DEVICE_NAME);
 }
 
-void MqttStreamingDeviceImpl::setupMqttSubscriber()
+void MqttStreamingDeviceImpl::initMqttSubscriber()
 {
-    subscriber->disconnect();
     subscriber->setServerURL(connectionSettings.mqttUrl);
     subscriber->setClientId(connectionSettings.clientId);
     subscriber->setUsernamePasswrod(connectionSettings.username, connectionSettings.password);

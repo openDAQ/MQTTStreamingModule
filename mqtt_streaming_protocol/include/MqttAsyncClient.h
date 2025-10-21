@@ -40,6 +40,7 @@ public:
 
     bool connect();
     bool disconnect();
+    bool syncDisconnect(int timeoutMs);
 
     bool publish(const std::string &topic,
                  void *data,
@@ -84,6 +85,7 @@ private:
     std::function<void()> onConnectedCb;
     std::function<void(int, bool)> onSentCb;
     std::function<void(bool)> onDisconnectCb;
+    std::function<void(bool)> onInternalDisconnectCb;
     std::function<void(int)> onDeliveryCompletedCb;
     std::function<MsgArrivedCb_type> onMsgArrivedCmnCb;
     std::unordered_map<std::string, std::function<MsgArrivedCb_type>> onMsgArrivedCbs;

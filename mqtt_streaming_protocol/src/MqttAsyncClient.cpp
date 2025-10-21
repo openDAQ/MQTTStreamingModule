@@ -1,4 +1,5 @@
 #include "MqttAsyncClient.h"
+#include <future>
 
 namespace mqtt
 {
@@ -90,8 +91,47 @@ bool MqttAsyncClient::connect()
 
 bool MqttAsyncClient::disconnect()
 {
+    if (client == nullptr)
+        return true;
+
     // It is only the result of the request to disconnect (queuing)
-    return MQTTAsync_disconnect(client, &disconnOpts) == MQTTASYNC_SUCCESS;
+    auto status = MQTTAsync_disconnect(client, &disconnOpts);
+    bool result = (status == MQTTASYNC_SUCCESS || status == MQTTASYNC_DISCONNECTED);
+    return result;
+}
+
+bool MqttAsyncClient::syncDisconnect(int timeoutMs)
+{
+    if (client == nullptr)
+        return true;
+
+    bool result = disconnect();
+    if (result)
+    {
+        std::atomic<bool> done{false};
+        std::promise<bool> disconnectedPromise;
+        auto disconnectedFuture = disconnectedPromise.get_future();
+        {
+            auto lock = getCbLock();
+            onInternalDisconnectCb = [promise = &disconnectedPromise, &done](bool result) {
+                bool expected = false;
+                if (done.compare_exchange_strong(expected, true)) {
+                    promise->set_value(result);
+                }
+            };
+        }
+        auto status = disconnectedFuture.wait_for(std::chrono::milliseconds(timeoutMs));
+        {
+            auto lock = getCbLock();
+            onInternalDisconnectCb = nullptr;
+        }
+        if (status == std::future_status::ready && disconnectedFuture.get() == true)
+        {
+            MQTTAsync_destroy(&client);
+            return true;
+        }
+    }
+    return false;
 }
 
 MqttConnectionStatus MqttAsyncClient::isConnected() const
@@ -336,6 +376,8 @@ void MqttAsyncClient::onDisconnectSuccess(void* context, MQTTAsync_successData* 
     {
         auto clienttInst = (MqttAsyncClient*)context;
         auto lock = clienttInst->getCbLock();
+        if (clienttInst->onInternalDisconnectCb)
+            clienttInst->onInternalDisconnectCb(true);
         if (clienttInst->onDisconnectCb)
             clienttInst->onDisconnectCb(true);
     }
@@ -348,6 +390,8 @@ void MqttAsyncClient::onDisconnectFailure(void* context, MQTTAsync_failureData* 
     {
         auto clienttInst = (MqttAsyncClient*)context;
         auto lock = clienttInst->getCbLock();
+        if (clienttInst->onInternalDisconnectCb)
+            clienttInst->onInternalDisconnectCb(false);
         if (clienttInst->onDisconnectCb)
             clienttInst->onDisconnectCb(false);
     }

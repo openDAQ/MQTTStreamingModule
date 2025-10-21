@@ -47,7 +47,7 @@ protected:
     DictPtr<IString, IFunctionBlockType> onGetAvailableFunctionBlockTypes() override;
     FunctionBlockPtr onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config) override;
 
-    void setupMqttSubscriber();
+    void initMqttSubscriber();
     bool waitForConnection(const int timeoutMs);
     void receiveSignalTopics(const int timeoutMs);
     void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg);
