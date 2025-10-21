@@ -32,8 +32,6 @@ source_group("module" FILES ${MODULE_HEADERS_DIR}/mqtt_streaming_server_module_i
                             mqtt_streaming_server_impl.cpp
 )
 
-find_package(Boost REQUIRED COMPONENTS asio)
-
 add_library(${LIB_NAME} SHARED ${SRC_Include}
                                ${SRC_Srcs}
 )
@@ -42,7 +40,6 @@ add_library(${SDK_TARGET_NAMESPACE}::${LIB_NAME} ALIAS ${LIB_NAME})
 
 target_link_libraries(${LIB_NAME} PUBLIC  daq::opendaq
                                   PRIVATE mqtt_streaming_protocol
-                                  	  $<BUILD_INTERFACE:Boost::asio>
 )
 
 target_include_directories(${LIB_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>

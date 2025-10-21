@@ -32,6 +32,12 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 option(OPENDAQ_DEVICE_EXAMPLE_ENABLE_EXAMPLE_APPS "Enable building example applications" OFF)
 
+if ((CMAKE_COMPILER_IS_GNUCXX OR CMAKE_COMPILER_IS_CLANGXX) AND NOT MSVC)
+    if (NOT WIN32)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+    endif()
+endif()
+
 include(CommonUtils)
 setup_repo(${REPO_OPTION_PREFIX})
 
@@ -39,6 +45,8 @@ if(OPENDAQ_DEVICE_EXAMPLE_ENABLE_EXAMPLE_APPS)
 	set(DAQMODULES_REF_DEVICE_MODULE ON CACHE BOOL "" FORCE)
 endif()
 
+option(OPENDAQ_MQTT_ENABLE_TESTS "Enable module testing" OFF)
+option(OPENDAQ_MQTT_ENABLE_EXAMPLE_APPS "Enable example applications building" OFF)
 
 find_package(OpenSSL REQUIRED)
 if (OPENSSL_FOUND)

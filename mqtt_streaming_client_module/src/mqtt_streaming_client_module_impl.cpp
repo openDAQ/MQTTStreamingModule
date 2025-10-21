@@ -2,10 +2,10 @@
 #include <coreobjects/property_factory.h>
 #include <coreobjects/property_object_factory.h>
 #include <coretypes/version_info_factory.h>
+#include <mqtt_streaming_client_module/constants.h>
 #include <mqtt_streaming_client_module/mqtt_streaming_client_module_impl.h>
 #include <mqtt_streaming_client_module/mqtt_streaming_device_impl.h>
 #include <mqtt_streaming_client_module/version.h>
-#include <mqtt_streaming_client_module/constants.h>
 #include <opendaq/address_info_factory.h>
 #include <opendaq/custom_log.h>
 #include <opendaq/device_type_factory.h>
@@ -23,11 +23,11 @@ static const std::regex RegexIpv4Hostname(R"(^(.+://)?([^:/\s]+)(?::(\d+))?(/.*)
 
 MqttStreamingClientModule::MqttStreamingClientModule(ContextPtr context)
     : Module(MODULE_NAME,
-            daq::VersionInfo(MQTT_STREAM_CLI_MODULE_MAJOR_VERSION,
+             daq::VersionInfo(MQTT_STREAM_CLI_MODULE_MAJOR_VERSION,
                               MQTT_STREAM_CLI_MODULE_MINOR_VERSION,
                               MQTT_STREAM_CLI_MODULE_PATCH_VERSION),
-            std::move(context),
-            MODULE_ID)
+             std::move(context),
+             MODULE_ID)
 {
     loggerComponent = this->context.getLogger().getOrAddComponent(SHORT_MODULE_NAME);
 }
@@ -47,9 +47,8 @@ DictPtr<IString, IDeviceType> MqttStreamingClientModule::onGetAvailableDeviceTyp
     return result;
 }
 
-DevicePtr MqttStreamingClientModule::onCreateDevice(const StringPtr& connectionString,
-                                            const ComponentPtr& parent,
-                                            const PropertyObjectPtr& config)
+DevicePtr
+MqttStreamingClientModule::onCreateDevice(const StringPtr& connectionString, const ComponentPtr& parent, const PropertyObjectPtr& config)
 {
     if (!connectionString.assigned())
         DAQ_THROW_EXCEPTION(ArgumentNullException);
@@ -74,16 +73,13 @@ DevicePtr MqttStreamingClientModule::onCreateDevice(const StringPtr& connectionS
 
     std::scoped_lock lock(sync);
 
-    device = createWithImplementation<IDevice, MqttStreamingDeviceImpl>(
-                      context,
-                      parent,
-                      configPtr
-                );
+    device = createWithImplementation<IDevice, MqttStreamingDeviceImpl>(context, parent, configPtr);
 
     // Set the connection info for the device
     ServerCapabilityConfigPtr connectionInfo = device.getInfo().getConfigurationConnectionInfo();
 
-    const auto addressInfo = AddressInfoBuilder().setAddress(host)
+    const auto addressInfo = AddressInfoBuilder()
+                                 .setAddress(host)
                                  .setReachabilityStatus(AddressReachabilityStatus::Reachable)
                                  .setType(hostType)
                                  .setConnectionString(connectionString)
@@ -99,7 +95,6 @@ DevicePtr MqttStreamingClientModule::onCreateDevice(const StringPtr& connectionS
         .setConnectionString(connectionString)
         .addAddressInfo(addressInfo)
         .freeze();
-
 
     return device;
 }
@@ -117,7 +112,9 @@ PropertyObjectPtr MqttStreamingClientModule::populateDefaultConfig(const Propert
     return defConfig;
 }
 
-void MqttStreamingClientModule::extractConnectionParams(const StringPtr& connectionString, const PropertyObjectPtr& config, std::string& hostType)
+void MqttStreamingClientModule::extractConnectionParams(const StringPtr& connectionString,
+                                                        const PropertyObjectPtr& config,
+                                                        std::string& hostType)
 {
     std::string urlString = connectionString.toStdString();
     std::smatch match;
@@ -189,7 +186,8 @@ Bool MqttStreamingClientModule::onCompleteServerCapability(const ServerCapabilit
     const auto addrInfos = source.getAddressInfo();
     if (!addrInfos.assigned() || !addrInfos.getCount())
     {
-        LOG_W("Source server capability addressInfo is not available when filling in missing MQTT capability information.")
+        LOG_W("Source server capability addressInfo is not available when filling in missing MQTT capability "
+              "information.")
         return false;
     }
 
@@ -223,9 +221,7 @@ Bool MqttStreamingClientModule::onCompleteServerCapability(const ServerCapabilit
                                         .setConnectionString(connectionString)
                                         .build();
 
-        target.addAddressInfo(targetAddrInfo)
-              .setConnectionString(connectionString)
-              .addAddress(address);
+        target.addAddressInfo(targetAddrInfo).setConnectionString(connectionString).addAddress(address);
     }
 
     return true;

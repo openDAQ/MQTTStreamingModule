@@ -1,4 +1,6 @@
 #include <mqtt_streaming_client_module/mqtt_receiver_fb_impl.h>
+#include "opendaq/data_packet_ptr.h"
+#include "opendaq/packet_factory.h"
 #include <coreobjects/eval_value_factory.h>
 #include <opendaq/custom_log.h>
 #include <opendaq/data_descriptor_ptr.h>
@@ -34,7 +36,9 @@ MqttReceiverFbImpl::MqttReceiverFbImpl(const ContextPtr& ctx,
 
     for (const auto& topic : getSubscribedTopics())
     {
-        subscriber->setMessageArrivedCb(topic, std::bind(&MqttReceiverFbImpl::onSignalsMessage, this, std::placeholders::_1, std::placeholders::_2));
+        subscriber
+            ->setMessageArrivedCb(topic,
+                                  std::bind(&MqttReceiverFbImpl::onSignalsMessage, this, std::placeholders::_1, std::placeholders::_2));
         auto ok = subscriber->subscribe(topic, 1);
         if (!ok)
             LOG_W("Failed to subscribe to the topic: {}", topic);
