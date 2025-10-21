@@ -11,7 +11,6 @@
 #include <opendaq/search_filter_factory.h>
 #include <opendaq/server_type_factory.h>
 
-#include <boost/asio/dispatch.hpp>
 #include <opendaq/input_port_factory.h>
 #include <opendaq/thread_name.h>
 
