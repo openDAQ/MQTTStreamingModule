@@ -50,6 +50,8 @@ DictPtr<IString, IDeviceType> MqttStreamingClientModule::onGetAvailableDeviceTyp
 DevicePtr
 MqttStreamingClientModule::onCreateDevice(const StringPtr& connectionString, const ComponentPtr& parent, const PropertyObjectPtr& config)
 {
+    if (device.assigned())
+        DAQ_THROW_EXCEPTION(AlreadyExistsException, "Only one MQTT streaming device can be created per module instance.");
     if (!connectionString.assigned())
         DAQ_THROW_EXCEPTION(ArgumentNullException);
 
