@@ -47,12 +47,15 @@ protected:
     DictPtr<IString, IFunctionBlockType> onGetAvailableFunctionBlockTypes() override;
     FunctionBlockPtr onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config) override;
 
+    void initBaseFunctionalBlocks();
     void initMqttSubscriber();
+    void buildFunctionBlockTypes();
     bool waitForConnection(const int timeoutMs);
     void receiveSignalTopics(const int timeoutMs);
     void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg);
 
     DictObjectPtr<IDict, IString, IFunctionBlockType> fbTypes;
+    DictObjectPtr<IDict, IString, IFunctionBlockType> baseFbTypes;
 
     StringPtr connectionString;
     EnumerationPtr connectionStatus;

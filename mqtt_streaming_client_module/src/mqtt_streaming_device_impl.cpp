@@ -39,7 +39,7 @@ MqttStreamingDeviceImpl::MqttStreamingDeviceImpl(const ContextPtr& ctx, const Co
     int initTimeout = config.getPropertyValue(PROPERTY_NAME_INIT_DELAY);
 
     initComponentStatus();
-
+    initBaseFunctionalBlocks();
     initMqttSubscriber();
     if (!waitForConnection(initTimeout))
     {
@@ -49,6 +49,8 @@ MqttStreamingDeviceImpl::MqttStreamingDeviceImpl(const ContextPtr& ctx, const Co
 
     LOG_I("MQTT: Connection established");
     receiveSignalTopics(initTimeout);
+    // Build function block types based on received signal lists only once
+    buildFunctionBlockTypes();
 }
 
 void MqttStreamingDeviceImpl::removed()
@@ -62,6 +64,34 @@ void MqttStreamingDeviceImpl::removed()
 DeviceInfoPtr MqttStreamingDeviceImpl::onGetInfo()
 {
     return DeviceInfo(connectionString, MQTT_DEVICE_NAME);
+}
+
+
+void MqttStreamingDeviceImpl::initBaseFunctionalBlocks()
+{
+    baseFbTypes = Dict<IString, IFunctionBlockType>();
+    // Add a function block type for manual JSON configuration
+    {
+        auto defaultConfig = PropertyObject();
+        defaultConfig.addProperty(StringProperty(PROPERTY_NAME_SIGNAL_LIST, String("")));
+
+        const auto fbType = FunctionBlockType(JSON_FB_NAME,
+                                              JSON_FB_NAME,
+                                              "",
+                                              defaultConfig);
+
+        baseFbTypes.set(fbType.getId(), fbType);
+    }
+    // Add a function block type for raw MQTT messages
+    {
+        auto defaultConfig = PropertyObject();
+        defaultConfig.addProperty(ListProperty(PROPERTY_NAME_SIGNAL_LIST, List<IString>()));
+        const auto fbType = FunctionBlockType(RAW_FB_NAME,
+                                              RAW_FB_NAME,
+                                              "",
+                                              defaultConfig);
+        baseFbTypes.set(fbType.getId(), fbType);
+    }
 }
 
 void MqttStreamingDeviceImpl::initMqttSubscriber()
@@ -117,10 +147,11 @@ void MqttStreamingDeviceImpl::onSignalsMessage(const mqtt::MqttAsyncClient& subs
         deviceMap.insert({std::move(deviceName), std::move(signalList)});
     }
 }
-
-DictPtr<IString, IFunctionBlockType> MqttStreamingDeviceImpl::onGetAvailableFunctionBlockTypes()
+void MqttStreamingDeviceImpl::buildFunctionBlockTypes()
 {
     fbTypes = Dict<IString, IFunctionBlockType>();
+    // Add base function block types
+    fbTypes = baseFbTypes;
     // Add function block types from deviceMap (devices that sent signal lists)
     for (const auto& [deviceName, config] : deviceMap)
     {
@@ -134,28 +165,10 @@ DictPtr<IString, IFunctionBlockType> MqttStreamingDeviceImpl::onGetAvailableFunc
 
         fbTypes.set(fbType.getId(), fbType);
     }
-    // Add a function block type for manual JSON configuration
-    {
-        auto defaultConfig = PropertyObject();
-        defaultConfig.addProperty(StringProperty(PROPERTY_NAME_SIGNAL_LIST, String("")));
+}
 
-        const auto fbType = FunctionBlockType(JSON_FB_NAME,
-                                              JSON_FB_NAME,
-                                              "",
-                                              defaultConfig);
-
-        fbTypes.set(fbType.getId(), fbType);
-    }
-    // Add a function block type for raw MQTT messages
-    {
-        auto defaultConfig = PropertyObject();
-        defaultConfig.addProperty(ListProperty(PROPERTY_NAME_SIGNAL_LIST, List<IString>()));
-        const auto fbType = FunctionBlockType(RAW_FB_NAME,
-                                              RAW_FB_NAME,
-                                              "",
-                                              defaultConfig);
-        fbTypes.set(fbType.getId(), fbType);
-    }
+DictPtr<IString, IFunctionBlockType> MqttStreamingDeviceImpl::onGetAvailableFunctionBlockTypes()
+{
     return fbTypes;
 }
 
