@@ -233,7 +233,7 @@ DeviceTypePtr MqttStreamingClientModule::createDeviceType()
 {
     return DeviceTypeBuilder()
         .setId(DaqMqttDeviceTypeId)
-        .setName("MQTT enabled device")
+        .setName(MQTT_DEVICE_NAME)
         .setDescription("Network device connected over MQTT protocol")
         .setConnectionStringPrefix(DaqMqttDevicePrefix)
         .setDefaultConfig(createDefaultConfig())
