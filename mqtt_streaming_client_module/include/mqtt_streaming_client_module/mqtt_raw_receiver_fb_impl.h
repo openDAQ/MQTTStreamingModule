@@ -40,7 +40,7 @@ private:
     std::unordered_map<std::string, SignalConfigPtr> outputSignals;
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
-    ListObjectPtr<IList, IString> subscribedSignals;
+    ListObjectPtr<IList, IString> topicsForSubscribing;
 
     std::mutex sync;
 
