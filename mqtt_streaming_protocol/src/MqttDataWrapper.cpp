@@ -122,6 +122,31 @@ std::string MqttDataWrapper::buildSignalsTopic(const std::string& deviceId)
     return (TOPIC_ALL_SIGNALS_PREFIX + deviceId + "/" + DEVICE_SIGNAL_LIST);
 }
 
+bool MqttDataWrapper::validateTopic(const daq::StringPtr topic, const daq::LoggerComponentPtr loggerComponent)
+{
+    if (!topic.assigned() || topic.getLength() == 0)
+    {
+        if (loggerComponent.assigned())
+            LOG_W("Empty topic is not allowed!");
+        return false;
+    }
+
+    std::vector<std::string> list;
+    boost::split(list, topic.toStdString(), boost::is_any_of("/"));
+
+    for (const auto& part : list)
+    {
+        if (part == "#" || part == "+")
+        {
+            if (loggerComponent.assigned())
+                LOG_W("Wildcard characters '+' and '#' are not allowed in topic: {}", topic.toStdString());
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void MqttDataWrapper::setConfig(const std::string& config)
 {
     this->config = config;

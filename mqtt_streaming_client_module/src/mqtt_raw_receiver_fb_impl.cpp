@@ -1,4 +1,5 @@
 #include "mqtt_streaming_client_module/constants.h"
+#include "MqttDataWrapper.h"
 #include "opendaq/data_packet_ptr.h"
 #include <boost/algorithm/string.hpp>
 #include <coreobjects/eval_value_factory.h>
@@ -65,21 +66,31 @@ void MqttRawReceiverFbImpl::readProperties()
 {
     auto lock = std::lock_guard<std::mutex>(sync);
     subscribedSignals = List<IString>();
+    bool isPresent = false;
     if (objPtr.hasProperty(PROPERTY_NAME_SIGNAL_LIST))
     {
         auto prop = objPtr.getPropertyValue(PROPERTY_NAME_SIGNAL_LIST).asPtrOrNull<IList>();
         if (prop.assigned())
         {
+            isPresent = true;
             for (const auto& topic : prop)
             {
                 auto signalId = topic.asPtr<IString>();
-                if (signalId.assigned())
+                if (mqtt::MqttDataWrapper::validateTopic(signalId, loggerComponent))
                 {
                     LOG_I("Signal in list: {}", signalId.toStdString());
                     subscribedSignals.pushBack(signalId);
                 }
             }
         }
+    }
+    if (!isPresent)
+    {
+        LOG_W("{} property is missing!", PROPERTY_NAME_SIGNAL_LIST);
+    }
+    if (subscribedSignals.empty())
+    {
+        LOG_W("No signals to subscribe to!");
     }
 }
 

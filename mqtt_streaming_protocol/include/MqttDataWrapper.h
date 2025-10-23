@@ -57,6 +57,7 @@ public:
 
     static std::string buildTopicFromId(const std::string& globalId);
     static std::string buildSignalsTopic(const std::string& deviceId);
+    static bool validateTopic(const daq::StringPtr topic, const daq::LoggerComponentPtr loggerComponent = nullptr);
 
     void setConfig(const std::string& config);
     std::unordered_map<mqtt::SignalId, daq::DataDescriptorPtr> extractDescription();
