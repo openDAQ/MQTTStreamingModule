@@ -169,25 +169,28 @@ TEST_F(MqttStreamingClientModuleTest, DefaultDeviceConfig)
     auto defaultConfig = deviceTypes.get(DaqMqttDeviceTypeId).createDefaultConfig();
     ASSERT_TRUE(defaultConfig.assigned());
 
-    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 5u);
+    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 6u);
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_MQTT_BROKER_ADDRESS));
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_MQTT_BROKER_PORT));
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_MQTT_USERNAME));
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_MQTT_PASSWORD));
-    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_INIT_DELAY));
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_CONNECT_TIMEOUT));
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_DISCOVERY_TIMEOUT));
 
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_MQTT_BROKER_ADDRESS).getValueType(), CoreType::ctString);
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_MQTT_BROKER_PORT).getValueType(), CoreType::ctInt);
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_MQTT_USERNAME).getValueType(), CoreType::ctString);
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_MQTT_PASSWORD).getValueType(), CoreType::ctString);
-    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_INIT_DELAY).getValueType(), CoreType::ctInt);
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_CONNECT_TIMEOUT).getValueType(), CoreType::ctInt);
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_DISCOVERY_TIMEOUT).getValueType(), CoreType::ctInt);
 
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_ADDRESS), DEFAULT_BROKER_ADDRESS);
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_PORT), DEFAULT_PORT);
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_MQTT_USERNAME), DEFAULT_USERNAME);
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_MQTT_PASSWORD), DEFAULT_PASSWORD);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_INIT_DELAY), DEFAULT_INIT_DELAY);
+    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_CONNECT_TIMEOUT), DEFAULT_INIT_DELAY);
+    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_DISCOVERY_TIMEOUT), DEFAULT_DISCOVERY_DELAY);
 }
 
 TEST_F(MqttStreamingClientModuleTest, CreatingDevice)

@@ -248,7 +248,8 @@ PropertyObjectPtr MqttStreamingClientModule::createDefaultConfig()
     config.addProperty(StringProperty(PROPERTY_NAME_MQTT_USERNAME, DEFAULT_USERNAME));
     config.addProperty(StringProperty(PROPERTY_NAME_MQTT_PASSWORD, DEFAULT_PASSWORD));
     config.addProperty(IntProperty(PROPERTY_NAME_MQTT_BROKER_PORT, DEFAULT_PORT));
-    config.addProperty(IntProperty(PROPERTY_NAME_INIT_DELAY, DEFAULT_INIT_DELAY));
+    config.addProperty(IntProperty(PROPERTY_NAME_CONNECT_TIMEOUT, DEFAULT_INIT_DELAY));
+    config.addProperty(IntProperty(PROPERTY_NAME_DISCOVERY_TIMEOUT, DEFAULT_DISCOVERY_DELAY));
 
     return config;
 }

@@ -20,12 +20,14 @@ static constexpr uint16_t DEFAULT_PORT = 1883;
 static constexpr const char* DEFAULT_USERNAME = "";
 static constexpr const char* DEFAULT_PASSWORD = "";
 static constexpr uint32_t DEFAULT_INIT_DELAY = 3000; // ms
+static constexpr uint32_t DEFAULT_DISCOVERY_DELAY = 3000; // ms
 
 static constexpr const char* PROPERTY_NAME_MQTT_BROKER_ADDRESS = "MqttBrokerAddress";
 static constexpr const char* PROPERTY_NAME_MQTT_BROKER_PORT = "MqttBrokerPort";
 static constexpr const char* PROPERTY_NAME_MQTT_USERNAME = "MqttUsername";
 static constexpr const char* PROPERTY_NAME_MQTT_PASSWORD = "MqttPassword";
-static constexpr const char* PROPERTY_NAME_INIT_DELAY = "InitDelay";
+static constexpr const char* PROPERTY_NAME_CONNECT_TIMEOUT = "ConnectTimeout";
+static constexpr const char* PROPERTY_NAME_DISCOVERY_TIMEOUT = "DiscoveryTimeout";
 static constexpr const char* PROPERTY_NAME_SIGNAL_LIST = "SignalList";
 
 static constexpr const char* RAW_FB_NAME = "@rawMqttFb";

@@ -36,19 +36,20 @@ MqttStreamingDeviceImpl::MqttStreamingDeviceImpl(const ContextPtr& ctx, const Co
     connectionString =
         std::string(DaqMqttDevicePrefix) + "://" + connectionSettings.mqttUrl + ":" + std::to_string(connectionSettings.port);
 
-    int initTimeout = config.getPropertyValue(PROPERTY_NAME_INIT_DELAY);
+    int connectTimeout = config.getPropertyValue(PROPERTY_NAME_CONNECT_TIMEOUT);
+    int discoveryTimeout = config.getPropertyValue(PROPERTY_NAME_DISCOVERY_TIMEOUT);
 
     initComponentStatus();
     initBaseFunctionalBlocks();
     initMqttSubscriber();
-    if (!waitForConnection(initTimeout))
+    if (!waitForConnection(connectTimeout))
     {
-        LOG_E("MQTT: could not connect to MQTT broker within {} ms", initTimeout);
-        DAQ_THROW_EXCEPTION(CreateFailedException, "could not connect to MQTT broker within {} ms", initTimeout);
+        LOG_E("MQTT: could not connect to MQTT broker within {} ms", connectTimeout);
+        DAQ_THROW_EXCEPTION(CreateFailedException, "could not connect to MQTT broker within {} ms", connectTimeout);
     }
 
     LOG_I("MQTT: Connection established");
-    receiveSignalTopics(initTimeout);
+    receiveSignalTopics(discoveryTimeout);
     // Build function block types based on received signal lists only once
     buildFunctionBlockTypes();
 }
@@ -128,14 +129,21 @@ bool MqttStreamingDeviceImpl::waitForConnection(const int timeoutMs)
 
 void MqttStreamingDeviceImpl::receiveSignalTopics(const int timeoutMs)
 {
-    subscriber->setMessageArrivedCb(
-        std::bind(&MqttStreamingDeviceImpl::onSignalsMessage, this, std::placeholders::_1, std::placeholders::_2));
-    subscriber->subscribe(TOPIC_ALL_SIGNALS, 1);
+    if (timeoutMs > 0)
+    {
+        subscriber->setMessageArrivedCb(
+            std::bind(&MqttStreamingDeviceImpl::onSignalsMessage, this, std::placeholders::_1, std::placeholders::_2));
+        subscriber->subscribe(TOPIC_ALL_SIGNALS, 1);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(timeoutMs)); // TODO : remove it!
+        std::this_thread::sleep_for(std::chrono::milliseconds(timeoutMs)); // TODO : remove it!
 
-    subscriber->unsubscribe(TOPIC_ALL_SIGNALS);
-    subscriber->setMessageArrivedCb(nullptr);
+        subscriber->unsubscribe(TOPIC_ALL_SIGNALS);
+        subscriber->setMessageArrivedCb(nullptr);
+    }
+    else
+    {
+        LOG_I("Signal discovering step was skipped");
+    }
 }
 
 void MqttStreamingDeviceImpl::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg)
