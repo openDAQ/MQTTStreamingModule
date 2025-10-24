@@ -1,19 +1,8 @@
 #include "mqtt_streaming_client_module/constants.h"
 #include "MqttDataWrapper.h"
-#include "opendaq/data_packet_ptr.h"
 #include <boost/algorithm/string.hpp>
-#include <coreobjects/eval_value_factory.h>
-#include <coretypes/binarydata_impl.h>
 #include <mqtt_streaming_client_module/mqtt_raw_receiver_fb_impl.h>
 #include <opendaq/binary_data_packet_factory.h>
-#include <opendaq/custom_log.h>
-#include <opendaq/data_descriptor_ptr.h>
-#include <opendaq/event_packet_params.h>
-#include <opendaq/event_packet_ptr.h>
-#include <opendaq/input_port_factory.h>
-#include <opendaq/reusable_data_packet_ptr.h>
-#include <opendaq/signal_factory.h>
-#include <rapidjson/document.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 
@@ -134,6 +123,11 @@ std::string MqttRawReceiverFbImpl::buildSignalNameFromTopic(std::string topic) c
 
 void MqttRawReceiverFbImpl::subscribeToTopics()
 {
+    if (!subscriber)
+    {
+        LOG_E("The subscriber is null");
+        return;
+    }
     for (const auto& topic : topicsForSubscribing)
     {
         subscriber->setMessageArrivedCb(topic,
@@ -149,6 +143,11 @@ void MqttRawReceiverFbImpl::subscribeToTopics()
 
 void MqttRawReceiverFbImpl::unsubscribeFromTopics()
 {
+    if (!subscriber)
+    {
+        LOG_E("The subscriber is null");
+        return;
+    }
     for (const auto& topic : topicsForSubscribing)
     {
         subscriber->setMessageArrivedCb(topic, nullptr);

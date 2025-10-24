@@ -51,8 +51,8 @@ if (MSVC)
 endif()
 
 target_link_libraries(${LIB_NAME} PUBLIC  daq::opendaq
-                                  PRIVATE mqtt_streaming_protocol
-                                          $<BUILD_INTERFACE:Boost::algorithm>
+                                          mqtt_streaming_protocol
+                                  PRIVATE $<BUILD_INTERFACE:Boost::algorithm>
 )
 
 target_include_directories(${LIB_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>

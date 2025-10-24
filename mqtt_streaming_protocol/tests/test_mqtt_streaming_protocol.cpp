@@ -3,159 +3,25 @@
 #include <gmock/gmock.h>
 #include <testutils/testutils.h>
 #include <thread>
+#include "Timer.h"
+#include "MqttAsyncClientWrapper.h"
 
 using namespace mqtt;
 using namespace std::chrono;
-
-class Timer
-{
-public:
-    Timer(int ms)
-    {
-        start = steady_clock::now();
-        timeout = milliseconds(ms);
-    }
-    milliseconds remain() const {
-        auto now = steady_clock::now();
-        const auto elapsed_ms = std::chrono::duration_cast<milliseconds>(now - start);
-        milliseconds newTout = (elapsed_ms >= timeout) ? milliseconds(0) : timeout - elapsed_ms;
-        return newTout;
-    }
-    bool expired() {
-        return remain() == milliseconds(0);
-    }
-    explicit operator milliseconds() const noexcept
-    {
-        return remain();
-    }
-protected:
-    std::chrono::steady_clock::time_point start;
-    std::chrono::milliseconds timeout;
-};
-
-class MqttAsyncClientWrapper
-{
-public:
-    MqttAsyncClientWrapper() = default;
-    MqttAsyncClientWrapper(std::shared_ptr<MqttAsyncClient> instance, std::string clientId = "")
-        : instance(instance)
-    {
-        if (!clientId.empty()) {
-            this->clientId = clientId;
-        }
-    }
-    bool createConnection(const std::string& url, const std::string& id) {
-        instance->setServerURL(url);
-        instance->setClientId(id);
-
-        connectedDone = false;
-        connectedPromise = std::promise<bool>();
-        connectedFuture = connectedPromise.get_future();
-
-        instance->setConnectedCb([this]() {
-            bool expected = false;
-            if (connectedDone.compare_exchange_strong(expected, true)) {
-                connectedPromise.set_value(true);
-            }
-        });
-        return instance->connect();
-    }
-
-    bool connect(const std::string& url) {
-        return connect(url, clientId);
-    }
-    bool connect(const std::string& url, const std::string& id) {
-        bool res = createConnection(url, id);
-        if (res) {
-            auto status = connectedFuture.wait_for(milliseconds(successTimeout));
-            instance->setConnectedCb(nullptr);
-            res = (status == std::future_status::ready && connectedFuture.get() == true);
-        }
-        return res;
-    }
-
-    bool disconnect() {
-        if (instance->isConnected() != MqttConnectionStatus::connected) {
-            return true;
-        }
-        std::atomic<bool> done{false};
-        std::promise<bool> disconnectedPromise;
-        auto disconnectedFuture = disconnectedPromise.get_future();
-        instance->setDisconnectCb([promise = &disconnectedPromise, &done](bool result) {
-            bool expected = false;
-            if (done.compare_exchange_strong(expected, true)) {
-                promise->set_value(result);
-            }
-        });
-
-        auto disconnectionOk = instance->disconnect();
-        if (!disconnectionOk) {
-            return false;
-        }
-
-        auto status = disconnectedFuture.wait_for(milliseconds(successTimeout));
-        instance->setDisconnectCb(nullptr);
-        return (status == std::future_status::ready && disconnectedFuture.get() == true);
-    }
-
-    bool removeRetainedTopic(const std::string& topic) {
-        return publishMsg(topic, "", true);
-    }
-
-    bool publishMsg(const std::string& topic, const std::string& data, bool retained = false) {
-        const MqttMessage msg(topic, std::vector<uint8_t>(data.begin(), data.end()), 1, retained);
-        return publishMsg(msg);
-    }
-
-    bool publishMsg(const MqttMessage& msg) {
-        int token = 0;
-
-        std::promise<int> deliveryPromise;
-        auto deliveryFuture = deliveryPromise.get_future();
-        instance->setDeliveryCompletedCb([promise = &deliveryPromise](int deliveredToken) {
-            promise->set_value(deliveredToken);
-        });
-
-        Timer sendTimer(successTimeout);
-        auto ok = instance->publish(msg.getTopic(),
-                                    (void *) (msg.getData().data()),
-                                    msg.getData().size(),
-                                    nullptr,
-                                    msg.getQos(),
-                                    &token,
-                                    msg.getRetained());
-        if (!ok || token == 0) {
-            instance->setDeliveryCompletedCb(nullptr);
-            return false;
-        }
-
-        auto status = deliveryFuture.wait_for(sendTimer.remain());
-        instance->setDeliveryCompletedCb(nullptr);
-        return (status == std::future_status::ready && deliveryFuture.get() == token);
-    }
-
-    std::string buildTopicName() {
-        return std::string("test/topic/") + std::string(::testing::UnitTest::GetInstance()->current_test_info()->name());
-    }
-
-    std::shared_ptr<MqttAsyncClient> instance;
-    std::promise<bool> connectedPromise;
-    std::future<bool> connectedFuture;
-    std::atomic<bool> connectedDone{false};
-
-    int successTimeout = 5000;
-    int failureTimeout = 3000;
-    std::string clientId = "testMqttClientId";
-};
 
 class MqttStreamingProtocolTest : public ::testing::Test,  public MqttAsyncClientWrapper {
 protected:
     void SetUp() override {
         instance = std::make_shared<MqttAsyncClient>();
+        clientId = std::string("clientId_") + std::string(::testing::UnitTest::GetInstance()->current_test_info()->name());
     }
 
     void TearDown() override {
         instance.reset();
+    }
+
+    std::string buildTopicName() {
+        return std::string("test/topic/") + std::string(::testing::UnitTest::GetInstance()->current_test_info()->name());
     }
 };
 

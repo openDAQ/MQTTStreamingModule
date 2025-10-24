@@ -16,17 +16,15 @@
 
 #pragma once
 #include <mqtt_streaming_client_module/common.h>
-#include <opendaq/function_block_ptr.h>
-#include <opendaq/function_block_type_factory.h>
 #include <opendaq/function_block_impl.h>
-#include <opendaq/signal_config_ptr.h>
 
-#include "MqttAsyncClient.h"
+#include <MqttAsyncClient.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
     
 class MqttRawReceiverFbImpl final : public FunctionBlock
 {
+    friend class MqttStreamingClientModuleTest;
 public:
     explicit MqttRawReceiverFbImpl(const ContextPtr& ctx,
                                 const ComponentPtr& parent,

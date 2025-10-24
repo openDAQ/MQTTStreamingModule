@@ -10,6 +10,8 @@ add_executable(${TEST_APP} ${TEST_SOURCES}
 
 target_link_libraries(${TEST_APP} PRIVATE daq::test_utils
                                           ${MODULE_NAME}
+                                          mqtt_stream_cli_module
+                                          mqtt_streaming_protocol_test_helper
 )
 
 add_test(NAME ${TEST_APP}
