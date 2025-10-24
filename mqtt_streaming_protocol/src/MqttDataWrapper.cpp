@@ -168,6 +168,8 @@ std::unordered_map<mqtt::SignalId, daq::DataDescriptorPtr> MqttDataWrapper::extr
     {
         const rapidjson::Value& array = it->value;
         const std::string topic = it->name.GetString();
+        if (!validateTopic(topic, loggerComponent))
+            continue;
         if (!array.IsArray())
         {
             LOG_W("Wrong description for \"{}\" topic. Skip!", topic);
