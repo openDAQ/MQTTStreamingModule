@@ -1,11 +1,8 @@
 #include "mqtt_streaming_client_module/mqtt_raw_receiver_fb_impl.h"
-#include <coreobjects/authentication_provider_factory.h>
-#include <gmock/gmock.h>
 #include <mqtt_streaming_client_module/constants.h>
 #include <mqtt_streaming_client_module/module_dll.h>
 #include <mqtt_streaming_client_module/version.h>
 #include <opendaq/data_packet_ptr.h>
-#include <opendaq/function_block_ptr.h>
 #include <opendaq/instance_factory.h>
 #include <opendaq/reader_factory.h>
 #include <testutils/testutils.h>

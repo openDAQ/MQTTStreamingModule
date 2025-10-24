@@ -16,10 +16,7 @@
 
 #pragma once
 #include <mqtt_streaming_client_module/common.h>
-#include <opendaq/function_block_ptr.h>
-#include <opendaq/function_block_type_factory.h>
 #include <opendaq/function_block_impl.h>
-#include <opendaq/signal_config_ptr.h>
 #include <set>
 
 #include "MqttAsyncClient.h"

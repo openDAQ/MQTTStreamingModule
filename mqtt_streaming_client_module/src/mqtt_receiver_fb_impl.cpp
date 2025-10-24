@@ -1,18 +1,6 @@
 #include <mqtt_streaming_client_module/mqtt_receiver_fb_impl.h>
-#include "opendaq/data_packet_ptr.h"
-#include "opendaq/packet_factory.h"
-#include <coreobjects/eval_value_factory.h>
-#include <opendaq/custom_log.h>
-#include <opendaq/data_descriptor_ptr.h>
-#include <opendaq/event_packet_params.h>
-#include <opendaq/event_packet_ptr.h>
-#include <opendaq/input_port_factory.h>
-#include <opendaq/reusable_data_packet_ptr.h>
-#include <opendaq/signal_factory.h>
-#include <rapidjson/document.h>
 #include <boost/algorithm/string.hpp>
 #include "mqtt_streaming_client_module/constants.h"
-#include "MqttDataWrapper.h"
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 
