@@ -1,10 +1,11 @@
 #include "MqttAsyncClient.h"
+#include "MqttAsyncClientWrapper.h"
+#include "Timer.h"
+#include "timestampConverter.h"
 #include <future>
 #include <gmock/gmock.h>
 #include <testutils/testutils.h>
 #include <thread>
-#include "Timer.h"
-#include "MqttAsyncClientWrapper.h"
 
 using namespace mqtt;
 using namespace std::chrono;
@@ -24,6 +25,9 @@ protected:
         return std::string("test/topic/") + std::string(::testing::UnitTest::GetInstance()->current_test_info()->name());
     }
 };
+
+using JsonTimestampParsingIntPTest = ::testing::TestWithParam<std::pair<uint64_t, uint64_t>>;
+using JsonTimestampParsingStrPTest = ::testing::TestWithParam<std::pair<std::string, uint64_t>>;
 
 TEST_F(MqttStreamingProtocolTest, Connection)
 {
@@ -285,3 +289,35 @@ TEST_F(MqttStreamingProtocolTest, PublishingWithoutConnection)
     auto ok = instance->publish(topic, (void *)(data.c_str()), data.size(), nullptr, 1, &token, false);
     ASSERT_FALSE(ok);
 }
+
+TEST_P(JsonTimestampParsingIntPTest, IntTimestampParsing)
+{
+    auto [input, output] = GetParam();
+    ASSERT_EQ(mqtt::utils::numericToMicroseconds(input), output);
+}
+
+INSTANTIATE_TEST_SUITE_P(IntTimestampParsing,
+                         JsonTimestampParsingIntPTest,
+                         ::testing::Values(std::pair<uint64_t, uint64_t>(1761664976, 1761664976000000ULL),         // seconds
+                                           std::pair<uint64_t, uint64_t>(1761664976123, 1761664976123000ULL),      // milliseconds
+                                           std::pair<uint64_t, uint64_t>(1761664976123456, 1761664976123456ULL),   // microseconds
+                                           std::pair<uint64_t, uint64_t>(1761664976123456789, 1761664976123456ULL) // nanoseconds
+                                           ));
+
+TEST_P(JsonTimestampParsingStrPTest, StrTimestampParsing)
+{
+    auto [input, output] = GetParam();
+    ASSERT_EQ(mqtt::utils::toUnixTicks(input), output);
+}
+
+INSTANTIATE_TEST_SUITE_P(StrTimestampParsing,
+                         JsonTimestampParsingStrPTest,
+                         ::testing::Values(std::pair<std::string, uint64_t>("2025-10-28 15:22:56", 1761664976000000ULL),
+                                           std::pair<std::string, uint64_t>(" 2025-10-28 15:22:56 ", 1761664976000000ULL),
+                                           std::pair<std::string, uint64_t>(" 2025-10-28 15:22:56.123", 1761664976123000ULL),
+                                           std::pair<std::string, uint64_t>(" 2025-10-28T15:22:56Z ", 1761664976000000ULL),
+                                           std::pair<std::string, uint64_t>(" 1761664976", 1761664976000000ULL),         // seconds
+                                           std::pair<std::string, uint64_t>("1761664976123 ", 1761664976123000ULL),      // milliseconds
+                                           std::pair<std::string, uint64_t>(" 1761664976123456 ", 1761664976123456ULL),   // microseconds
+                                           std::pair<std::string, uint64_t>("  1761664976123456789  ", 1761664976123456ULL) // nanoseconds
+                                           ));
