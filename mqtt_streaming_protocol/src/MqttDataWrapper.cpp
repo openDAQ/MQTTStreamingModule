@@ -222,12 +222,15 @@ void MqttDataWrapper::setOutputSignals(
 void MqttDataWrapper::createAndSendDataPacket(const std::string& topic, const std::string& json)
 {
     auto msgDescriptors = topicDescriptors.find(topic);
-    for (const auto& dsc : msgDescriptors->second)
+    if (msgDescriptors != topicDescriptors.end())
     {
-        auto packets = extractDataSamples(topic, dsc, json);
-        for (const auto& [signalId, data] : packets)
+        for (const auto& dsc : msgDescriptors->second)
         {
-            sendDataSamples(signalId, data);
+            auto packets = extractDataSamples(topic, dsc, json);
+            for (const auto& [signalId, data] : packets)
+            {
+                sendDataSamples(signalId, data);
+            }
         }
     }
 }
