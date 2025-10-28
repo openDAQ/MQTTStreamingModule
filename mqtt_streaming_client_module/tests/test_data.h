@@ -315,6 +315,51 @@ inline const std::string MISSING_FIELD_JSON_DATA_2 = R"json({
 }
 )json";
 
+inline const std::string VALID_JSON_CONFIG_3 = R"json({
+    <placeholder_topic>:[
+        {
+            "temperature":{
+                "Value":"value",
+                "Unit":[
+                    "rpm"
+                ]
+            }
+        }
+    ]
+}
+)json";
+
+inline const std::string VALID_JSON_CONFIG_4 = R"json({
+    <placeholder_topic>:[
+        {
+            "temperature":{
+                "Value":"value",
+                "Unit":[
+                    "rpm",
+                    "rotations per minute"
+                ]
+            }
+        }
+    ]
+}
+)json";
+
+inline const std::string VALID_JSON_CONFIG_5 = R"json({
+    <placeholder_topic>:[
+        {
+            "temperature":{
+                "Value":"value",
+                "Unit":[
+                    "rpm",
+                    "rotations per minute",
+                    "rotational speed"
+                ]
+            }
+        }
+    ]
+}
+)json";
+
 inline const std::vector<std::pair<double, uint64_t>> DATA_DOUBLE_INT_0 = {{23.50000001, 1761567115},
                                                                            {-0.00000005583, 1761567116},
                                                                            {19.84916651651, 1761567117},

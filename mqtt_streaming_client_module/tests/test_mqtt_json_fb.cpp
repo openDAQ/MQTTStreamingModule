@@ -243,6 +243,11 @@ class MqttJsonFbStringTsPTest : public ::testing::TestWithParam<std::vector<std:
                                 public MqttJsonFbHelper
 {
 };
+class MqttJsonFbUnitPTest : public ::testing::TestWithParam<std::pair<std::string, std::vector<std::string>>>,
+                                public DaqTestHelper,
+                                public MqttJsonFbHelper
+{
+};
 } // namespace daq::modules::mqtt_streaming_client_module
 
 TEST_F(MqttJsonFbTest, DefaultConfig)
@@ -618,3 +623,26 @@ TEST_F(MqttJsonFbTest, FullDataTransfer)
     ASSERT_EQ(DATA_DOUBLE_INT_0.size(), dataToReceive.size());
     ASSERT_TRUE(compareData(DATA_DOUBLE_INT_0, dataToReceive));
 }
+
+TEST_P(MqttJsonFbUnitPTest, SignalUnit)
+{
+    const auto [config, unitDetails] = GetParam();
+    ASSERT_EQ(unitDetails.size(), 3u);
+    const auto topic = buildTopicName();
+    const auto jsonConfig = replacePlaceholder(config, "<placeholder_topic>", topic);
+    CreateJsonFB(jsonConfig);
+
+    auto signalList = getSignals();
+    ASSERT_EQ(signalList.getCount(), 1u);
+    ASSERT_TRUE(signalList[0].getDescriptor().assigned());
+    ASSERT_TRUE(signalList[0].getDescriptor().getUnit().assigned());
+    EXPECT_EQ(signalList[0].getDescriptor().getUnit().getSymbol(), unitDetails[0]);
+    EXPECT_EQ(signalList[0].getDescriptor().getUnit().getName(), unitDetails[1]);
+    EXPECT_EQ(signalList[0].getDescriptor().getUnit().getQuantity(), unitDetails[2]);
+}
+
+INSTANTIATE_TEST_SUITE_P(SignalUnit,
+                         MqttJsonFbUnitPTest,
+                         ::testing::Values(std::pair<std::string, std::vector<std::string>>{VALID_JSON_CONFIG_3, {"rpm", "", ""}},
+                                           std::pair<std::string, std::vector<std::string>>{VALID_JSON_CONFIG_4, {"rpm", "rotations per minute", ""}},
+                                           std::pair<std::string, std::vector<std::string>>{VALID_JSON_CONFIG_5, {"rpm", "rotations per minute", "rotational speed"}}));
