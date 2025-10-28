@@ -34,6 +34,8 @@ public:
                                 const PropertyObjectPtr& config = nullptr);
     ~MqttRawReceiverFbImpl() override;
 
+    static std::string buildSignalNameFromTopic(std::string topic);
+
 private:
     std::unordered_map<std::string, SignalConfigPtr> outputSignals;
 
@@ -50,8 +52,6 @@ private:
     void readProperties();
 
     void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg);
-
-    std::string buildSignalNameFromTopic(std::string topic) const;
 
     void subscribeToTopics();
     void unsubscribeFromTopics();

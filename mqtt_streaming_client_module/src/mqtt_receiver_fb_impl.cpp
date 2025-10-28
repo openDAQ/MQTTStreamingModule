@@ -128,14 +128,14 @@ void MqttReceiverFbImpl::createSignals()
     jsonDataWorker.setOutputSignals(&outputSignals);
 }
 
-std::string MqttReceiverFbImpl::buildSignalNameFromTopic(std::string topic, const std::string& signalName) const
+std::string MqttReceiverFbImpl::buildSignalNameFromTopic(std::string topic, const std::string& signalName)
 {
     boost::replace_all(topic, "/", "_");
     topic += "_Mqtt_" + signalName;
     return topic;
 }
 
-std::string MqttReceiverFbImpl::buildDomainSignalNameFromTopic(std::string topic, const std::string& signalName) const
+std::string MqttReceiverFbImpl::buildDomainSignalNameFromTopic(std::string topic, const std::string& signalName)
 {
     boost::replace_all(topic, "/", "_");
     topic += std::string("_Mqtt") + "_domain" + signalName;

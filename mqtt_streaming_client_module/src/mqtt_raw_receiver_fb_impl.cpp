@@ -114,7 +114,7 @@ void MqttRawReceiverFbImpl::createSignals()
     }
 }
 
-std::string MqttRawReceiverFbImpl::buildSignalNameFromTopic(std::string topic) const
+std::string MqttRawReceiverFbImpl::buildSignalNameFromTopic(std::string topic)
 {
     boost::replace_all(topic, "/", "_");
     topic += "_Mqtt";
