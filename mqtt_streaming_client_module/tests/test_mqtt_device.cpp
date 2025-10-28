@@ -49,8 +49,8 @@ TEST_F(MqttDeviceTest, DefaultDeviceConfig)
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_PORT), DEFAULT_PORT);
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_MQTT_USERNAME), DEFAULT_USERNAME);
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_MQTT_PASSWORD), DEFAULT_PASSWORD);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_CONNECT_TIMEOUT), DEFAULT_INIT_DELAY);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_DISCOVERY_TIMEOUT), DEFAULT_DISCOVERY_DELAY);
+    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_CONNECT_TIMEOUT), DEFAULT_INIT_TIMEOUT);
+    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_DISCOVERY_TIMEOUT), DEFAULT_DISCOVERY_TIMEOUT);
 }
 
 TEST_F(MqttDeviceTest, CreatingDeviceWithDefaultConfig)

@@ -19,8 +19,8 @@ static constexpr const char* DEFAULT_BROKER_ADDRESS = "127.0.0.1";
 static constexpr uint16_t DEFAULT_PORT = 1883;
 static constexpr const char* DEFAULT_USERNAME = "";
 static constexpr const char* DEFAULT_PASSWORD = "";
-static constexpr uint32_t DEFAULT_INIT_DELAY = 3000; // ms
-static constexpr uint32_t DEFAULT_DISCOVERY_DELAY = 3000; // ms
+static constexpr uint32_t DEFAULT_INIT_TIMEOUT = 3000; // ms
+static constexpr uint32_t DEFAULT_DISCOVERY_TIMEOUT = 3000; // ms
 
 static constexpr const char* PROPERTY_NAME_MQTT_BROKER_ADDRESS = "MqttBrokerAddress";
 static constexpr const char* PROPERTY_NAME_MQTT_BROKER_PORT = "MqttBrokerPort";
