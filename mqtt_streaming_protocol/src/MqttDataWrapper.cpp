@@ -319,6 +319,10 @@ std::vector<std::pair<SignalId, DataPackets>> MqttDataWrapper::extractDataSample
     {
         LOG_W("Not all required fields are present.");
     }
+    else if (!msgDescriptor.tsFieldName.empty() && hasTS == false)
+    {
+        LOG_W("Timestamp field is expected but missing.");
+    }
     else
     {
         // TODO : value [1, 2, 3, ...] support
