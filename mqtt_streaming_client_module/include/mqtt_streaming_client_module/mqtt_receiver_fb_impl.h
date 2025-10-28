@@ -26,6 +26,7 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
     
 class MqttReceiverFbImpl final : public FunctionBlock
 {
+    friend class MqttJsonFbHelper;
 public:
     explicit MqttReceiverFbImpl(const ContextPtr& ctx,
                                 const ComponentPtr& parent,

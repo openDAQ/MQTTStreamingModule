@@ -24,7 +24,7 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
     
 class MqttRawReceiverFbImpl final : public FunctionBlock
 {
-    friend class MqttStreamingClientModuleTest;
+    friend class MqttRawFbTest;
 public:
     explicit MqttRawReceiverFbImpl(const ContextPtr& ctx,
                                 const ComponentPtr& parent,

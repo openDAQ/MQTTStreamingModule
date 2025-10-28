@@ -2,7 +2,12 @@ set(MODULE_NAME mqtt_stream_cli_module)
 set(TEST_APP test_${MODULE_NAME})
 
 set(TEST_SOURCES test_mqtt_streaming_client_module.cpp
+                 test_mqtt_device.cpp
+                 test_mqtt_raw_fb.cpp
+                 test_mqtt_json_fb.cpp
+                 test_daq_test_helper.h
                  test_app.cpp
+                 test_data.h
 )
 
 add_executable(${TEST_APP} ${TEST_SOURCES}
