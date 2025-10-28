@@ -49,13 +49,13 @@ private:
 
     void createSignals();
 
-    void parseMessage(mqtt::MqttMessage& msg);
+    void parseMessage(const mqtt::MqttMessage& msg);
     void createDataPacket(const std::string& topic, const std::string& json);
 
     void initProperties(const PropertyObjectPtr& config);
     void readProperties();
 
-    void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg);
+    void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg);
 
     std::set<std::string> getSubscribedTopics() const;
 };

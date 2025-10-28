@@ -43,7 +43,7 @@ MqttReceiverFbImpl::~MqttReceiverFbImpl()
     }
 }
 
-void MqttReceiverFbImpl::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg)
+void MqttReceiverFbImpl::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg)
 {
     parseMessage(msg);
 }
@@ -88,7 +88,7 @@ void MqttReceiverFbImpl::createDataPacket(const std::string& topic, const std::s
     jsonDataWorker.createAndSendDataPacket(topic, json);
 }
 
-void MqttReceiverFbImpl::parseMessage(mqtt::MqttMessage& msg)
+void MqttReceiverFbImpl::parseMessage(const mqtt::MqttMessage& msg)
 {
     std::string topic(msg.getTopic());
     std::string jsonObjStr(msg.getData().begin(), msg.getData().end());
