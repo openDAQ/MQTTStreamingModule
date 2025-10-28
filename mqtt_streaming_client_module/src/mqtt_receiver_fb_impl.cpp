@@ -22,24 +22,34 @@ MqttReceiverFbImpl::MqttReceiverFbImpl(const ContextPtr& ctx,
         initProperties(type.createDefaultConfig());
     createSignals();
 
-    for (const auto& topic : getSubscribedTopics())
+    if (subscriber)
     {
-        subscriber
-            ->setMessageArrivedCb(topic,
-                                  std::bind(&MqttReceiverFbImpl::onSignalsMessage, this, std::placeholders::_1, std::placeholders::_2));
-        auto ok = subscriber->subscribe(topic, 1);
-        if (!ok)
-            LOG_W("Failed to subscribe to the topic: {}", topic);
+        for (const auto& topic : getSubscribedTopics())
+        {
+            subscriber
+                ->setMessageArrivedCb(topic,
+                                      std::bind(&MqttReceiverFbImpl::onSignalsMessage, this, std::placeholders::_1, std::placeholders::_2));
+            auto ok = subscriber->subscribe(topic, 1);
+            if (!ok)
+                LOG_W("Failed to subscribe to the topic: {}", topic);
+        }
+        setComponentStatus(ComponentStatus::Ok);
     }
-    setComponentStatus(ComponentStatus::Ok);
+    else
+    {
+        setComponentStatusWithMessage(ComponentStatus::Error, "MQTT subscriber client is not set.");
+    }
 }
 
 MqttReceiverFbImpl::~MqttReceiverFbImpl()
 {
-    for (const auto& topic : getSubscribedTopics())
+    if (subscriber)
     {
-        subscriber->setMessageArrivedCb(topic, nullptr);
-        subscriber->unsubscribe(topic);
+        for (const auto& topic : getSubscribedTopics())
+        {
+            subscriber->setMessageArrivedCb(topic, nullptr);
+            subscriber->unsubscribe(topic);
+        }
     }
 }
 
