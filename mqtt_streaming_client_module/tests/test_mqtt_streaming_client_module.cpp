@@ -3,6 +3,8 @@
 #include <mqtt_streaming_client_module/constants.h>
 #include <mqtt_streaming_client_module/module_dll.h>
 #include <mqtt_streaming_client_module/version.h>
+#include <mqtt_streaming_client_module/mqtt_streaming_client_module_impl.h>
+#include <mqtt_streaming_client_module/helper.h>
 #include <opendaq/context_factory.h>
 #include <testutils/testutils.h>
 
@@ -13,6 +15,11 @@ namespace daq::modules::mqtt_streaming_client_module
 {
 class MqttStreamingClientModuleTest : public testing::Test, public DaqTestHelper
 {
+public:
+    static PropertyObjectPtr createDefaultConfig()
+    {
+        return MqttStreamingClientModule::createDefaultConfig();
+    }
 };
 } // namespace daq::modules::mqtt_streaming_client_module
 
@@ -112,5 +119,27 @@ TEST_F(MqttStreamingClientModuleTest, GetAvailableComponentTypes)
         ASSERT_EQ(versionInfoDeviceType.getMajor(), MQTT_STREAM_CLI_MODULE_MAJOR_VERSION);
         ASSERT_EQ(versionInfoDeviceType.getMinor(), MQTT_STREAM_CLI_MODULE_MINOR_VERSION);
         ASSERT_EQ(versionInfoDeviceType.getPatch(), MQTT_STREAM_CLI_MODULE_PATCH_VERSION);
+    }
+}
+
+TEST_F(MqttStreamingClientModuleTest, ConfigFilling)
+{
+    const auto defConfig = createDefaultConfig();
+    auto customConfig = PropertyObject();
+    customConfig.addProperty(StringProperty(PROPERTY_NAME_MQTT_BROKER_ADDRESS, "testBrokerAddress.com"));
+    customConfig.addProperty(IntProperty(PROPERTY_NAME_CONNECT_TIMEOUT, 123456));
+    auto newConfig = ::daq::modules::mqtt_streaming_client_module::populateDefaultConfig(defConfig, customConfig);
+
+    ASSERT_EQ(defConfig.getAllProperties().getCount(), newConfig.getAllProperties().getCount());
+    for (const auto& prop : defConfig.getAllProperties())
+    {
+        if (customConfig.hasProperty(prop.getName()))
+        {
+            EXPECT_EQ(newConfig.getPropertyValue(prop.getName()), customConfig.getPropertyValue(prop.getName()));
+        }
+        else
+        {
+            EXPECT_EQ(newConfig.getPropertyValue(prop.getName()), prop.getValue());
+        }
     }
 }

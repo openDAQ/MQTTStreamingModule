@@ -4,6 +4,7 @@
 #include <coretypes/version_info_factory.h>
 #include <mqtt_streaming_client_module/constants.h>
 #include <mqtt_streaming_client_module/mqtt_streaming_client_module_impl.h>
+#include <mqtt_streaming_client_module/helper.h>
 #include <mqtt_streaming_client_module/mqtt_streaming_device_impl.h>
 #include <mqtt_streaming_client_module/version.h>
 #include <opendaq/address_info_factory.h>
@@ -103,15 +104,7 @@ MqttStreamingClientModule::onCreateDevice(const StringPtr& connectionString, con
 
 PropertyObjectPtr MqttStreamingClientModule::populateDefaultConfig(const PropertyObjectPtr& config)
 {
-    const auto defConfig = createDefaultConfig();
-    for (const auto& prop : defConfig.getAllProperties())
-    {
-        const auto name = prop.getName();
-        if (config.hasProperty(name))
-            defConfig.setPropertyValue(name, config.getPropertyValue(name));
-    }
-
-    return defConfig;
+    return ::daq::modules::mqtt_streaming_client_module::populateDefaultConfig(createDefaultConfig(), config);
 }
 
 void MqttStreamingClientModule::extractConnectionParams(const StringPtr& connectionString,

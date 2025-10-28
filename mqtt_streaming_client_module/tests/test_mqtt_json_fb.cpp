@@ -1,4 +1,5 @@
 #include "MqttAsyncClientWrapper.h"
+#include "mqtt_streaming_client_module/helper.h"
 #include "mqtt_streaming_client_module/mqtt_receiver_fb_impl.h"
 #include "test_daq_test_helper.h"
 #include "test_data.h"
@@ -481,7 +482,7 @@ TEST_F(MqttJsonFbTest, DataTransferSeveralSignals)
     const std::vector<std::string> originalNames{"temperature", "humi", "pressure"};
     std::vector<std::string> names;
     for (const auto& name : originalNames)
-        names.emplace_back(MqttReceiverFbImpl::buildSignalNameFromTopic(topic, name));
+        names.emplace_back(buildSignalNameFromTopic(topic, name));
 
     for (const auto& name : names)
     {
@@ -553,7 +554,7 @@ TEST_F(MqttJsonFbTest, DataTransferMissingFieldSeveralSignals)
     const std::vector<std::string> originalNames{"temperature", "humi", "pressure"};
     std::vector<std::string> names;
     for (const auto& name : originalNames)
-        names.emplace_back(MqttReceiverFbImpl::buildSignalNameFromTopic(topic, name));
+        names.emplace_back(buildSignalNameFromTopic(topic, name));
 
     for (const auto& name : names)
     {

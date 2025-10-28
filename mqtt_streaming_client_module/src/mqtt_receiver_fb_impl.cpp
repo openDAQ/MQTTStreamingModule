@@ -1,6 +1,7 @@
-#include <mqtt_streaming_client_module/mqtt_receiver_fb_impl.h>
-#include <boost/algorithm/string.hpp>
 #include "mqtt_streaming_client_module/constants.h"
+#include <boost/algorithm/string.hpp>
+#include <mqtt_streaming_client_module/helper.h>
+#include <mqtt_streaming_client_module/mqtt_receiver_fb_impl.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 
@@ -17,9 +18,10 @@ MqttReceiverFbImpl::MqttReceiverFbImpl(const ContextPtr& ctx,
     initComponentStatus();
 
     if (config.assigned())
-        initProperties(config);
+        initProperties(populateDefaultConfig(type.createDefaultConfig(), config));
     else
         initProperties(type.createDefaultConfig());
+
     createSignals();
 
     if (subscriber)
@@ -136,20 +138,6 @@ void MqttReceiverFbImpl::createSignals()
         }
     }
     jsonDataWorker.setOutputSignals(&outputSignals);
-}
-
-std::string MqttReceiverFbImpl::buildSignalNameFromTopic(std::string topic, const std::string& signalName)
-{
-    boost::replace_all(topic, "/", "_");
-    topic += "_Mqtt_" + signalName;
-    return topic;
-}
-
-std::string MqttReceiverFbImpl::buildDomainSignalNameFromTopic(std::string topic, const std::string& signalName)
-{
-    boost::replace_all(topic, "/", "_");
-    topic += std::string("_Mqtt") + "_domain" + signalName;
-    return topic;
 }
 
 std::set<std::string> MqttReceiverFbImpl::getSubscribedTopics() const

@@ -36,9 +36,6 @@ public:
                                 const PropertyObjectPtr& config = nullptr);
     ~MqttReceiverFbImpl() override;
 
-    static std::string buildSignalNameFromTopic(std::string topic, const std::string& signalName);
-    static std::string buildDomainSignalNameFromTopic(std::string topic, const std::string& signalName);
-
 private:
     mqtt::MqttDataWrapper jsonDataWorker;
     std::unordered_map<mqtt::SignalId, SignalConfigPtr> outputSignals;

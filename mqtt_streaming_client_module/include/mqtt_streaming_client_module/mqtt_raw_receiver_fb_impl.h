@@ -17,7 +17,6 @@
 #pragma once
 #include <mqtt_streaming_client_module/common.h>
 #include <opendaq/function_block_impl.h>
-
 #include <MqttAsyncClient.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
@@ -33,8 +32,6 @@ public:
                                 std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                 const PropertyObjectPtr& config = nullptr);
     ~MqttRawReceiverFbImpl() override;
-
-    static std::string buildSignalNameFromTopic(std::string topic);
 
 private:
     std::unordered_map<std::string, SignalConfigPtr> outputSignals;

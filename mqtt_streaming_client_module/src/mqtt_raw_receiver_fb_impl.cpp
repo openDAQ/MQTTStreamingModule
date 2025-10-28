@@ -1,4 +1,5 @@
 #include "mqtt_streaming_client_module/constants.h"
+#include "mqtt_streaming_client_module/helper.h"
 #include "MqttDataWrapper.h"
 #include <boost/algorithm/string.hpp>
 #include <mqtt_streaming_client_module/mqtt_raw_receiver_fb_impl.h>
@@ -15,7 +16,11 @@ MqttRawReceiverFbImpl::MqttRawReceiverFbImpl(const ContextPtr& ctx,
     : FunctionBlock(type, ctx, parent, localId), subscriber(subscriber)
 {
     initComponentStatus();
-    initProperties(config.assigned() ? config : type.createDefaultConfig());
+    if (config.assigned())
+        initProperties(populateDefaultConfig(type.createDefaultConfig(), config));
+    else
+        initProperties(type.createDefaultConfig());
+
     createSignals();
     subscribeToTopics();
 
@@ -110,15 +115,8 @@ void MqttRawReceiverFbImpl::createSignals()
 
         const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::Binary).build();
         outputSignals.emplace(
-            std::make_pair(topic, createAndAddSignal(buildSignalNameFromTopic(topic), signalDsc)));
+            std::make_pair(topic, createAndAddSignal(buildSignalNameFromTopic(topic, ""), signalDsc)));
     }
-}
-
-std::string MqttRawReceiverFbImpl::buildSignalNameFromTopic(std::string topic)
-{
-    boost::replace_all(topic, "/", "_");
-    topic += "_Mqtt";
-    return topic;
 }
 
 void MqttRawReceiverFbImpl::subscribeToTopics()

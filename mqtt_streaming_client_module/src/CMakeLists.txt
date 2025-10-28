@@ -8,6 +8,7 @@ set(SRC_Include common.h
                 mqtt_receiver_fb_impl.h
                 mqtt_raw_receiver_fb_impl.h
                 constants.h
+                helper.h
 )
 
 set(SRC_Srcs module_dll.cpp
@@ -15,12 +16,15 @@ set(SRC_Srcs module_dll.cpp
              mqtt_streaming_device_impl.cpp
              mqtt_receiver_fb_impl.cpp
              mqtt_raw_receiver_fb_impl.cpp
+             helper.cpp
 )
 
 prepend_include(${TARGET_FOLDER_NAME} SRC_Include)
 
 source_group("common" FILES ${MODULE_HEADERS_DIR}/common.h
                             ${MODULE_HEADERS_DIR}/constants.h
+                            ${MODULE_HEADERS_DIR}/helper.h
+                            helper.cpp
 )
 
 source_group("module" FILES ${MODULE_HEADERS_DIR}/mqtt_streaming_client_module_impl.h
