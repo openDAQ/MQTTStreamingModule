@@ -1,9 +1,11 @@
 #include <opendaq/opendaq.h>
 #include "../../InputArgs.h"
+#include <mqtt_streaming_client_module/constants.h>
 
 #include <iostream>
 
 using namespace daq;
+using namespace daq::modules::mqtt_streaming_client_module;
 
 int main(int argc, char* argv[])
 {
@@ -31,9 +33,11 @@ int main(int argc, char* argv[])
     std::vector<daq::FunctionBlockPtr> fbList;
     for (const auto& [key, value] : availableDeviceNodes) {
         std::cout << "Available function block: " << key << std::endl;
+        if (key == RAW_FB_NAME || key == JSON_FB_NAME)
+            continue;
         fbList.push_back(brokerDevice.addFunctionBlock(key));
     }
-    std::cout << "Try to connect the first one (" << fbList[0].getLocalId() << ")" << std::endl;
+    std::cout << "Try to connect the " << fbList[0].getLocalId() << std::endl;
 
     auto signals = fbList[0].getSignals();
     std::vector<StreamReaderPtr> readers;
