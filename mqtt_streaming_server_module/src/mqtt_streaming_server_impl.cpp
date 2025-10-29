@@ -65,12 +65,13 @@ MqttStreamingServerImpl::~MqttStreamingServerImpl()
 void MqttStreamingServerImpl::setupMqttPublisher()
 {
     publisher.disconnect();
-    publisher.setServerURL(connectionSettings.mqttUrl);
+    const auto serverUrl = connectionSettings.mqttUrl + ((connectionSettings.port > 0) ? ":" + std::to_string(connectionSettings.port) : "");
+    publisher.setServerURL(serverUrl);
     publisher.setClientId(connectionSettings.clientId);
     publisher.setUsernamePasswrod(connectionSettings.username, connectionSettings.password);
     publisher.setConnectedCb([this]() { LOG_I("MQTT: Connection established"); });
 
-    LOG_I("MQTT: Trying to connect to MQTT broker ({})", connectionSettings.mqttUrl);
+    LOG_I("MQTT: Trying to connect to MQTT broker ({})", serverUrl);
     publisher.connect();
 }
 

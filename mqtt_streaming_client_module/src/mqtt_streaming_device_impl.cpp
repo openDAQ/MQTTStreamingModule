@@ -97,7 +97,8 @@ void MqttStreamingDeviceImpl::initBaseFunctionalBlocks()
 
 void MqttStreamingDeviceImpl::initMqttSubscriber()
 {
-    subscriber->setServerURL(connectionSettings.mqttUrl);
+    const auto serverUrl = connectionSettings.mqttUrl + ((connectionSettings.port > 0) ? ":" + std::to_string(connectionSettings.port) : "");
+    subscriber->setServerURL(serverUrl);
     subscriber->setClientId(connectionSettings.clientId);
     subscriber->setUsernamePasswrod(connectionSettings.username, connectionSettings.password);
 
@@ -115,7 +116,7 @@ void MqttStreamingDeviceImpl::initMqttSubscriber()
             }
         });
 
-    LOG_I("MQTT: Trying to connect to MQTT broker ({})", connectionSettings.mqttUrl);
+    LOG_I("MQTT: Trying to connect to MQTT broker ({})", serverUrl);
     subscriber->connect();
 }
 
