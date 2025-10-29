@@ -120,7 +120,11 @@ TEST_F(MqttDeviceTest, CreatingSeveralDevices)
               Enumeration("ComponentStatusType", "Ok", instance.getContext().getTypeManager()));
     ASSERT_EQ(device.getInfo().getName(), MQTT_DEVICE_NAME);
     daq::GenericDevicePtr<daq::IDevice> anotherDevice;
-    ASSERT_THROW(anotherDevice = instance.addDevice("daq.mqtt://127.0.0.1", config), AlreadyExistsException);
+    ASSERT_NO_THROW(anotherDevice = instance.addDevice("daq.mqtt://127.0.0.1:1884", config));
+    ASSERT_EQ(anotherDevice.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", instance.getContext().getTypeManager()));
+    ASSERT_EQ(anotherDevice.getInfo().getName(), MQTT_DEVICE_NAME);
+    ASSERT_EQ(instance.getDevices().getCount(), 2u);
 }
 
 TEST_F(MqttDeviceTest, RemovingDevice)

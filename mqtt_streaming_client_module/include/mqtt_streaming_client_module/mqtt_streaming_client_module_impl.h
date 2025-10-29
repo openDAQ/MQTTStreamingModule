@@ -42,7 +42,6 @@ private:
     static PropertyObjectPtr populateDefaultConfig(const PropertyObjectPtr& config);
 
     std::mutex sync;
-    DevicePtr device;
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

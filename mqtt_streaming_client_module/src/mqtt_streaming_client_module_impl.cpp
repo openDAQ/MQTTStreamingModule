@@ -51,8 +51,6 @@ DictPtr<IString, IDeviceType> MqttStreamingClientModule::onGetAvailableDeviceTyp
 DevicePtr
 MqttStreamingClientModule::onCreateDevice(const StringPtr& connectionString, const ComponentPtr& parent, const PropertyObjectPtr& config)
 {
-    if (device.assigned())
-        DAQ_THROW_EXCEPTION(AlreadyExistsException, "Only one MQTT streaming device can be created per module instance.");
     if (!connectionString.assigned())
         DAQ_THROW_EXCEPTION(ArgumentNullException);
 
@@ -76,7 +74,9 @@ MqttStreamingClientModule::onCreateDevice(const StringPtr& connectionString, con
 
     std::scoped_lock lock(sync);
 
-    device = createWithImplementation<IDevice, MqttStreamingDeviceImpl>(context, parent, configPtr);
+    DevicePtr device = createWithImplementation<IDevice, MqttStreamingDeviceImpl>(context, parent, configPtr);
+
+    LOG_I("MQTT device (GlobalId: {}) created with connection string: {}", device.getGlobalId(), connectionString.toStdString());
 
     // Set the connection info for the device
     ServerCapabilityConfigPtr connectionInfo = device.getInfo().getConfigurationConnectionInfo();

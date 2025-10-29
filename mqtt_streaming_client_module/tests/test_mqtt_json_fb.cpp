@@ -221,6 +221,59 @@ private:
 class MqttJsonFbTest : public testing::Test, public DaqTestHelper, public MqttJsonFbHelper
 {
 };
+
+class MqttJsonFbCommunicationTest : public testing::Test, public DaqTestHelper, public MqttJsonFbHelper
+{
+public:
+    using data_set_t = std::vector<std::pair<double, uint64_t>>;
+
+    struct Result
+    {
+        bool deviceProblem = false;
+        bool publishingProblem = false;
+        data_set_t dataReceived;
+    };
+
+    Result processTransfer(const InstancePtr& instance, const std::string& url, const std::string& topic_postfix, const data_set_t& dataSet)
+    {
+        Result result;
+        const std::string topic = buildTopicName() + topic_postfix;
+        const auto jsonConfig = replacePlaceholder(VALID_JSON_CONFIG_0, "<placeholder_topic>", topic);
+        DevicePtr device;
+        try
+        {
+            device = instance.addDevice("daq.mqtt://" + url, DaqMqttDeviceConfig(100));
+        }
+        catch (...)
+        {
+            result.deviceProblem = true;
+            return result;
+        }
+
+        auto config = device.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
+        config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, jsonConfig);
+        auto singal = device.addFunctionBlock(JSON_FB_NAME, config).getSignals()[0];
+        auto reader = daq::StreamReader(singal);
+
+        MqttAsyncClientWrapper publisher(std::make_shared<mqtt::MqttAsyncClient>(), buildClientId());
+        result.deviceProblem = !publisher.connect(url);
+        if (result.deviceProblem)
+            return result;
+
+        for (const auto& [value, ts] : dataSet)
+        {
+            auto str = VALID_JSON_DATA_0;
+            str = replacePlaceholder(str, "<placeholder_ts>", ts);
+            str = replacePlaceholder(str, "<placeholder_value>", value);
+            result.publishingProblem = !publisher.publishMsg({topic, std::vector<uint8_t>(str.begin(), str.end()), 1, 0});
+            if (result.publishingProblem)
+                return result;
+        }
+        result.dataReceived = read(reader, true);
+        return result;
+    };
+};
+
 class MqttJsonFbRightJsonConfigPTest : public ::testing::TestWithParam<std::pair<std::string, int>>,
                                        public DaqTestHelper,
                                        public MqttJsonFbHelper
@@ -593,36 +646,32 @@ TEST_F(MqttJsonFbTest, DataTransferMissingFieldSeveralSignals)
     EXPECT_TRUE(compareData(DATA_DOUBLE_INT_2, dataToReceive[2], false));
 }
 
-TEST_F(MqttJsonFbTest, FullDataTransfer)
+TEST_F(MqttJsonFbCommunicationTest, FullDataTransfer)
 {
-    const std::string topic = buildTopicName();
-    const auto jsonConfig = replacePlaceholder(VALID_JSON_CONFIG_0, "<placeholder_topic>", topic);
-
     const auto instance = Instance();
-    auto device = instance.addDevice("daq.mqtt://127.0.0.1", DaqMqttDeviceConfig(100));
+    const auto result = processTransfer(instance, "127.0.0.1", "", DATA_DOUBLE_INT_0);
 
-    auto config = device.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
+    ASSERT_FALSE(result.deviceProblem);
+    ASSERT_FALSE(result.publishingProblem);
+    EXPECT_EQ(DATA_DOUBLE_INT_0.size(), result.dataReceived.size());
+    ASSERT_TRUE(compareData(DATA_DOUBLE_INT_0, result.dataReceived));
+}
 
-    config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, jsonConfig);
-    auto singal = device.addFunctionBlock(JSON_FB_NAME, config).getSignals()[0];
+TEST_F(MqttJsonFbCommunicationTest, FullDataTransferFor2Devices)
+{
+    const auto instance = Instance();
+    const auto result0 = processTransfer(instance, "127.0.0.1:1883", "0", DATA_DOUBLE_INT_0);
+    const auto result1 = processTransfer(instance, "127.0.0.1:1884", "1", DATA_DOUBLE_INT_1);
 
-    auto reader = daq::StreamReader(singal);
+    ASSERT_FALSE(result0.deviceProblem);
+    ASSERT_FALSE(result0.publishingProblem);
+    EXPECT_EQ(DATA_DOUBLE_INT_0.size(), result0.dataReceived.size());
+    EXPECT_TRUE(compareData(DATA_DOUBLE_INT_0, result0.dataReceived));
 
-    MqttAsyncClientWrapper publisher(std::make_shared<mqtt::MqttAsyncClient>(), buildClientId());
-    ASSERT_TRUE(publisher.connect("127.0.0.1"));
-
-    for (const auto& [value, ts] : DATA_DOUBLE_INT_0)
-    {
-        auto str = VALID_JSON_DATA_0;
-        str = replacePlaceholder(str, "<placeholder_ts>", ts);
-        str = replacePlaceholder(str, "<placeholder_value>", value);
-        ASSERT_TRUE(publisher.publishMsg({topic, std::vector<uint8_t>(str.begin(), str.end()), 1, 0}));
-    }
-
-    const std::vector<std::pair<double, uint64_t>> dataToReceive = read(reader, true);
-
-    ASSERT_EQ(DATA_DOUBLE_INT_0.size(), dataToReceive.size());
-    ASSERT_TRUE(compareData(DATA_DOUBLE_INT_0, dataToReceive));
+    ASSERT_FALSE(result1.deviceProblem);
+    ASSERT_FALSE(result1.publishingProblem);
+    EXPECT_EQ(DATA_DOUBLE_INT_1.size(), result1.dataReceived.size());
+    EXPECT_TRUE(compareData(DATA_DOUBLE_INT_1, result1.dataReceived));
 }
 
 TEST_P(MqttJsonFbUnitPTest, SignalUnit)
