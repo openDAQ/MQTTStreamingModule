@@ -16,14 +16,38 @@ enum class MqttConnectionStatus {
     pending,
 };
 
-struct MqttSubscription {
-    std::string topic;
-    int qos;
+struct CmdResult
+{
+    bool success = false;
+    std::string msg;
+    int token = 0;
 
-    MqttSubscription(std::string t, int q)
-        : topic(t)
-        , qos(q)
-    {}
+    CmdResult()
+        : success(false),
+          msg(""),
+          token(0)
+    {
+    }
+    CmdResult(bool success)
+        : success(success),
+          msg(""),
+          token(0)
+    {
+    }
+
+    CmdResult(bool success, const std::string& msg)
+        : success(success),
+          msg(msg),
+          token(0)
+    {
+    }
+
+    CmdResult(bool success, const std::string& msg, int token)
+        : success(success),
+          msg(msg),
+          token(token)
+    {
+    }
 };
 
 class MqttAsyncClient final {
@@ -38,21 +62,18 @@ public:
     MqttAsyncClient &operator=(MqttAsyncClient &&) = delete;
     ~MqttAsyncClient();
 
-    bool connect();
-    bool disconnect();
+    CmdResult connect();
+    CmdResult disconnect();
     bool syncDisconnect(int timeoutMs);
 
-    bool publish(const std::string &topic,
+    CmdResult publish(const std::string &topic,
                  void *data,
                  size_t dataLen,
-                 std::string *err = nullptr,
                  int qos = 1,
-                 int *token = nullptr,
                  bool retained = false);
 
-    bool subscribe(std::string topic, int qos);
-    bool unsubscribe(std::string topic);
-    bool unsubscribeAll();
+    CmdResult subscribe(std::string topic, int qos);
+    CmdResult unsubscribe(std::string topic);
 
     void setConnectedCb(std::function<void()> cb);
     void setMessageArrivedCb(std::string topic, std::function<MsgArrivedCb_type> cb);
@@ -89,8 +110,6 @@ private:
     std::function<void(int)> onDeliveryCompletedCb;
     std::function<MsgArrivedCb_type> onMsgArrivedCmnCb;
     std::unordered_map<std::string, std::function<MsgArrivedCb_type>> onMsgArrivedCbs;
-
-    std::vector<MqttSubscription> subscriptions;
 
     std::lock_guard<std::recursive_mutex> getCbLock();
 

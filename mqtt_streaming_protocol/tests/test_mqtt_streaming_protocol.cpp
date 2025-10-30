@@ -109,8 +109,8 @@ TEST_F(MqttStreamingProtocolTest, Disconnection)
         }
     });
 
-    auto disconnectionOk = instance->disconnect();
-    ASSERT_TRUE(disconnectionOk);
+    auto result = instance->disconnect();
+    ASSERT_TRUE(result.success);
 
     status = disconnectedFuture.wait_for(timer.remain());
     instance->setDisconnectCb(nullptr);
@@ -129,11 +129,11 @@ TEST_F(MqttStreamingProtocolTest, PublishingWithoutDataControl)
     auto ok = connect("127.0.0.1", clientId);
     ASSERT_TRUE(ok);
 
-    int token = 0;
+    CmdResult result;
     std::atomic<bool> sendDone{false};
     std::promise<bool> sendPromise;
     auto sendFuture = sendPromise.get_future();
-    instance->setSentCb([promise = &sendPromise, token = &token, &sendDone](int receivedToken, bool result) {
+    instance->setSentCb([promise = &sendPromise, token = &result.token, &sendDone](int receivedToken, bool result) {
         bool expected = false;
         if (receivedToken == *token) {
             if (sendDone.compare_exchange_strong(expected, true)) {
@@ -146,7 +146,7 @@ TEST_F(MqttStreamingProtocolTest, PublishingWithoutDataControl)
     std::promise<bool> deliveryPromise;
     auto deliveryFuture = deliveryPromise.get_future();
     instance->setDeliveryCompletedCb(
-        [promise = &deliveryPromise, token = &token, &deliveryDone](int receivedToken) {
+        [promise = &deliveryPromise, token = &result.token, &deliveryDone](int receivedToken) {
             bool expected = false;
             if (receivedToken == *token) {
                 if (deliveryDone.compare_exchange_strong(expected, true)) {
@@ -158,9 +158,9 @@ TEST_F(MqttStreamingProtocolTest, PublishingWithoutDataControl)
     const std::string topic = buildTopicName();
     const std::string data = "test data";
 
-    ok = instance->publish(topic, (void *)(data.c_str()), data.size(), nullptr, 1, &token, false);
-    ASSERT_TRUE(ok);
-    ASSERT_TRUE(token != 0);
+    result = instance->publish(topic, (void *)(data.c_str()), data.size(), 1, false);
+    ASSERT_TRUE(result.success);
+    ASSERT_TRUE(result.token != 0);
 
 
     Timer timer(successTimeout);
@@ -199,7 +199,7 @@ TEST_F(MqttStreamingProtocolTest, PublishingRetainedWithReceivingControl)
     const MqttMessage msg(topic, std::vector<uint8_t>(text.begin(), text.end()), 1, true);
 
     ASSERT_TRUE(publishMsg(msg));
-    ASSERT_TRUE(instance->disconnect());
+    ASSERT_TRUE(instance->disconnect().success);
 
 
     std::this_thread::sleep_for(milliseconds(500)); // Give some time to the broker to store the retained message)
@@ -226,8 +226,8 @@ TEST_F(MqttStreamingProtocolTest, PublishingRetainedWithReceivingControl)
                               });
 
     Timer receiveTimer(successTimeout);
-    auto ok = subscriber.instance->subscribe(msg.getTopic(), msg.getQos());
-    ASSERT_TRUE(ok);
+    auto result = subscriber.instance->subscribe(msg.getTopic(), msg.getQos());
+    ASSERT_TRUE(result.success);
     auto status = receivedFuture.wait_for(receiveTimer.remain());
     instance->setMessageArrivedCb(nullptr);
     ASSERT_TRUE(status == std::future_status::ready);
@@ -269,8 +269,8 @@ TEST_F(MqttStreamingProtocolTest, PublishingWithReceivingControl)
                               });
 
     Timer receiveTimer(successTimeout);
-    auto ok = subscriber.instance->subscribe(msg.getTopic(), msg.getQos());
-    ASSERT_TRUE(ok);
+    auto result = subscriber.instance->subscribe(msg.getTopic(), msg.getQos());
+    ASSERT_TRUE(result.success);
     ASSERT_TRUE(publishMsg(msg));
 
     auto status = receivedFuture.wait_for(receiveTimer.remain());
@@ -285,9 +285,8 @@ TEST_F(MqttStreamingProtocolTest, PublishingWithoutConnection)
 {
     const std::string topic = buildTopicName();
     const std::string data = "test data";
-    int token = 0;
-    auto ok = instance->publish(topic, (void *)(data.c_str()), data.size(), nullptr, 1, &token, false);
-    ASSERT_FALSE(ok);
+    auto result = instance->publish(topic, (void *)(data.c_str()), data.size(), 1, false);
+    ASSERT_FALSE(result.success);
 }
 
 TEST_P(JsonTimestampParsingIntPTest, IntTimestampParsing)

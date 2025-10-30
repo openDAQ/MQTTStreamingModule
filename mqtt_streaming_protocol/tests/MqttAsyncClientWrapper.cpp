@@ -36,7 +36,8 @@ bool MqttAsyncClientWrapper::createConnection(const std::string& url, const std:
                 connectedPromise.set_value(true);
             }
         });
-    return instance->connect();
+    auto result = instance->connect();
+    return result.success;
 }
 
 bool MqttAsyncClientWrapper::connect(const std::string& url)
@@ -75,8 +76,8 @@ bool MqttAsyncClientWrapper::disconnect()
             }
         });
 
-    auto disconnectionOk = instance->disconnect();
-    if (!disconnectionOk)
+    auto result = instance->disconnect();
+    if (!result.success)
     {
         return false;
     }
@@ -99,21 +100,17 @@ bool MqttAsyncClientWrapper::publishMsg(const std::string& topic, const std::str
 
 bool MqttAsyncClientWrapper::publishMsg(const mqtt::MqttMessage& msg)
 {
-    int token = 0;
-
     std::promise<int> deliveryPromise;
     auto deliveryFuture = deliveryPromise.get_future();
     instance->setDeliveryCompletedCb([promise = &deliveryPromise](int deliveredToken) { promise->set_value(deliveredToken); });
 
     Timer sendTimer(successTimeout);
-    auto ok = instance->publish(msg.getTopic(),
+    auto result = instance->publish(msg.getTopic(),
                                 (void*)(msg.getData().data()),
                                 msg.getData().size(),
-                                nullptr,
                                 msg.getQos(),
-                                &token,
                                 msg.getRetained());
-    if (!ok || token == 0)
+    if (!result.success || result.token == 0)
     {
         instance->setDeliveryCompletedCb(nullptr);
         return false;
@@ -121,5 +118,5 @@ bool MqttAsyncClientWrapper::publishMsg(const mqtt::MqttMessage& msg)
 
     auto status = deliveryFuture.wait_for(sendTimer.remain());
     instance->setDeliveryCompletedCb(nullptr);
-    return (status == std::future_status::ready && deliveryFuture.get() == token);
+    return (status == std::future_status::ready && deliveryFuture.get() == result.token);
 }

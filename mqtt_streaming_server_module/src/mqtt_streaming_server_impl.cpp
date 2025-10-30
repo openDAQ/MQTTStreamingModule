@@ -85,11 +85,10 @@ void MqttStreamingServerImpl::sendData(const std::string& topic, const ChannelDa
     {
         for (const auto& jsonMessage : jsonMessages)
         {
-            std::string err;
-            auto status = publisher.publish(topic, (void*)jsonMessage.c_str(), jsonMessage.length(), &err);
-            if (!status)
+            auto status = publisher.publish(topic, (void*)jsonMessage.c_str(), jsonMessage.length());
+            if (!status.success)
             {
-                LOG_W("Failed to publish data to {}; reason - {}", topic, err);
+                LOG_W("Failed to publish data to {}; reason - {}", topic, status.msg);
             }
         }
     }
@@ -118,10 +117,10 @@ void MqttStreamingServerImpl::sendTopicList()
     auto topicsMessage = prepareJsonTopics();
     if (publisher.isConnected() == mqtt::MqttConnectionStatus::connected)
     {
-        bool status = publisher.publish(topic, (void*)topicsMessage.c_str(), topicsMessage.length(), nullptr, 1, nullptr, true);
-        if (!status)
+        auto status = publisher.publish(topic, (void*)topicsMessage.c_str(), topicsMessage.length(), 1, true);
+        if (!status.success)
         {
-            LOG_W("Failed to publish topics list to {}", topic);
+            LOG_W("Failed to publish topics list to {}; reason: {}", topic, status.msg);
         }
         else
         {

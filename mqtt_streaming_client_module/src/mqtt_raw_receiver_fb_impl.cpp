@@ -133,9 +133,9 @@ void MqttRawReceiverFbImpl::subscribeToTopics()
                                                   this,
                                                   std::placeholders::_1,
                                                   std::placeholders::_2));
-        auto ok = subscriber->subscribe(topic, 1);
-        if (!ok)
-            LOG_W("Failed to subscribe to the topic: {}", topic);
+        auto result = subscriber->subscribe(topic, 1);
+        if (!result.success)
+            LOG_W("Failed to subscribe to the topic: {}; reason: {}", topic, result.msg);
     }
 }
 
@@ -149,9 +149,9 @@ void MqttRawReceiverFbImpl::unsubscribeFromTopics()
     for (const auto& topic : topicsForSubscribing)
     {
         subscriber->setMessageArrivedCb(topic, nullptr);
-        auto ok = subscriber->unsubscribe(topic);
-        if (!ok)
-            LOG_W("Failed to unsubscribe from the topic: {}", topic);
+        auto result = subscriber->unsubscribe(topic);
+        if (!result.success)
+            LOG_W("Failed to unsubscribe from the topic: {}; reason: {}", topic, result.msg);
     }
 }
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
