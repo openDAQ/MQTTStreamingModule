@@ -37,7 +37,7 @@ private:
     std::unordered_map<std::string, SignalConfigPtr> outputSignals;
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
-    ListObjectPtr<IList, IString> topicsForSubscribing;
+    std::vector<std::string> topicsForSubscribing;
 
     std::mutex sync;
 
@@ -52,6 +52,8 @@ private:
 
     void subscribeToTopics();
     void unsubscribeFromTopics();
+
+    void removed() override;
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

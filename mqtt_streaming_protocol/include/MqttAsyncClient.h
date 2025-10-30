@@ -74,12 +74,16 @@ public:
 
     CmdResult subscribe(std::string topic, int qos);
     CmdResult unsubscribe(std::string topic);
+    CmdResult unsubscribe(const std::vector<std::string>& topics);
+    CmdResult waitForCompletion(int token, unsigned long toutMs);
 
     void setConnectedCb(std::function<void()> cb);
     void setMessageArrivedCb(std::string topic, std::function<MsgArrivedCb_type> cb);
+    void setMessageArrivedCb(std::vector<std::string> topics, std::function<MsgArrivedCb_type> cb);
     void setMessageArrivedCb(std::function<MsgArrivedCb_type> cb);
     void setDisconnectCb(std::function<void(bool)> cb);
     void setSentCb(std::function<void(int, bool)> cb);
+    void setUnsubscribeCb(std::function<void(int, bool)> cb);
     void setDeliveryCompletedCb(std::function<void(int)> cb);
 
     void setServerURL(std::string serverUrl);
@@ -105,6 +109,7 @@ private:
 
     std::function<void()> onConnectedCb;
     std::function<void(int, bool)> onSentCb;
+    std::function<void(int, bool)> onUnsubscribeCb;
     std::function<void(bool)> onDisconnectCb;
     std::function<void(bool)> onInternalDisconnectCb;
     std::function<void(int)> onDeliveryCompletedCb;

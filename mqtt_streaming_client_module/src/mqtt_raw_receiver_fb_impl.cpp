@@ -7,6 +7,8 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 
+constexpr int MQTT_RAW_FB_UNSUBSCRIBE_TOUT = 3000;
+
 MqttRawReceiverFbImpl::MqttRawReceiverFbImpl(const ContextPtr& ctx,
                                              const ComponentPtr& parent,
                                              const FunctionBlockTypePtr& type,
@@ -29,6 +31,12 @@ MqttRawReceiverFbImpl::MqttRawReceiverFbImpl(const ContextPtr& ctx,
 
 MqttRawReceiverFbImpl::~MqttRawReceiverFbImpl()
 {
+    unsubscribeFromTopics();
+}
+
+void MqttRawReceiverFbImpl::removed()
+{
+    FunctionBlock::removed();
     unsubscribeFromTopics();
 }
 
@@ -59,7 +67,7 @@ void MqttRawReceiverFbImpl::initProperties(const PropertyObjectPtr& config)
 void MqttRawReceiverFbImpl::readProperties()
 {
     auto lock = std::lock_guard<std::mutex>(sync);
-    topicsForSubscribing = List<IString>();
+    topicsForSubscribing.clear();
     bool isPresent = false;
     if (objPtr.hasProperty(PROPERTY_NAME_SIGNAL_LIST))
     {
@@ -73,7 +81,7 @@ void MqttRawReceiverFbImpl::readProperties()
                 if (mqtt::MqttDataWrapper::validateTopic(topicStr, loggerComponent))
                 {
                     LOG_I("Topic in list: {}", topicStr.toStdString());
-                    topicsForSubscribing.pushBack(topicStr);
+                    topicsForSubscribing.emplace_back(topicStr.toStdString());
                 }
             }
         }
@@ -146,12 +154,21 @@ void MqttRawReceiverFbImpl::unsubscribeFromTopics()
         LOG_E("The subscriber is null");
         return;
     }
-    for (const auto& topic : topicsForSubscribing)
+    if (topicsForSubscribing.empty())
+        return;
+    subscriber->setMessageArrivedCb(topicsForSubscribing, nullptr);
+    auto result = subscriber->unsubscribe(topicsForSubscribing);
+    if (result.success)
+        result = subscriber->waitForCompletion(result.token, MQTT_RAW_FB_UNSUBSCRIBE_TOUT);
+
+    if (result.success)
     {
-        subscriber->setMessageArrivedCb(topic, nullptr);
-        auto result = subscriber->unsubscribe(topic);
-        if (!result.success)
-            LOG_W("Failed to unsubscribe from the topic: {}; reason: {}", topic, result.msg);
+        topicsForSubscribing.clear();
+        LOG_I("All topics have been unsubscribed successfully");
+    }
+    else
+    {
+        LOG_W("Failed to unsubscribe from all topics; reason: {}", result.msg);
     }
 }
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

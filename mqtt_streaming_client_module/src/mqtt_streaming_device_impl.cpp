@@ -56,10 +56,10 @@ MqttStreamingDeviceImpl::MqttStreamingDeviceImpl(const ContextPtr& ctx, const Co
 
 void MqttStreamingDeviceImpl::removed()
 {
+    Device::removed();
     bool disRes = subscriber->syncDisconnect(MQTT_CLIENT_SYNC_DISCONNECT_TOUT);
     if (!disRes)
         LOG_E("MQTT: disconnection was unsuccessful");
-    Device::removed();
 }
 
 DeviceInfoPtr MqttStreamingDeviceImpl::onGetInfo()

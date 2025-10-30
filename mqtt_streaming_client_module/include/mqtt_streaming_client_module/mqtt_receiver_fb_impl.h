@@ -55,7 +55,10 @@ private:
 
     void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg);
 
-    std::set<std::string> getSubscribedTopics() const;
+    std::vector<std::string> getSubscribedTopics() const;
+    void unsubscribeFromTopics();
+
+    void removed() override;
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

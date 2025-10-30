@@ -5,6 +5,8 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 
+constexpr int MQTT_JSON_FB_UNSUBSCRIBE_TOUT = 3000;
+
 MqttReceiverFbImpl::MqttReceiverFbImpl(const ContextPtr& ctx,
                                        const ComponentPtr& parent,
                                        const FunctionBlockTypePtr& type,
@@ -45,14 +47,13 @@ MqttReceiverFbImpl::MqttReceiverFbImpl(const ContextPtr& ctx,
 
 MqttReceiverFbImpl::~MqttReceiverFbImpl()
 {
-    if (subscriber)
-    {
-        for (const auto& topic : getSubscribedTopics())
-        {
-            subscriber->setMessageArrivedCb(topic, nullptr);
-            subscriber->unsubscribe(topic);
-        }
-    }
+    unsubscribeFromTopics();
+}
+
+void MqttReceiverFbImpl::removed()
+{
+    FunctionBlock::removed();
+    unsubscribeFromTopics();
 }
 
 void MqttReceiverFbImpl::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg)
@@ -140,15 +141,41 @@ void MqttReceiverFbImpl::createSignals()
     jsonDataWorker.setOutputSignals(&outputSignals);
 }
 
-std::set<std::string> MqttReceiverFbImpl::getSubscribedTopics() const
+std::vector<std::string> MqttReceiverFbImpl::getSubscribedTopics() const
 {
     auto lock = std::lock_guard<std::mutex>(sync);
-    std::set<std::string> topics;
+    std::set<std::string> topicsSet;
     for (const auto& [signalId, _] : subscribedSignals)
     {
-        topics.emplace(signalId.topic);
+        topicsSet.emplace(signalId.topic);
     }
-    return topics;
+    return std::vector<std::string>(topicsSet.cbegin(), topicsSet.cend());
+}
+
+void MqttReceiverFbImpl::unsubscribeFromTopics()
+{
+    if (!subscriber)
+    {
+        LOG_E("The subscriber is null");
+        return;
+    }
+    const auto topics = getSubscribedTopics();
+    if (topics.empty())
+        return;
+    subscriber->setMessageArrivedCb(topics, nullptr);
+    auto result = subscriber->unsubscribe(topics);
+    if (result.success)
+        result = subscriber->waitForCompletion(result.token, MQTT_JSON_FB_UNSUBSCRIBE_TOUT);
+
+    if (result.success)
+    {
+        subscribedSignals.clear();
+        LOG_I("All topics have been unsubscribed successfully");
+    }
+    else
+    {
+        LOG_W("Failed to unsubscribe from all topics; reason: {}", result.msg);
+    }
 }
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

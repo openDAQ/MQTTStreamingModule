@@ -212,6 +212,27 @@ CmdResult MqttAsyncClient::unsubscribe(std::string topic)
     return CmdResult(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc), opts.token);
 }
 
+CmdResult MqttAsyncClient::unsubscribe(const std::vector<std::string>& topics)
+{
+    MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
+    opts.onSuccess = (MQTTAsync_onSuccess*)&MqttAsyncClient::onUnsubscribeSuccess;
+    opts.onFailure = (MQTTAsync_onFailure*)&MqttAsyncClient::onUnsubscribeFailure;
+    opts.context = this;
+    const char* topicArray[topics.size()];
+    for (size_t i = 0; i < topics.size(); ++i)
+    {
+        topicArray[i] = topics[i].c_str();
+    }
+    int rc = MQTTAsync_unsubscribeMany(client, topics.size(), (char* const*)topicArray, &opts);
+    return CmdResult(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc), opts.token);
+}
+
+CmdResult MqttAsyncClient::waitForCompletion(int token, unsigned long toutMs)
+{
+    int rc = MQTTAsync_waitForCompletion(client, token, toutMs);
+    return CmdResult(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc));
+}
+
 void MqttAsyncClient::setServerURL(std::string serverUrl)
 {
     if (serverUrl != "")
@@ -373,10 +394,24 @@ void MqttAsyncClient::onSubscribeFailure(void* context, MQTTAsync_failureData* r
 
 void MqttAsyncClient::onUnsubscribeSuccess(void* context, MQTTAsync_successData* response)
 {
+    if (context != nullptr)
+    {
+        auto clienttInst = (MqttAsyncClient*)context;
+        auto lock = clienttInst->getCbLock();
+        if (clienttInst->onUnsubscribeCb)
+            clienttInst->onUnsubscribeCb(response->token, true);
+    }
 }
 
 void MqttAsyncClient::onUnsubscribeFailure(void* context, MQTTAsync_failureData* response)
 {
+    if (context != nullptr)
+    {
+        auto clienttInst = (MqttAsyncClient*)context;
+        auto lock = clienttInst->getCbLock();
+        if (clienttInst->onUnsubscribeCb)
+            clienttInst->onUnsubscribeCb(response->token, false);
+    }
 }
 
 void MqttAsyncClient::setConnectedCb(std::function<void()> cb)
@@ -388,7 +423,22 @@ void MqttAsyncClient::setConnectedCb(std::function<void()> cb)
 void MqttAsyncClient::setMessageArrivedCb(std::string topic, std::function<MsgArrivedCb_type> cb)
 {
     auto lock = getCbLock();
-    onMsgArrivedCbs.insert({topic, cb});
+    if (!cb)
+        onMsgArrivedCbs.erase(topic);
+    else
+        onMsgArrivedCbs.insert({topic, cb});
+}
+
+void MqttAsyncClient::setMessageArrivedCb(std::vector<std::string> topics, std::function<MsgArrivedCb_type> cb)
+{
+    auto lock = getCbLock();
+    for (const auto& topic : topics)
+    {
+        if (!cb)
+            onMsgArrivedCbs.erase(topic);
+        else
+            onMsgArrivedCbs.insert({topic, cb});
+    }
 }
 
 void MqttAsyncClient::setMessageArrivedCb(std::function<MsgArrivedCb_type> cb)
@@ -407,6 +457,12 @@ void MqttAsyncClient::setSentCb(std::function<void(int, bool)> cb)
 {
     auto lock = getCbLock();
     onSentCb = cb;
+}
+
+void MqttAsyncClient::setUnsubscribeCb(std::function<void(int, bool)> cb)
+{
+    auto lock = getCbLock();
+    onUnsubscribeCb = cb;
 }
 
 void MqttAsyncClient::setDeliveryCompletedCb(std::function<void(int)> cb)
