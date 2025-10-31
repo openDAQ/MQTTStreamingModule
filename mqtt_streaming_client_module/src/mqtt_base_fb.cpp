@@ -51,13 +51,22 @@ void MqttBaseFb::subscribeToTopics()
     {
         bool success = true;
         auto lambda = [this](const mqtt::MqttAsyncClient &client, mqtt::MqttMessage &msg){this->onSignalsMessage(client, msg);};
+        if (!getSubscribedTopics().empty())
+            LOG_I("Trying to subscribe to the topics");
         for (const auto& topic : getSubscribedTopics())
         {
             subscriber->setMessageArrivedCb(topic, lambda);
             auto result = subscriber->subscribe(topic, 1);
             success &= result.success;
             if (!result.success)
+            {
                 LOG_W("Failed to subscribe to the topic: {}; reason: {}", topic, result.msg);
+            }
+            else
+            {
+                // subscriber->subscribe(...) is asynchronous. It puts command in queue and returns immediately.
+                LOG_D("Trying to subscribe to the topic: {}", topic);
+            }
         }
         if (!success)
             setComponentStatusWithMessage(ComponentStatus::Warning, "Some topics failed to subscribe!");

@@ -35,19 +35,29 @@ void MqttJsonReceiverFbImpl::readProperties()
 {
     auto lock = std::lock_guard<std::mutex>(sync);
     subscribedSignals.clear();
+    bool isPresent = false;
     if (objPtr.hasProperty(PROPERTY_NAME_SIGNAL_LIST))
     {
         auto signalConfig = objPtr.getPropertyValue(PROPERTY_NAME_SIGNAL_LIST).asPtrOrNull<IString>();
         if (signalConfig.assigned())
         {
+            isPresent = true;
             jsonDataWorker.setConfig(signalConfig.toStdString());
             subscribedSignals = jsonDataWorker.extractDescription();
-            LOG_I("Signal in list:");
+            LOG_I("Signal in the list (topic | signal name):");
             for (const auto& [signalId, descriptor] : subscribedSignals)
             {
-                LOG_I("{} | {}", signalId.topic, signalId.signalName);
+                LOG_I("\t\"{}\" | \"{}\"", signalId.topic, signalId.signalName);
             }
         }
+    }
+    if (!isPresent)
+    {
+        LOG_W("{} property is missing!", PROPERTY_NAME_SIGNAL_LIST);
+    }
+    if (subscribedSignals.empty())
+    {
+        LOG_W("No signals in the list!");
     }
 }
 
@@ -67,9 +77,12 @@ void MqttJsonReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
 void MqttJsonReceiverFbImpl::createSignals()
 {
     auto lock = std::lock_guard<std::mutex>(sync);
+    if (!subscribedSignals.empty())
+        LOG_I("Creating signals...");
+
     for (const auto& [signalId, descriptor] : subscribedSignals)
     {
-        LOG_I("Creating signal \"{}\" for topic \"{}\"", signalId.signalName, signalId.topic);
+        LOG_D("\tfor the topic \"{}\"", signalId.signalName, signalId.topic);
         const std::string& topic = signalId.topic;
 
         auto signalDsc = descriptor;
@@ -80,6 +93,7 @@ void MqttJsonReceiverFbImpl::createSignals()
                 .first;
         if (jsonDataWorker.hasDomainSignal(signalId))
         {
+            LOG_D("\tThe signal has a domain signal");
             auto getEpoch = []() -> std::string
             {
                 const std::time_t epochTime = std::chrono::system_clock::to_time_t(std::chrono::time_point<std::chrono::system_clock>{});
@@ -97,6 +111,10 @@ void MqttJsonReceiverFbImpl::createSignals()
                                              .build();
             refS->second->setDomainSignal(
                 createAndAddSignal(buildDomainSignalNameFromTopic(topic, signalId.signalName), domainSignalDsc, false));
+        }
+        else
+        {
+            LOG_D("\tThe signal doesn't have a domain signal");
         }
     }
     jsonDataWorker.setOutputSignals(&outputSignals);

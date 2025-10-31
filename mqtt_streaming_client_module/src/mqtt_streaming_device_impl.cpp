@@ -42,6 +42,7 @@ MqttStreamingDeviceImpl::MqttStreamingDeviceImpl(const ContextPtr& ctx, const Co
     initComponentStatus();
     initBaseFunctionalBlocks();
     initMqttSubscriber();
+
     if (!waitForConnection(connectTimeout))
     {
         LOG_E("MQTT: could not connect to MQTT broker within {} ms", connectTimeout);
@@ -57,9 +58,16 @@ MqttStreamingDeviceImpl::MqttStreamingDeviceImpl(const ContextPtr& ctx, const Co
 void MqttStreamingDeviceImpl::removed()
 {
     Device::removed();
+    LOG_I("MQTT: disconnecting from the MQTT broker...", connectionSettings.mqttUrl + ":" + std::to_string(connectionSettings.port));
     bool disRes = subscriber->syncDisconnect(MQTT_CLIENT_SYNC_DISCONNECT_TOUT);
     if (!disRes)
+    {
         LOG_E("MQTT: disconnection was unsuccessful");
+    }
+    else
+    {
+        LOG_I("MQTT: disconnection was successful");
+    }
 }
 
 DeviceInfoPtr MqttStreamingDeviceImpl::onGetInfo()
@@ -116,7 +124,7 @@ void MqttStreamingDeviceImpl::initMqttSubscriber()
             }
         });
 
-    LOG_I("MQTT: Trying to connect to MQTT broker ({})", serverUrl);
+    LOG_I("MQTT: Trying to connect to the MQTT broker ({})", serverUrl);
     subscriber->connect();
 }
 
@@ -143,7 +151,7 @@ void MqttStreamingDeviceImpl::receiveSignalTopics(const int timeoutMs)
     }
     else
     {
-        LOG_I("Signal discovering step was skipped");
+        LOG_W("Signal discovering step was skipped");
     }
 }
 
@@ -173,6 +181,19 @@ void MqttStreamingDeviceImpl::buildFunctionBlockTypes()
                                               defaultConfig);
 
         fbTypes.set(fbType.getId(), fbType);
+    }
+    if (fbTypes.getCount() != 0)
+    {
+        LOG_I("Function block types available:");
+    }
+    else
+    {
+        LOG_I("No function block types available");
+    }
+
+    for (const auto& [fbName, _] : fbTypes)
+    {
+        LOG_I("\t{}", fbName.toStdString());
     }
 }
 

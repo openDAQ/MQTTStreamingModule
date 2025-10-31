@@ -42,12 +42,14 @@ void MqttRawReceiverFbImpl::readProperties()
         if (prop.assigned())
         {
             isPresent = true;
+            if (prop.getCount() != 0)
+                LOG_I("Topics in the list:");
             for (const auto& topic : prop)
             {
                 auto topicStr = topic.asPtr<IString>();
                 if (mqtt::MqttDataWrapper::validateTopic(topicStr, loggerComponent))
                 {
-                    LOG_I("Topic in list: {}", topicStr.toStdString());
+                    LOG_I("\t{}", topicStr.toStdString());
                     topicsForSubscribing.emplace_back(topicStr.toStdString());
                 }
             }
@@ -83,9 +85,11 @@ void MqttRawReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
 void MqttRawReceiverFbImpl::createSignals()
 {
     auto lock = std::lock_guard<std::mutex>(sync);
+    if (!topicsForSubscribing.empty())
+        LOG_I("Creating signals...");
     for (const auto& topic : topicsForSubscribing)
     {
-        LOG_I("Subscribing to topic: {}", topic);
+        LOG_D("\tfor the topic: {}", topic);
 
         const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::Binary).build();
         outputSignals.emplace(std::make_pair(topic, createAndAddSignal(buildSignalNameFromTopic(topic, ""), signalDsc)));

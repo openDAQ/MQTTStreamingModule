@@ -158,6 +158,12 @@ std::unordered_map<mqtt::SignalId, daq::DataDescriptorPtr> MqttDataWrapper::extr
     rapidjson::Document doc;
     topicDescriptors.clear();
 
+    if (config.empty())
+    {
+        LOG_E("The JSON config is empty");
+        return result;
+    }
+
     if (doc.Parse(config.c_str()).HasParseError())
     {
         LOG_E("The JSON config has wrong format");
