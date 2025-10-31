@@ -1,5 +1,5 @@
 #include "mqtt_streaming_client_module/constants.h"
-#include "mqtt_streaming_client_module/mqtt_receiver_fb_impl.h"
+#include "mqtt_streaming_client_module/mqtt_json_receiver_fb_impl.h"
 #include "mqtt_streaming_client_module/mqtt_raw_receiver_fb_impl.h"
 #include <mqtt_streaming_client_module/mqtt_streaming_device_impl.h>
 
@@ -194,7 +194,7 @@ FunctionBlockPtr MqttStreamingDeviceImpl::onAddFunctionBlock(const StringPtr& ty
             }
             else
             {
-                nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttReceiverFbImpl>(context, functionBlocks, fbTypePtr, typeId, subscriber, config);
+                nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttJsonReceiverFbImpl>(context, functionBlocks, fbTypePtr, typeId, subscriber, config);
             }
 
             addNestedFunctionBlock(nestedFunctionBlock);

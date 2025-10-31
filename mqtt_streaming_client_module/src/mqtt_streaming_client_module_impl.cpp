@@ -15,7 +15,7 @@
 #include <opendaq/search_filter_factory.h>
 #include <regex>
 
-#include <mqtt_streaming_client_module/mqtt_receiver_fb_impl.h>
+#include <mqtt_streaming_client_module/mqtt_json_receiver_fb_impl.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 

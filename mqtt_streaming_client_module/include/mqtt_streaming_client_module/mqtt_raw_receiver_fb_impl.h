@@ -15,45 +15,36 @@
  */
 
 #pragma once
-#include <mqtt_streaming_client_module/common.h>
-#include <opendaq/function_block_impl.h>
 #include <MqttAsyncClient.h>
+#include <mqtt_streaming_client_module/common.h>
+#include <mqtt_streaming_client_module/mqtt_base_fb.h>
+#include <opendaq/function_block_impl.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
-    
-class MqttRawReceiverFbImpl final : public FunctionBlock
+
+class MqttRawReceiverFbImpl final : public MqttBaseFb
 {
     friend class MqttRawFbTest;
+
 public:
     explicit MqttRawReceiverFbImpl(const ContextPtr& ctx,
-                                const ComponentPtr& parent,
-                                const FunctionBlockTypePtr& type,
-                                const StringPtr& localId,
-                                std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
-                                const PropertyObjectPtr& config = nullptr);
+                                   const ComponentPtr& parent,
+                                   const FunctionBlockTypePtr& type,
+                                   const StringPtr& localId,
+                                   std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
+                                   const PropertyObjectPtr& config = nullptr);
     ~MqttRawReceiverFbImpl() override;
 
 private:
+    std::mutex sync;
     std::unordered_map<std::string, SignalConfigPtr> outputSignals;
-
-    std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
     std::vector<std::string> topicsForSubscribing;
 
-    std::mutex sync;
-
-    void createSignals();
-
-    void createAndSendDataPacket(mqtt::MqttMessage& msg);
-
-    void initProperties(const PropertyObjectPtr& config);
-    void readProperties();
-
-    void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg);
-
-    void subscribeToTopics();
-    void unsubscribeFromTopics();
-
-    void removed() override;
+    void createSignals() override;
+    void clearSubscribedTopics() override;
+    std::vector<std::string> getSubscribedTopics() const override;
+    void processMessage(const mqtt::MqttMessage& msg) override;
+    void readProperties() override;
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

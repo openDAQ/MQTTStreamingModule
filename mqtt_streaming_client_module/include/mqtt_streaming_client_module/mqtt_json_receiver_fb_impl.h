@@ -15,50 +15,40 @@
  */
 
 #pragma once
-#include <mqtt_streaming_client_module/common.h>
-#include <opendaq/function_block_impl.h>
-#include <set>
-
 #include "MqttAsyncClient.h"
 #include "MqttDataWrapper.h"
+#include <mqtt_streaming_client_module/common.h>
+#include <mqtt_streaming_client_module/mqtt_base_fb.h>
+#include <opendaq/function_block_impl.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
-    
-class MqttReceiverFbImpl final : public FunctionBlock
+
+class MqttJsonReceiverFbImpl final : public MqttBaseFb
 {
     friend class MqttJsonFbHelper;
+
 public:
-    explicit MqttReceiverFbImpl(const ContextPtr& ctx,
+    explicit MqttJsonReceiverFbImpl(const ContextPtr& ctx,
                                 const ComponentPtr& parent,
                                 const FunctionBlockTypePtr& type,
                                 const StringPtr& localId,
                                 std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                 const PropertyObjectPtr& config = nullptr);
-    ~MqttReceiverFbImpl() override;
+    ~MqttJsonReceiverFbImpl() override;
 
 private:
+    mutable std::mutex sync;
     mqtt::MqttDataWrapper jsonDataWorker;
     std::unordered_map<mqtt::SignalId, SignalConfigPtr> outputSignals;
-
-    std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
     std::unordered_map<mqtt::SignalId, DataDescriptorPtr> subscribedSignals;
 
-    mutable std::mutex sync;
+    void createSignals() override;
+    void clearSubscribedTopics() override;
+    std::vector<std::string> getSubscribedTopics() const override;
+    void processMessage(const mqtt::MqttMessage& msg) override;
+    void readProperties() override;
 
-    void createSignals();
-
-    void parseMessage(const mqtt::MqttMessage& msg);
     void createDataPacket(const std::string& topic, const std::string& json);
-
-    void initProperties(const PropertyObjectPtr& config);
-    void readProperties();
-
-    void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg);
-
-    std::vector<std::string> getSubscribedTopics() const;
-    void unsubscribeFromTopics();
-
-    void removed() override;
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

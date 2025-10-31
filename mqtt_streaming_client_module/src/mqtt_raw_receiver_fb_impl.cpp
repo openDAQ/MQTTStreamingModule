@@ -1,6 +1,6 @@
+#include "MqttDataWrapper.h"
 #include "mqtt_streaming_client_module/constants.h"
 #include "mqtt_streaming_client_module/helper.h"
-#include "MqttDataWrapper.h"
 #include <boost/algorithm/string.hpp>
 #include <mqtt_streaming_client_module/mqtt_raw_receiver_fb_impl.h>
 #include <opendaq/binary_data_packet_factory.h>
@@ -15,9 +15,8 @@ MqttRawReceiverFbImpl::MqttRawReceiverFbImpl(const ContextPtr& ctx,
                                              const StringPtr& localId,
                                              std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                              const PropertyObjectPtr& config)
-    : FunctionBlock(type, ctx, parent, localId), subscriber(subscriber)
+    : MqttBaseFb(ctx, parent, type, localId, subscriber, config)
 {
-    initComponentStatus();
     if (config.assigned())
         initProperties(populateDefaultConfig(type.createDefaultConfig(), config));
     else
@@ -25,43 +24,11 @@ MqttRawReceiverFbImpl::MqttRawReceiverFbImpl(const ContextPtr& ctx,
 
     createSignals();
     subscribeToTopics();
-
-    setComponentStatus(ComponentStatus::Ok);
 }
 
 MqttRawReceiverFbImpl::~MqttRawReceiverFbImpl()
 {
     unsubscribeFromTopics();
-}
-
-void MqttRawReceiverFbImpl::removed()
-{
-    FunctionBlock::removed();
-    unsubscribeFromTopics();
-}
-
-void MqttRawReceiverFbImpl::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber,
-                                             mqtt::MqttMessage& msg)
-{
-    createAndSendDataPacket(msg);
-}
-
-void MqttRawReceiverFbImpl::initProperties(const PropertyObjectPtr& config)
-{
-    for (const auto& prop : config.getAllProperties())
-    {
-        const auto propName = prop.getName();
-        if (!objPtr.hasProperty(propName))
-        {
-            if (const auto internalProp = prop.asPtrOrNull<IPropertyInternal>(true);
-                internalProp.assigned())
-            {
-                objPtr.addProperty(internalProp.clone());
-            }
-        }
-        objPtr.setPropertyValue(propName, prop.getValue());
-    }
-    readProperties();
 }
 
 void MqttRawReceiverFbImpl::readProperties()
@@ -96,7 +63,7 @@ void MqttRawReceiverFbImpl::readProperties()
     }
 }
 
-void MqttRawReceiverFbImpl::createAndSendDataPacket(mqtt::MqttMessage& msg)
+void MqttRawReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
 {
     std::string topic(msg.getTopic());
 
@@ -108,8 +75,7 @@ void MqttRawReceiverFbImpl::createAndSendDataPacket(mqtt::MqttMessage& msg)
     }
 
     const auto& signal = signalIter->second;
-    const auto outputPacket =
-        BinaryDataPacket(nullptr, signal.getDescriptor(), msg.getData().size());
+    const auto outputPacket = BinaryDataPacket(nullptr, signal.getDescriptor(), msg.getData().size());
     memcpy(outputPacket.getData(), msg.getData().data(), msg.getData().size());
     signal.sendPacket(outputPacket);
 }
@@ -122,53 +88,18 @@ void MqttRawReceiverFbImpl::createSignals()
         LOG_I("Subscribing to topic: {}", topic);
 
         const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::Binary).build();
-        outputSignals.emplace(
-            std::make_pair(topic, createAndAddSignal(buildSignalNameFromTopic(topic, ""), signalDsc)));
+        outputSignals.emplace(std::make_pair(topic, createAndAddSignal(buildSignalNameFromTopic(topic, ""), signalDsc)));
     }
 }
 
-void MqttRawReceiverFbImpl::subscribeToTopics()
+std::vector<std::string> MqttRawReceiverFbImpl::getSubscribedTopics() const
 {
-    if (!subscriber)
-    {
-        LOG_E("The subscriber is null");
-        return;
-    }
-    for (const auto& topic : topicsForSubscribing)
-    {
-        subscriber->setMessageArrivedCb(topic,
-                                        std::bind(&MqttRawReceiverFbImpl::onSignalsMessage,
-                                                  this,
-                                                  std::placeholders::_1,
-                                                  std::placeholders::_2));
-        auto result = subscriber->subscribe(topic, 1);
-        if (!result.success)
-            LOG_W("Failed to subscribe to the topic: {}; reason: {}", topic, result.msg);
-    }
+    return topicsForSubscribing;
 }
 
-void MqttRawReceiverFbImpl::unsubscribeFromTopics()
+void MqttRawReceiverFbImpl::clearSubscribedTopics()
 {
-    if (!subscriber)
-    {
-        LOG_E("The subscriber is null");
-        return;
-    }
-    if (topicsForSubscribing.empty())
-        return;
-    subscriber->setMessageArrivedCb(topicsForSubscribing, nullptr);
-    auto result = subscriber->unsubscribe(topicsForSubscribing);
-    if (result.success)
-        result = subscriber->waitForCompletion(result.token, MQTT_RAW_FB_UNSUBSCRIBE_TOUT);
-
-    if (result.success)
-    {
-        topicsForSubscribing.clear();
-        LOG_I("All topics have been unsubscribed successfully");
-    }
-    else
-    {
-        LOG_W("Failed to unsubscribe from all topics; reason: {}", result.msg);
-    }
+    topicsForSubscribing.clear();
 }
+
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

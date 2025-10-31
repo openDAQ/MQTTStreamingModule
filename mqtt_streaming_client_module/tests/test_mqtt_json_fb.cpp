@@ -1,6 +1,6 @@
 #include "MqttAsyncClientWrapper.h"
 #include "mqtt_streaming_client_module/helper.h"
-#include "mqtt_streaming_client_module/mqtt_receiver_fb_impl.h"
+#include "mqtt_streaming_client_module/mqtt_json_receiver_fb_impl.h"
 #include "test_daq_test_helper.h"
 #include "test_data.h"
 #include "timestampConverter.h"
@@ -33,7 +33,7 @@ namespace daq::modules::mqtt_streaming_client_module
 class MqttJsonFbHelper
 {
 public:
-    std::unique_ptr<MqttReceiverFbImpl> obj;
+    std::unique_ptr<MqttJsonReceiverFbImpl> obj;
 
     void onSignalsMessage(const mqtt::MqttMessage& msg)
     {
@@ -47,7 +47,7 @@ public:
         config.addProperty(StringProperty(PROPERTY_NAME_SIGNAL_LIST, String("")));
         const auto fbType = FunctionBlockType(JSON_FB_NAME, JSON_FB_NAME, "", config);
         config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, jsonConfig);
-        obj = std::make_unique<MqttReceiverFbImpl>(NullContext(), nullptr, fbType, "localId", nullptr, config);
+        obj = std::make_unique<MqttJsonReceiverFbImpl>(NullContext(), nullptr, fbType, "localId", nullptr, config);
     }
 
     auto getSignals()
