@@ -209,7 +209,7 @@ std::unordered_map<mqtt::SignalId, daq::DataDescriptorPtr> MqttDataWrapper::extr
                                                               std::move(tsFieldName)});
 
                 auto dataDescBdr =
-                    daq::DataDescriptorBuilder().setSampleType(daq::SampleType::Float64);
+                    daq::DataDescriptorBuilder().setSampleType(daq::SampleType::Undefined);
                 if (unit.assigned())
                     dataDescBdr.setUnit(unit);
 

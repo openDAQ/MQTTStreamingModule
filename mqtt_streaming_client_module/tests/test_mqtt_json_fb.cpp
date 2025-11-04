@@ -9,12 +9,20 @@
 #include <coreobjects/property_object_factory.h>
 #include <coretypes/common.h>
 #include <mqtt_streaming_client_module/constants.h>
+#include <opendaq/event_packet_utils.h>
 #include <opendaq/reader_factory.h>
 #include <sstream>
 #include <testutils/testutils.h>
 
 using namespace daq;
 using namespace daq::modules::mqtt_streaming_client_module;
+
+template <typename T>
+struct is_pair : std::false_type {};
+
+template <typename T1, typename T2>
+struct is_pair<std::pair<T1, T2>> : std::true_type {};
+
 
 bool almostEqual(double a, double b, double relEpsilon = 1e-9, double absEpsilon = 1e-12)
 {
@@ -104,22 +112,22 @@ public:
     }
 
     template <typename vT, typename tsT>
-    std::vector<std::pair<double, uint64_t>>
+    std::vector<std::pair<vT, uint64_t>>
     transferData(const std::vector<std::pair<vT, tsT>>& data, const std::string& jsonConfigTemplate, const std::string& jsonDataTemplate)
     {
-        return transferData<vT, tsT, std::pair<double, uint64_t>>(data, jsonConfigTemplate, jsonDataTemplate);
+        return transferData<vT, tsT, std::pair<vT, uint64_t>>(data, jsonConfigTemplate, jsonDataTemplate);
     }
 
     template <typename vT, typename tsT>
-    std::vector<double> transferDataWithoutDomain(const std::vector<std::pair<vT, tsT>>& data,
+    std::vector<vT> transferDataWithoutDomain(const std::vector<std::pair<vT, tsT>>& data,
                                                   const std::string& jsonConfigTemplate,
                                                   const std::string& jsonDataTemplate)
     {
-        return transferData<vT, tsT, double>(data, jsonConfigTemplate, jsonDataTemplate);
+        return transferData<vT, tsT, vT>(data, jsonConfigTemplate, jsonDataTemplate);
     }
 
     template <typename vT, typename tsT>
-    bool compareData(const std::vector<std::pair<vT, tsT>>& data0, const std::vector<std::pair<double, uint64_t>>& data1, bool compareTs = true)
+    bool compareData(const std::vector<std::pair<vT, tsT>>& data0, const std::vector<std::pair<vT, uint64_t>>& data1, bool compareTs = true)
     {
         if (data0.size() != data1.size())
             return false;
@@ -127,8 +135,16 @@ public:
         {
             const auto& [value0, ts0] = data0[i];
             const auto& [value1, ts1] = data1[i];
-            if (!almostEqual(static_cast<double>(value0), static_cast<double>(value1)))
-                return false;
+            if constexpr (std::is_same_v<vT, double>)
+            {
+                if (!almostEqual(static_cast<double>(value0), static_cast<double>(value1)))
+                    return false;
+            }
+            else
+            {
+                if (value0 != value1)
+                    return false;
+            }
             if (compareTs)
             {
                 if constexpr (std::is_same_v<tsT, uint64_t>)
@@ -151,7 +167,7 @@ public:
     }
 
     template <typename vT, typename tsT>
-    bool compareData(const std::vector<std::pair<vT, tsT>>& data0, const std::vector<double>& data1)
+    bool compareData(const std::vector<std::pair<vT, tsT>>& data0, const std::vector<vT>& data1)
     {
         if (data0.size() != data1.size())
             return false;
@@ -159,23 +175,58 @@ public:
         {
             const auto& [value0, ts0] = data0[i];
             const auto& value1 = data1[i];
-            if (!almostEqual(static_cast<double>(value0), static_cast<double>(value1)))
-                return false;
+            if constexpr (std::is_same_v<vT, double>)
+            {
+                if (!almostEqual(static_cast<double>(value0), static_cast<double>(value1)))
+                    return false;
+            }
+            else
+            {
+                if (value0 != value1)
+                    return false;
+            }
         }
         return true;
     }
 
-    std::vector<std::pair<double, uint64_t>> read(const StreamReaderPtr& reader, bool withDomain = true)
+    template <typename T>
+    std::vector<T> read(StreamReaderPtr& reader, bool withDomain = true)
     {
-        std::vector<std::pair<double, uint64_t>> result;
+        std::vector<T> result;
         while (!reader.getEmpty())
         {
             daq::SizeT cnt = 1;
-            std::pair<double, uint64_t> dataToReceiveEntry;
-            if (withDomain)
-                reader.readWithDomain(&dataToReceiveEntry.first, &dataToReceiveEntry.second, &cnt);
+            T dataToReceiveEntry;
+            daq::ReaderStatusPtr status;
+
+            if constexpr (is_pair<T>::value)
+            {
+                const auto dataType = reader.getValueReadType();
+                if (dataType != SampleType::Invalid && getSampleSize(dataType) != sizeof(dataToReceiveEntry.first))
+                    break;
+                if (withDomain)
+                    status = reader.readWithDomain(&dataToReceiveEntry.first, &dataToReceiveEntry.second, &cnt);
+                else
+                    status = reader.read(&dataToReceiveEntry.first, &cnt);
+            }
             else
-                reader.read(&dataToReceiveEntry.first, &cnt);
+            {
+                const auto dataType = reader.getValueReadType();
+                if (dataType != SampleType::Invalid && getSampleSize(dataType) != sizeof(dataToReceiveEntry))
+                    break;
+                status = reader.read(&dataToReceiveEntry, &cnt);
+            }
+
+            if (status.assigned() && status.getReadStatus() == ReadStatus::Event)
+            {
+                const auto [valueDescriptorChanged, domainDescriptorChanged, valueSignalDescriptor, domainSignalDescriptor] =
+                    parseDataDescriptorEventPacket(status.getEventPacket());
+                if (valueDescriptorChanged)
+                    reader = StreamReaderFromExisting(reader, valueSignalDescriptor.getSampleType(), SampleType::UInt64);
+                continue;
+            }
+            if (status.assigned() && status.getReadStatus() == ReadStatus::Fail)
+                break;
             if (cnt == 1)
                 result.push_back(dataToReceiveEntry);
         }
@@ -190,7 +241,7 @@ private:
         CreateJsonFB(jsonConfig);
 
         auto signalList = getSignals();
-        auto reader = daq::StreamReader(signalList[0]);
+        auto reader = daq::StreamReader(signalList[0], SampleType::Undefined, SampleType::UInt64);
 
         auto msgs = replacePlaceholders(data, jsonDataTemplate);
         for (const auto& str : msgs)
@@ -198,22 +249,7 @@ private:
             onSignalsMessage({topic, std::vector<uint8_t>(str.begin(), str.end()), 1, 0});
         }
 
-        std::vector<returnT> dataToReceive;
-        while (!reader.getEmpty())
-        {
-            daq::SizeT cnt = 1;
-            returnT dataToReceiveEntry;
-            if constexpr (std::is_same_v<returnT, double>)
-            {
-                reader.read(&dataToReceiveEntry, &cnt);
-            }
-            else if constexpr (std::is_same_v<returnT, std::pair<double, uint64_t>>)
-            {
-                reader.readWithDomain(&dataToReceiveEntry.first, &dataToReceiveEntry.second, &cnt);
-            }
-            if (cnt == 1)
-                dataToReceive.push_back(dataToReceiveEntry);
-        }
+        std::vector<returnT> dataToReceive = read<returnT>(reader);
         return dataToReceive;
     }
 };
@@ -269,7 +305,7 @@ public:
             if (result.publishingProblem)
                 return result;
         }
-        result.dataReceived = read(reader, true);
+        result.dataReceived = read<std::pair<double, uint64_t>>(reader, true);
         return result;
     };
 };
@@ -287,7 +323,7 @@ class MqttJsonFbDoubleDataPTest : public ::testing::TestWithParam<std::vector<st
                                   public MqttJsonFbHelper
 {
 };
-class MqttJsonFbIntDataPTest : public ::testing::TestWithParam<std::vector<std::pair<int, uint64_t>>>,
+class MqttJsonFbIntDataPTest : public ::testing::TestWithParam<std::vector<std::pair<int64_t, uint64_t>>>,
                                public DaqTestHelper,
                                public MqttJsonFbHelper
 {
@@ -543,7 +579,7 @@ TEST_F(MqttJsonFbTest, DataTransferSeveralSignals)
         {
             if (signal.getName().toStdString() == name)
             {
-                readers.emplace_back(std::pair<StreamReaderPtr, SignalPtr>(daq::StreamReader(signal), signal));
+                readers.emplace_back(std::pair<StreamReaderPtr, SignalPtr>(daq::StreamReader(signal, SampleType::Undefined, SampleType::UInt64), signal));
                 break;
             }
         }
@@ -564,7 +600,7 @@ TEST_F(MqttJsonFbTest, DataTransferSeveralSignals)
     for (int i = 0; i < readers.size(); ++i)
     {
         auto& [reader, signal] = readers[i];
-        dataToReceive[i] = read(reader, signal.getDomainSignal().assigned());
+        dataToReceive[i] = read<std::pair<double, uint64_t>>(reader, signal.getDomainSignal().assigned());
     }
     EXPECT_EQ(DATA_DOUBLE_INT_0.size(), dataToReceive[0].size());
     EXPECT_TRUE(compareData(DATA_DOUBLE_INT_0, dataToReceive[0]));
@@ -590,7 +626,7 @@ TEST_F(MqttJsonFbTest, DataTransferMissingFieldOneSignal)
         str = replacePlaceholder(str, "<placeholder_value>", DATA_DOUBLE_INT_0[cnt].first);
         onSignalsMessage({topic, std::vector<uint8_t>(str.begin(), str.end()), 1, 0});
     }
-    std::vector<std::pair<double, uint64_t>> dataToReceive = read(reader, false);
+    std::vector<std::pair<double, uint64_t>> dataToReceive = read<std::pair<double, uint64_t>>(reader, false);
     ASSERT_EQ(dataToReceive.size(), 0);
 }
 
@@ -635,7 +671,7 @@ TEST_F(MqttJsonFbTest, DataTransferMissingFieldSeveralSignals)
     for (int i = 0; i < readers.size(); ++i)
     {
         auto& [reader, signal] = readers[i];
-        dataToReceive[i] = read(reader, signal.getDomainSignal().assigned());
+        dataToReceive[i] = read<std::pair<double, uint64_t>>(reader, signal.getDomainSignal().assigned());
     }
     EXPECT_EQ(DATA_DOUBLE_INT_0.size(), dataToReceive[0].size());
     EXPECT_TRUE(compareData(DATA_DOUBLE_INT_0, dataToReceive[0]));
