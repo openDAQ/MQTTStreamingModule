@@ -154,9 +154,9 @@ void MqttDataWrapper::setConfig(const std::string& config)
     this->config = config;
 }
 
-std::unordered_map<mqtt::SignalId, daq::DataDescriptorPtr> MqttDataWrapper::extractDescription()
+std::vector<std::pair<mqtt::SignalId, daq::DataDescriptorPtr>> MqttDataWrapper::extractDescription()
 {
-    std::unordered_map<mqtt::SignalId, daq::DataDescriptorPtr> result;
+    std::vector<std::pair<mqtt::SignalId, daq::DataDescriptorPtr>> result;
     rapidjson::Document doc;
     topicDescriptors.clear();
 
@@ -213,7 +213,7 @@ std::unordered_map<mqtt::SignalId, daq::DataDescriptorPtr> MqttDataWrapper::extr
                 if (unit.assigned())
                     dataDescBdr.setUnit(unit);
 
-                result.emplace(std::pair(std::move(SignalId), dataDescBdr.build()));
+                result.emplace_back(std::pair(std::move(SignalId), dataDescBdr.build()));
             }
         }
         topicDescriptors.emplace(std::pair(topic, std::move(msgDescriptors)));

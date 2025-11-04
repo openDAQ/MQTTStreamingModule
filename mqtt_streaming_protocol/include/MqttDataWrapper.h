@@ -60,7 +60,7 @@ public:
     static bool validateTopic(const daq::StringPtr topic, const daq::LoggerComponentPtr loggerComponent = nullptr);
 
     void setConfig(const std::string& config);
-    std::unordered_map<mqtt::SignalId, daq::DataDescriptorPtr> extractDescription();
+    std::vector<std::pair<mqtt::SignalId, daq::DataDescriptorPtr>> extractDescription();
     void setOutputSignals(std::unordered_map<SignalId, daq::SignalConfigPtr>* const outputSignals);
     void createAndSendDataPacket(const std::string& topic, const std::string& json);
     bool hasDomainSignal(const SignalId& signalId) const;

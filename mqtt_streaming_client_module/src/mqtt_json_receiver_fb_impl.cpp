@@ -35,6 +35,7 @@ void MqttJsonReceiverFbImpl::readProperties()
 {
     auto lock = std::lock_guard<std::mutex>(sync);
     subscribedSignals.clear();
+    signalIdList.clear();
     bool isPresent = false;
     if (objPtr.hasProperty(PROPERTY_NAME_SIGNAL_LIST))
     {
@@ -43,10 +44,12 @@ void MqttJsonReceiverFbImpl::readProperties()
         {
             isPresent = true;
             jsonDataWorker.setConfig(signalConfig.toStdString());
-            subscribedSignals = jsonDataWorker.extractDescription();
+            auto listSubscribedSignals = jsonDataWorker.extractDescription();
             LOG_I("Signal in the list (topic | signal name):");
-            for (const auto& [signalId, descriptor] : subscribedSignals)
+            for (const auto& [signalId, descriptor] : listSubscribedSignals)
             {
+                subscribedSignals.emplace(signalId, descriptor);
+                signalIdList.push_back(signalId);
                 LOG_I("\t\"{}\" | \"{}\"", signalId.topic, signalId.signalName);
             }
         }
@@ -80,12 +83,18 @@ void MqttJsonReceiverFbImpl::createSignals()
     if (!subscribedSignals.empty())
         LOG_I("Creating signals...");
 
-    for (const auto& [signalId, descriptor] : subscribedSignals)
+    for (const auto& signalId : signalIdList)
     {
+        auto iter = subscribedSignals.find(signalId);
+        if (iter == subscribedSignals.end())
+        {
+            LOG_W("\tSignal \"{}\" on topic \"{}\" is not in the subscribed signal list!", signalId.signalName, signalId.topic);
+            continue;
+        }
         LOG_D("\tfor the topic \"{}\"", signalId.signalName, signalId.topic);
         const std::string& topic = signalId.topic;
 
-        auto signalDsc = descriptor;
+        auto signalDsc = iter->second;
 
         auto refS =
             outputSignals
@@ -133,7 +142,9 @@ std::vector<std::string> MqttJsonReceiverFbImpl::getSubscribedTopics() const
 
 void MqttJsonReceiverFbImpl::clearSubscribedTopics()
 {
+    auto lock = std::lock_guard<std::mutex>(sync);
     subscribedSignals.clear();
+    signalIdList.clear();
 }
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

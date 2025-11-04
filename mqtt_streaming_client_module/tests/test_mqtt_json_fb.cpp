@@ -568,22 +568,12 @@ TEST_F(MqttJsonFbTest, DataTransferSeveralSignals)
     ASSERT_EQ(signalList.getCount(), 3u);
 
     std::vector<std::pair<StreamReaderPtr, SignalPtr>> readers;
-    const std::vector<std::string> originalNames{"temperature", "humi", "pressure"};
-    std::vector<std::string> names;
-    for (const auto& name : originalNames)
-        names.emplace_back(buildSignalNameFromTopic(topic, name));
 
-    for (const auto& name : names)
+    for (const auto& signal : signalList)
     {
-        for (const auto& signal : signalList)
-        {
-            if (signal.getName().toStdString() == name)
-            {
-                readers.emplace_back(std::pair<StreamReaderPtr, SignalPtr>(daq::StreamReader(signal, SampleType::Undefined, SampleType::UInt64), signal));
-                break;
-            }
-        }
+        readers.emplace_back(std::pair<StreamReaderPtr, SignalPtr>(daq::StreamReader(signal, SampleType::Undefined, SampleType::UInt64), signal));
     }
+
     ASSERT_EQ(readers.size(), 3u);
 
     for (int cnt = 0; cnt < DATA_DOUBLE_INT_0.size(); ++cnt)

@@ -40,6 +40,7 @@ private:
     mutable std::mutex sync;
     mqtt::MqttDataWrapper jsonDataWorker;
     std::unordered_map<mqtt::SignalId, SignalConfigPtr> outputSignals;
+    std::vector<mqtt::SignalId> signalIdList;
     std::unordered_map<mqtt::SignalId, DataDescriptorPtr> subscribedSignals;
 
     void createSignals() override;
