@@ -391,6 +391,16 @@ inline const std::vector<std::pair<int64_t, uint64_t>> DATA_INT_INT_2 = {{-7223,
                                                                          {5719, 1761567117000000},
                                                                          {380, 1761567118000000},
                                                                          {5, 1761567119000000}};
+inline const std::vector<std::pair<std::string, uint64_t>> DATA_STR_INT_0 = {{"very cold", 1761567115},
+                                                                             {"cold", 1761567116},
+                                                                             {"normal", 1761567117},
+                                                                             {"hot", 1761567118},
+                                                                             {"very hot", 1761567119}};
+inline const std::vector<std::pair<std::string, uint64_t>> DATA_STR_INT_1 = {{u8"очень холодно", 1761567115000},
+                                                                             {u8"холодно", 1761567116000},
+                                                                             {u8"нормально", 1761567117000},
+                                                                             {u8"жарко", 1761567118000},
+                                                                             {u8"очень жарко", 1761567119000}};
 inline const std::vector<std::pair<double, std::string>> DATA_DOUBLE_STR_0 = {{23070.008, "2025-10-27T12:45:15Z"},
                                                                               {4500.4883, " 2025-10-27T12:45:16Z"},
                                                                               {198.0000052, "2025-10-27T12:45:17Z "},

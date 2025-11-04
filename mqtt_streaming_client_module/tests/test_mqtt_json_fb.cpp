@@ -1,5 +1,5 @@
 #include "MqttAsyncClientWrapper.h"
-#include "mqtt_streaming_client_module/helper.h"
+#include "Timer.h"
 #include "mqtt_streaming_client_module/mqtt_json_receiver_fb_impl.h"
 #include "test_daq_test_helper.h"
 #include "test_data.h"
@@ -22,7 +22,6 @@ struct is_pair : std::false_type {};
 
 template <typename T1, typename T2>
 struct is_pair<std::pair<T1, T2>> : std::true_type {};
-
 
 bool almostEqual(double a, double b, double relEpsilon = 1e-9, double absEpsilon = 1e-12)
 {
@@ -190,46 +189,97 @@ public:
     }
 
     template <typename T>
-    std::vector<T> read(StreamReaderPtr& reader, bool withDomain = true)
+    bool copyData(T& destination, const DataPacketPtr source)
+    {
+        auto checkType = [](SampleType type) -> bool
+        {
+            switch (type)
+            {
+            case SampleType::Float32:
+            case SampleType::Float64:
+            case SampleType::UInt8:
+            case SampleType::Int8:
+            case SampleType::UInt16:
+            case SampleType::Int16:
+            case SampleType::UInt32:
+            case SampleType::Int32:
+            case SampleType::UInt64:
+            case SampleType::Int64:
+            case SampleType::RangeInt64:
+            case SampleType::ComplexFloat32:
+            case SampleType::ComplexFloat64:
+                return true;
+            case SampleType::String:
+            case SampleType::Binary:
+            case SampleType::Struct:
+            case SampleType::Invalid:
+            case SampleType::Null:
+            case SampleType::_count:
+                return false;
+            }
+            return true;
+        };
+
+        const auto dataType = source.getDataDescriptor().getSampleType();
+        if (checkType(dataType) && getSampleSize(dataType) != sizeof(destination))
+            return false;
+        if constexpr (std::is_same_v<T, std::string>)
+        {
+            destination = std::string(static_cast<char*>(source.getData()), source.getDataSize());
+        }
+        else
+        {
+            memcpy(&destination, source.getData(), sizeof(destination));
+        }
+        return true;
+    }
+
+    template <typename T>
+    std::vector<T> read(PacketReaderPtr reader, const SignalPtr signal, int timeoutMs = 1000)
     {
         std::vector<T> result;
-        while (!reader.getEmpty())
+
+        auto timer = Timer(timeoutMs);
+        while (!reader.getEmpty() || !timer.expired())
         {
-            daq::SizeT cnt = 1;
-            T dataToReceiveEntry;
-            daq::ReaderStatusPtr status;
-
-            if constexpr (is_pair<T>::value)
+            if (reader.getEmpty())
             {
-                const auto dataType = reader.getValueReadType();
-                if (dataType != SampleType::Invalid && getSampleSize(dataType) != sizeof(dataToReceiveEntry.first))
-                    break;
-                if (withDomain)
-                    status = reader.readWithDomain(&dataToReceiveEntry.first, &dataToReceiveEntry.second, &cnt);
-                else
-                    status = reader.read(&dataToReceiveEntry.first, &cnt);
-            }
-            else
-            {
-                const auto dataType = reader.getValueReadType();
-                if (dataType != SampleType::Invalid && getSampleSize(dataType) != sizeof(dataToReceiveEntry))
-                    break;
-                status = reader.read(&dataToReceiveEntry, &cnt);
-            }
-
-            if (status.assigned() && status.getReadStatus() == ReadStatus::Event)
-            {
-                const auto [valueDescriptorChanged, domainDescriptorChanged, valueSignalDescriptor, domainSignalDescriptor] =
-                    parseDataDescriptorEventPacket(status.getEventPacket());
-                if (valueDescriptorChanged)
-                    reader = StreamReaderFromExisting(reader, valueSignalDescriptor.getSampleType(), SampleType::UInt64);
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
                 continue;
             }
-            if (status.assigned() && status.getReadStatus() == ReadStatus::Fail)
-                break;
-            if (cnt == 1)
-                result.push_back(dataToReceiveEntry);
+            auto packet = reader.read();
+            if (packet.getType() == PacketType::Event)
+            {
+                continue;
+            }
+
+            if (packet.getType() == PacketType::Data)
+            {
+                const auto dataPacket = packet.asPtr<IDataPacket>();
+                const auto dataType = dataPacket.getDataDescriptor().getSampleType();
+                if constexpr (is_pair<T>::value)
+                {
+                    T dataToReceiveEntry;
+                    bool ok = true;
+                    ok &= copyData(dataToReceiveEntry.first, dataPacket);
+                    if (signal.getDomainSignal().assigned())
+                        ok &= copyData(dataToReceiveEntry.second, dataPacket.getDomainPacket());
+                    if (!ok)
+                        break;
+                    result.push_back(dataToReceiveEntry);
+
+                }
+                else
+                {
+                    T dataToReceiveEntry;
+                    bool ok = copyData(dataToReceiveEntry, dataPacket);
+                    if (!ok)
+                        break;
+                    result.push_back(dataToReceiveEntry);
+                }
+            }
         }
+
         return result;
     }
 
@@ -240,8 +290,8 @@ private:
         const auto jsonConfig = replacePlaceholder(jsonConfigTemplate, "<placeholder_topic>", topic);
         CreateJsonFB(jsonConfig);
 
-        auto signalList = getSignals();
-        auto reader = daq::StreamReader(signalList[0], SampleType::Undefined, SampleType::UInt64);
+        auto signal = getSignals()[0];
+        auto reader = daq::PacketReader(signal);
 
         auto msgs = replacePlaceholders(data, jsonDataTemplate);
         for (const auto& str : msgs)
@@ -249,7 +299,7 @@ private:
             onSignalsMessage({topic, std::vector<uint8_t>(str.begin(), str.end()), 1, 0});
         }
 
-        std::vector<returnT> dataToReceive = read<returnT>(reader);
+        std::vector<returnT> dataToReceive = read<returnT>(reader, signal, 0);
         return dataToReceive;
     }
 };
@@ -289,7 +339,7 @@ public:
         auto config = device.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, jsonConfig);
         auto singal = device.addFunctionBlock(JSON_FB_NAME, config).getSignals()[0];
-        auto reader = daq::StreamReader(singal);
+        auto reader = daq::PacketReader(singal);
 
         MqttAsyncClientWrapper publisher(std::make_shared<mqtt::MqttAsyncClient>(), buildClientId());
         result.deviceProblem = !publisher.connect(url);
@@ -305,7 +355,7 @@ public:
             if (result.publishingProblem)
                 return result;
         }
-        result.dataReceived = read<std::pair<double, uint64_t>>(reader, true);
+        result.dataReceived = read<std::pair<double, uint64_t>>(reader, singal, 2000);
         return result;
     };
 };
@@ -326,6 +376,11 @@ class MqttJsonFbDoubleDataPTest : public ::testing::TestWithParam<std::vector<st
 class MqttJsonFbIntDataPTest : public ::testing::TestWithParam<std::vector<std::pair<int64_t, uint64_t>>>,
                                public DaqTestHelper,
                                public MqttJsonFbHelper
+{
+};
+class MqttJsonFbStringDataPTest : public ::testing::TestWithParam<std::vector<std::pair<std::string, uint64_t>>>,
+                                  public DaqTestHelper,
+                                  public MqttJsonFbHelper
 {
 };
 class MqttJsonFbStringTsPTest : public ::testing::TestWithParam<std::vector<std::pair<double, std::string>>>,
@@ -546,6 +601,26 @@ INSTANTIATE_TEST_SUITE_P(DataTransferOneSignalInt,
                          MqttJsonFbIntDataPTest,
                          ::testing::Values(DATA_INT_INT_0, DATA_INT_INT_1, DATA_INT_INT_2));
 
+TEST_P(MqttJsonFbStringDataPTest, DataTransferOneSignalString)
+{
+    const auto dataToSend = GetParam();
+    auto dataToReceive = transferData(dataToSend, VALID_JSON_CONFIG_0, VALID_JSON_DATA_0);
+    ASSERT_EQ(dataToSend.size(), dataToReceive.size());
+    ASSERT_TRUE(compareData(dataToSend, dataToReceive));
+}
+
+TEST_P(MqttJsonFbStringDataPTest, DataTransferOneSignalStringWithoutDomain)
+{
+    const auto dataToSend = GetParam();
+    auto dataToReceive = transferDataWithoutDomain(dataToSend, VALID_JSON_CONFIG_1, VALID_JSON_DATA_1);
+    ASSERT_EQ(dataToSend.size(), dataToReceive.size());
+    ASSERT_TRUE(compareData(dataToSend, dataToReceive));
+}
+
+INSTANTIATE_TEST_SUITE_P(DataTransferOneSignalString,
+                         MqttJsonFbStringDataPTest,
+                         ::testing::Values(DATA_STR_INT_0, DATA_STR_INT_1));
+
 TEST_P(MqttJsonFbStringTsPTest, DataTransferOneSignalIntDomainString)
 {
     const auto dataToSend = GetParam();
@@ -567,14 +642,12 @@ TEST_F(MqttJsonFbTest, DataTransferSeveralSignals)
     auto signalList = getSignals();
     ASSERT_EQ(signalList.getCount(), 3u);
 
-    std::vector<std::pair<StreamReaderPtr, SignalPtr>> readers;
+    std::vector<std::pair<PacketReaderPtr, SignalPtr>> readers;
 
     for (const auto& signal : signalList)
     {
-        readers.emplace_back(std::pair<StreamReaderPtr, SignalPtr>(daq::StreamReader(signal, SampleType::Undefined, SampleType::UInt64), signal));
+        readers.emplace_back(std::pair<PacketReaderPtr, SignalPtr>(daq::PacketReader(signal), signal));
     }
-
-    ASSERT_EQ(readers.size(), 3u);
 
     for (int cnt = 0; cnt < DATA_DOUBLE_INT_0.size(); ++cnt)
     {
@@ -590,7 +663,7 @@ TEST_F(MqttJsonFbTest, DataTransferSeveralSignals)
     for (int i = 0; i < readers.size(); ++i)
     {
         auto& [reader, signal] = readers[i];
-        dataToReceive[i] = read<std::pair<double, uint64_t>>(reader, signal.getDomainSignal().assigned());
+        dataToReceive[i] = read<std::pair<double, uint64_t>>(reader, signal, 0);
     }
     EXPECT_EQ(DATA_DOUBLE_INT_0.size(), dataToReceive[0].size());
     EXPECT_TRUE(compareData(DATA_DOUBLE_INT_0, dataToReceive[0]));
@@ -608,7 +681,8 @@ TEST_F(MqttJsonFbTest, DataTransferMissingFieldOneSignal)
     const auto jsonConfig = replacePlaceholder(VALID_JSON_CONFIG_0, "<placeholder_topic>", topic);
     CreateJsonFB(jsonConfig);
 
-    auto reader = daq::StreamReader(getSignals()[0]);
+    auto signal = getSignals()[0];
+    auto reader = daq::PacketReader(signal);
 
     for (int cnt = 0; cnt < DATA_DOUBLE_INT_0.size(); ++cnt)
     {
@@ -616,7 +690,7 @@ TEST_F(MqttJsonFbTest, DataTransferMissingFieldOneSignal)
         str = replacePlaceholder(str, "<placeholder_value>", DATA_DOUBLE_INT_0[cnt].first);
         onSignalsMessage({topic, std::vector<uint8_t>(str.begin(), str.end()), 1, 0});
     }
-    std::vector<std::pair<double, uint64_t>> dataToReceive = read<std::pair<double, uint64_t>>(reader, false);
+    std::vector<std::pair<double, uint64_t>> dataToReceive = read<std::pair<double, uint64_t>>(reader, signal, 0);
     ASSERT_EQ(dataToReceive.size(), 0);
 }
 
@@ -629,24 +703,12 @@ TEST_F(MqttJsonFbTest, DataTransferMissingFieldSeveralSignals)
     auto signalList = getSignals();
     ASSERT_EQ(signalList.getCount(), 3u);
 
-    std::vector<std::pair<StreamReaderPtr, SignalPtr>> readers;
-    const std::vector<std::string> originalNames{"temperature", "humi", "pressure"};
-    std::vector<std::string> names;
-    for (const auto& name : originalNames)
-        names.emplace_back(buildSignalNameFromTopic(topic, name));
+    std::vector<std::pair<PacketReaderPtr, SignalPtr>> readers;
 
-    for (const auto& name : names)
+    for (const auto& signal : signalList)
     {
-        for (const auto& signal : signalList)
-        {
-            if (signal.getName().toStdString() == name)
-            {
-                readers.emplace_back(std::pair<StreamReaderPtr, SignalPtr>(daq::StreamReader(signal), signal));
-                break;
-            }
-        }
+        readers.emplace_back(std::pair<PacketReaderPtr, SignalPtr>(daq::PacketReader(signal), signal));
     }
-    ASSERT_EQ(readers.size(), 3u);
 
     for (int cnt = 0; cnt < DATA_DOUBLE_INT_0.size(); ++cnt)
     {
@@ -661,7 +723,7 @@ TEST_F(MqttJsonFbTest, DataTransferMissingFieldSeveralSignals)
     for (int i = 0; i < readers.size(); ++i)
     {
         auto& [reader, signal] = readers[i];
-        dataToReceive[i] = read<std::pair<double, uint64_t>>(reader, signal.getDomainSignal().assigned());
+        dataToReceive[i] = read<std::pair<double, uint64_t>>(reader, signal, 0);
     }
     EXPECT_EQ(DATA_DOUBLE_INT_0.size(), dataToReceive[0].size());
     EXPECT_TRUE(compareData(DATA_DOUBLE_INT_0, dataToReceive[0]));
