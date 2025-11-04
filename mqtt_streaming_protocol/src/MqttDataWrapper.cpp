@@ -3,14 +3,16 @@
 #include "rapidjson/writer.h"
 #include <boost/algorithm/string.hpp>
 #include <coreobjects/unit_factory.h>
+#include <opendaq/binary_data_packet_factory.h>
+#include <opendaq/custom_log.h>
 #include <opendaq/data_descriptor_factory.h>
 #include <opendaq/packet_factory.h>
+#include <opendaq/sample_type_traits.h>
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 
-#include <opendaq/custom_log.h>
-
 #include <timestampConverter.h>
+#include <variant>
 
 namespace mqtt
 {
@@ -261,8 +263,9 @@ bool MqttDataWrapper::hasDomainSignal(const SignalId& signalId) const
 std::vector<std::pair<SignalId, DataPackets>> MqttDataWrapper::extractDataSamples(
     const std::string& topic, const MqttMsgDescriptor& msgDescriptor, const std::string& json)
 {
+    using ValueVariant = std::variant<int64_t, double, std::string>;
+    ValueVariant value{};
     std::vector<std::pair<SignalId, DataPackets>> res;
-    double value = 0.0;
     uint64_t ts = 0;
     bool hasTS = false;
     bool hasValue = false;
@@ -283,15 +286,20 @@ std::vector<std::pair<SignalId, DataPackets>> MqttDataWrapper::extractDataSample
                 const std::string name = it->name.GetString();
                 if (!msgDescriptor.valueFieldName.empty() && name == msgDescriptor.valueFieldName)
                 {
-                    if (jsonDocument[name].IsDouble() || jsonDocument[name].IsInt() ||
-                        jsonDocument[name].IsFloat())
-                    {
-                        value = jsonDocument[name].GetDouble();
-                        hasValue = true;
-                    }
+                    const auto& v = jsonDocument[name];
+                    hasValue = true;
+                    if (v.IsInt64())
+                        value = v.GetInt64();
+                    else if (v.IsUint64())
+                        value = static_cast<int64_t>(v.GetUint64());
+                    else if (v.IsDouble())
+                        value = v.GetDouble();
+                    else if (v.IsString())
+                        value = std::string(v.GetString());
                     else
                     {
-                        LOG_W("Value is not supported.");
+                        hasValue = false;
+                        LOG_W("Unsupported value type for '{}'.", name);
                     }
                 }
                 else if (!msgDescriptor.tsFieldName.empty() && name == msgDescriptor.tsFieldName)
@@ -337,11 +345,18 @@ std::vector<std::pair<SignalId, DataPackets>> MqttDataWrapper::extractDataSample
         // TODO : value [1, 2, 3, ...] support
         SignalId signalId{topic, msgDescriptor.signalName};
         DataPackets dataPackets;
-        if (hasTS)
-            dataPackets = buildDataPackets(signalId, value, ts);
-        else
-            dataPackets = buildDataPackets(signalId, value);
-        res.emplace_back(std::move(signalId), std::move(dataPackets));
+        std::visit(
+            [&](auto&& val)
+            {
+                using T = std::decay_t<decltype(val)>;
+                if (hasTS)
+                    dataPackets = buildDataPackets(signalId, val, ts);
+                else
+                    dataPackets = buildDataPackets(signalId, val);
+            },
+            value);
+        if (dataPackets.dataPacket.assigned())
+            res.emplace_back(std::move(signalId), std::move(dataPackets));
     }
     return res;
 }
@@ -362,9 +377,9 @@ void MqttDataWrapper::sendDataSamples(const SignalId& signalId, const DataPacket
         signal.getDomainSignal().asPtr<daq::ISignalConfig>().sendPacket(
             dataPackets.domainDataPacket);
 }
-
+template <typename T>
 DataPackets
-MqttDataWrapper::buildDataPackets(const SignalId& signalId, double value, uint64_t timestamp)
+MqttDataWrapper::buildDataPackets(const SignalId& signalId, T value, uint64_t timestamp)
 {
     DataPackets dataPackets;
     const auto signalIter = outputSignals->find(signalId);
@@ -381,8 +396,9 @@ MqttDataWrapper::buildDataPackets(const SignalId& signalId, double value, uint64
     return dataPackets;
 }
 
+template <typename T>
 DataPackets
-MqttDataWrapper::buildDataPackets(const SignalId& signalId, double value)
+MqttDataWrapper::buildDataPackets(const SignalId& signalId, T value)
 {
     DataPackets dataPackets;
     const auto signalIter = outputSignals->find(signalId);
@@ -397,20 +413,110 @@ MqttDataWrapper::buildDataPackets(const SignalId& signalId, double value)
     return dataPackets;
 }
 
-daq::DataPacketPtr MqttDataWrapper::buildDataPacket(daq::GenericSignalConfigPtr<> signalConfig, double value, const daq::DataPacketPtr domainPacket)
+template <typename TReadType>
+bool MqttDataWrapper::isTypeTheSame(daq::SampleType sampleType)
+{
+    using daq::SampleTypeToType;
+    using daq::SampleTypeFromType;
+    using daq::SampleType;
+    switch (sampleType)
+    {
+    case daq::SampleType::Float32:
+        return std::is_same_v<daq::SampleTypeToType<daq::SampleType::Float32>::Type, TReadType>;
+    case daq::SampleType::Float64:
+        return std::is_same_v<SampleTypeToType<SampleType::Float64>::Type, TReadType>;
+    case daq::SampleType::UInt8:
+        return std::is_same_v<SampleTypeToType<SampleType::UInt8>::Type, TReadType>;
+    case daq::SampleType::Int8:
+        return std::is_same_v<SampleTypeToType<SampleType::Int8>::Type, TReadType>;
+    case daq::SampleType::Int16:
+        return std::is_same_v<SampleTypeToType<SampleType::Int16>::Type, TReadType>;
+    case daq::SampleType::UInt16:
+        return std::is_same_v<SampleTypeToType<SampleType::UInt16>::Type, TReadType>;
+    case daq::SampleType::Int32:
+        return std::is_same_v<SampleTypeToType<SampleType::Int32>::Type, TReadType>;
+    case daq::SampleType::UInt32:
+        return std::is_same_v<SampleTypeToType<SampleType::UInt32>::Type, TReadType>;
+    case daq::SampleType::Int64:
+        return std::is_same_v<SampleTypeToType<SampleType::Int64>::Type, TReadType>;
+    case daq::SampleType::UInt64:
+        return std::is_same_v<SampleTypeToType<SampleType::UInt64>::Type, TReadType>;
+    case daq::SampleType::Binary:
+    case daq::SampleType::String:
+        return std::is_same_v<SampleTypeToType<SampleType::String>::Type, typename SampleTypeFromType<TReadType>::Type>;
+    case daq::SampleType::RangeInt64:
+    case daq::SampleType::ComplexFloat32:
+    case daq::SampleType::ComplexFloat64:
+    case daq::SampleType::Struct:
+    case daq::SampleType::Invalid:
+    case daq::SampleType::Null:
+    case daq::SampleType::_count:
+        break;
+    }
+
+    return false;
+}
+
+template<typename T>
+daq::DataPacketPtr MqttDataWrapper::buildDataPacket(daq::GenericSignalConfigPtr<> signalConfig, T value, const daq::DataPacketPtr domainPacket)
+{
+    const auto curType = signalConfig.getDescriptor().getSampleType();
+    if (isTypeTheSame<T>(curType) == false)
+    {
+        if constexpr (std::is_same_v<T, std::string>)
+        {
+            // because daq::SampleType::String is not implemented properly, we use Binary type for string data
+            // daq::SampleType::BinaryData != daq::SampleType::String
+            auto descriptor = DataDescriptorBuilderCopy(signalConfig.getDescriptor()).setSampleType(daq::SampleType::Binary).build();
+            signalConfig.setDescriptor(descriptor);
+        }
+        else
+        {
+            auto descriptor = DataDescriptorBuilderCopy(signalConfig.getDescriptor()).setSampleType(daq::SampleTypeFromType<T>::SampleType).build();
+            signalConfig.setDescriptor(descriptor);
+        }
+    }
+    daq::DataPacketPtr  dataPacket = createEmptyDataPacket<T>(signalConfig, domainPacket, value);
+    copyDataIntoPacket(dataPacket, value);
+    return dataPacket;
+}
+
+template<typename T>
+daq::DataPacketPtr MqttDataWrapper::createEmptyDataPacket(const daq::GenericSignalConfigPtr<> signalConfig, const daq::DataPacketPtr domainPacket, T value)
 {
     daq::DataPacketPtr dataPacket;
-    if (signalConfig.getDomainSignal().assigned() && domainPacket.assigned())
+    if constexpr (std::is_same_v<T, std::string>)
     {
-        dataPacket = DataPacketWithDomain(domainPacket, signalConfig.getDescriptor(), 1);
+        dataPacket = daq::BinaryDataPacket(domainPacket, signalConfig.getDescriptor(), value.size());
     }
     else
     {
-        dataPacket = DataPacket(signalConfig.getDescriptor(), 1);
+        if (signalConfig.getDomainSignal().assigned() && domainPacket.assigned())
+        {
+            dataPacket = DataPacketWithDomain(domainPacket, signalConfig.getDescriptor(), 1);
+        }
+        else
+        {
+            dataPacket = DataPacket(signalConfig.getDescriptor(), 1);
+        }
     }
-    auto outputData = reinterpret_cast<daq::Float*>(dataPacket.getRawData());
-    *outputData = value;
     return dataPacket;
+}
+
+template <typename T>
+void MqttDataWrapper::copyDataIntoPacket(daq::DataPacketPtr dataPacket, T value)
+{
+    if (!dataPacket.assigned())
+        return;
+    if constexpr (std::is_same_v<T, std::string>)
+    {
+        memcpy(dataPacket.getData(), value.c_str(), value.size());
+    }
+    else
+    {
+        auto outputData = reinterpret_cast<T*>(dataPacket.getRawData());
+        *outputData = value;
+    }
 }
 
 daq::DataPacketPtr MqttDataWrapper::buildDomainDataPacket(daq::GenericSignalConfigPtr<> signalConfig, uint64_t timestamp)

@@ -78,16 +78,26 @@ private:
     std::vector<std::pair<SignalId, DataPackets>> extractDataSamples(
         const std::string& topic, const MqttMsgDescriptor& msgDescriptor, const std::string& json);
     void sendDataSamples(const SignalId& signalId, const DataPackets& dataPackets);
-    DataPackets buildDataPackets(const SignalId& signalId, double value, uint64_t timestamp);
-    DataPackets buildDataPackets(const SignalId& signalId, double value);
+    template <typename T>
+    DataPackets buildDataPackets(const SignalId& signalId, T value, uint64_t timestamp);
+    template <typename T>
+    DataPackets buildDataPackets(const SignalId& signalId, T value);
     daq::DataPacketPtr buildDomainDataPacket(daq::GenericSignalConfigPtr<> signalConfig, uint64_t timestamp);
+    template<typename T>
     daq::DataPacketPtr buildDataPacket(daq::GenericSignalConfigPtr<> signalConfig,
-                                       double value,
+                                       T value,
                                        const daq::DataPacketPtr domainPacket);
+    template<typename T>
+    daq::DataPacketPtr createEmptyDataPacket(const daq::GenericSignalConfigPtr<> signalConfig,
+                                       const daq::DataPacketPtr domainPacket, T value);
+    template <typename T> void copyDataIntoPacket(daq::DataPacketPtr dataPacket, T value);
     daq::UnitPtr extractSignalUnit(const rapidjson::Value& signalObj);
     std::string extractValueFieldName(const rapidjson::Value& signalObj);
     std::string extractTimestampFieldName(const rapidjson::Value& signalObj);
     std::string extractFieldName(const rapidjson::Value& signalObj, const std::string& field);
+
+    template <typename TReadType>
+    static bool isTypeTheSame(daq::SampleType sampleType);
 };
 } // namespace mqtt
 
