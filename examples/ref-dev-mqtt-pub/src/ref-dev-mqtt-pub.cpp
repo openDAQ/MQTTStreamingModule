@@ -1,5 +1,5 @@
-#include <opendaq/opendaq.h>
 #include "../../InputArgs.h"
+#include <opendaq/opendaq.h>
 
 #include <iostream>
 
@@ -12,16 +12,15 @@ int main(int argc, char* argv[])
     args.addArg("--address", "MQTT broker address", true);
     args.parse(argc, argv);
 
-    if (args.hasArg("--help") || args.hasUnknownArgs()) {
+    if (args.hasArg("--help") || args.hasUnknownArgs())
+    {
         args.printHelp();
         return 0;
     }
 
     std::string brokerAddress = args.getArgValue("--address", "127.0.0.1");
 
-    const InstancePtr instance = InstanceBuilder().addModulePath(MODULE_PATH)
-                                     .setRootDevice("daqref://device0")
-                                     .build();
+    const InstancePtr instance = InstanceBuilder().addModulePath(MODULE_PATH).setRootDevice("daqref://device0").build();
     auto refDevice = instance.getRootDevice();
     refDevice.setPropertyValue("NumberOfChannels", 4);
 

@@ -1,6 +1,6 @@
-#include <opendaq/opendaq.h>
 #include "../../InputArgs.h"
 #include <mqtt_streaming_client_module/constants.h>
+#include <opendaq/opendaq.h>
 
 #include <iostream>
 
@@ -44,7 +44,8 @@ int main(int argc, char* argv[])
     args.addArg("--address", "MQTT broker address", true); // If you want to support --address for sub
     args.parse(argc, argv);
 
-    if (args.hasArg("--help") || args.hasUnknownArgs()) {
+    if (args.hasArg("--help") || args.hasUnknownArgs())
+    {
         args.printHelp();
         return 0;
     }
@@ -55,13 +56,15 @@ int main(int argc, char* argv[])
     auto brokerDevice = instance.addDevice("daq.mqtt://" + brokerAddress);
     auto availableDeviceNodes = brokerDevice.getAvailableFunctionBlockTypes();
 
-    if (availableDeviceNodes.getCount() == 0) {
+    if (availableDeviceNodes.getCount() == 0)
+    {
         std::cout << "No function block available from the device." << std::endl;
         return -1;
     }
 
     std::vector<daq::FunctionBlockPtr> fbList;
-    for (const auto& [key, value] : availableDeviceNodes) {
+    for (const auto& [key, value] : availableDeviceNodes)
+    {
         std::cout << "Available function block: " << key << std::endl;
         if (key == RAW_FB_NAME || key == JSON_FB_NAME)
             continue;
@@ -71,35 +74,46 @@ int main(int argc, char* argv[])
 
     auto signals = fbList[0].getSignals();
     std::vector<PacketReaderPtr> readers;
-    for (const auto& s : signals) {
+    for (const auto& s : signals)
+    {
         readers.emplace_back(daq::PacketReader(s));
     }
 
-    std::thread readerThread([readers]() {
-        while (true) {
-            for (int iRdr = 0; iRdr < readers.size(); ++iRdr) {
-                const auto& reader = readers[iRdr];
-                while (!reader.getEmpty()) {
-                    auto packet = reader.read();
-                    if (packet.getType() == PacketType::Event)
+    std::atomic<bool> running = true;
+    std::thread readerThread(
+        [&readers, &running]()
+        {
+            while (running)
+            {
+                for (int iRdr = 0; iRdr < readers.size(); ++iRdr)
+                {
+                    const auto& reader = readers[iRdr];
+                    while (!reader.getEmpty() && running)
                     {
-                        std::cout << "Event packet is skipped!" << std::endl;
-                        continue;
-                    }
+                        auto packet = reader.read();
+                        if (packet.getType() == PacketType::Event)
+                        {
+                            std::cout << "Event packet is skipped!" << std::endl;
+                            continue;
+                        }
 
-                    if (packet.getType() == PacketType::Data)
-                    {
-                        const auto dataPacket = packet.asPtrOrNull<IDataPacket>();
-                        std::cout << "READER #" << iRdr << " - " << to_string(dataPacket) << std::endl;
+                        if (packet.getType() == PacketType::Data)
+                        {
+                            const auto dataPacket = packet.asPtrOrNull<IDataPacket>();
+                            std::cout << "READER #" << iRdr << " - " << to_string(dataPacket) << std::endl;
+                        }
                     }
                 }
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
-        }
-    });
-    readerThread.detach();
+        });
 
     std::cout << "Press \"enter\" to exit the application..." << std::endl;
     std::cin.get();
+
+    running = false;
+    readerThread.join();
+    std::cout << "Reader thread finished. Exiting.\n";
+
     return 0;
 }

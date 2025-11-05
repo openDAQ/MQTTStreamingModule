@@ -14,44 +14,44 @@ std::string to_string(SampleType sampleType)
 {
     switch (sampleType)
     {
-        case SampleType::Float32:
-            return "Float32";
-        case SampleType::Float64:
-            return "Float64";
-        case SampleType::UInt8:
-            return "UInt8";
-        case SampleType::Int8:
-            return "Int8";
-        case SampleType::UInt16:
-            return "UInt16";
-        case SampleType::Int16:
-            return "Int16";
-        case SampleType::UInt32:
-            return "UInt32";
-        case SampleType::Int32:
-            return "Int32";
-        case SampleType::UInt64:
-            return "UInt64";
-        case SampleType::Int64:
-            return "Int64";
-        case SampleType::RangeInt64:
-            return "RangeInt64";
-        case SampleType::ComplexFloat32:
-            return "ComplexFloat32";
-        case SampleType::ComplexFloat64:
-            return "ComplexFloat64";
-        case SampleType::Struct:
-            return "Struct";
-        case SampleType::Undefined:
-            return "Undefined";
-        case SampleType::Binary:
-            return "Binary";
-        case SampleType::String:
-            return "String";
-        case SampleType::Null:
-            return "Null";
-        case SampleType::_count:
-            return "Count";
+    case SampleType::Float32:
+        return "Float32";
+    case SampleType::Float64:
+        return "Float64";
+    case SampleType::UInt8:
+        return "UInt8";
+    case SampleType::Int8:
+        return "Int8";
+    case SampleType::UInt16:
+        return "UInt16";
+    case SampleType::Int16:
+        return "Int16";
+    case SampleType::UInt32:
+        return "UInt32";
+    case SampleType::Int32:
+        return "Int32";
+    case SampleType::UInt64:
+        return "UInt64";
+    case SampleType::Int64:
+        return "Int64";
+    case SampleType::RangeInt64:
+        return "RangeInt64";
+    case SampleType::ComplexFloat32:
+        return "ComplexFloat32";
+    case SampleType::ComplexFloat64:
+        return "ComplexFloat64";
+    case SampleType::Struct:
+        return "Struct";
+    case SampleType::Undefined:
+        return "Undefined";
+    case SampleType::Binary:
+        return "Binary";
+    case SampleType::String:
+        return "String";
+    case SampleType::Null:
+        return "Null";
+    case SampleType::_count:
+        return "Count";
     }
     return "Unknown";
 }
@@ -78,20 +78,20 @@ std::string to_string(daq::DataPacketPtr packet)
     std::string data;
     switch (packet.getDataDescriptor().getSampleType())
     {
-        case SampleType::Float64:
-            data = std::to_string(*(static_cast<double*>(packet.getData())));
-            break;
-        case SampleType::UInt64:
-            data = std::to_string(*(static_cast<uint64_t*>(packet.getData())));
-            break;
-        case SampleType::Int64:
-            data = std::to_string(*(static_cast<int64_t*>(packet.getData())));
-            break;
-        case SampleType::Binary:
-            data = '\"' + std::string(static_cast<char*>(packet.getData()), packet.getDataSize()) + '\"';
-            break;
-        default:
-            break;
+    case SampleType::Float64:
+        data = std::to_string(*(static_cast<double*>(packet.getData())));
+        break;
+    case SampleType::UInt64:
+        data = std::to_string(*(static_cast<uint64_t*>(packet.getData())));
+        break;
+    case SampleType::Int64:
+        data = std::to_string(*(static_cast<int64_t*>(packet.getData())));
+        break;
+    case SampleType::Binary:
+        data = '\"' + std::string(static_cast<char*>(packet.getData()), packet.getDataSize()) + '\"';
+        break;
+    default:
+        break;
     }
     result = fmt::format("SampleType : {}; Data: {};", to_string(packet.getDataDescriptor().getSampleType()), data);
     if (packet.getDomainPacket().assigned())
@@ -174,14 +174,15 @@ int main(int argc, char* argv[])
         packetReaders.emplace(std::pair<std::string, PacketReaderPtr>(s.getName().toStdString(), daq::PacketReader(s)));
     }
 
+    std::atomic<bool> running = true;
     std::thread readerThread(
-        [packetReaders]()
+        [&packetReaders, &running]()
         {
-            while (true)
+            while (running)
             {
                 for (const auto& [signal, reader] : packetReaders)
                 {
-                    while (!reader.getEmpty())
+                    while (!reader.getEmpty() && running)
                     {
                         auto packet = reader.read();
                         const auto eventPacket = packet.asPtrOrNull<IEventPacket>();
@@ -200,9 +201,13 @@ int main(int argc, char* argv[])
                 std::this_thread::sleep_for(std::chrono::milliseconds(20));
             }
         });
-    readerThread.detach();
 
     std::cout << "Press \"enter\" to exit the application..." << std::endl;
     std::cin.get();
+
+    running = false;
+    readerThread.join();
+    std::cout << "Reader thread finished. Exiting.\n";
+
     return 0;
 }
