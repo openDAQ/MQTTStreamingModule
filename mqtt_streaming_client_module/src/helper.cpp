@@ -8,14 +8,14 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 std::string buildSignalNameFromTopic(std::string topic, const std::string& signalName)
 {
     boost::replace_all(topic, "/", "_");
-    topic += "_Mqtt" + signalName;
+    topic += "_Mqtt_" + signalName;
     return topic;
 }
 
 std::string buildDomainSignalNameFromTopic(std::string topic, const std::string& signalName)
 {
     boost::replace_all(topic, "/", "_");
-    topic += std::string("_Mqtt") + "_domain" + signalName;
+    topic += std::string("_Mqtt") + "_domain_" + signalName;
     return topic;
 }
 
