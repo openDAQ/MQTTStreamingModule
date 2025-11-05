@@ -9,8 +9,16 @@
 using namespace daq;
 using namespace daq::modules::mqtt_streaming_client_module;
 
-int main(int argc, char* argv[])
+struct ConfigStruct {
+    std::string brokerAddress;
+    std::vector<std::string> topics;
+    bool exit = true;
+    int error = 0;
+};
+
+ConfigStruct StartUp(int argc, char* argv[])
 {
+    ConfigStruct config;
     InputArgs args;
     args.addArg("--help", "Show help message");
     args.addArg("--address", "MQTT broker address", true);
@@ -20,72 +28,82 @@ int main(int argc, char* argv[])
     if (args.hasArg("--help") || args.hasUnknownArgs())
     {
         args.printHelp();
-        return 0;
+        config.error = 0;
+        return config;
     }
 
-    std::string brokerAddress = args.getArgValue("--address", "127.0.0.1");
-    auto topics = args.getPositionalArgs();
+    config.brokerAddress = args.getArgValue("--address", "127.0.0.1");
+    config.topics = args.getPositionalArgs();
 
-    if (topics.empty())
+    if (config.topics.empty())
     {
         std::cout << "MQTT topics are required." << std::endl;
-        return -1;
+        config.error = -1;
+        return config;
     }
+
+    config.exit = false;
+    return config;
+}
+
+int main(int argc, char* argv[])
+{
+    // Parse input arguments
+    auto appConfig = StartUp(argc, argv);
+    if (appConfig.exit)
+    {
+        return appConfig.error;
+    }
+
+    // Create OpenDAQ instance and add MQTT broker device
     const InstancePtr instance = InstanceBuilder().addModulePath(MODULE_PATH).build();
-    auto brokerDevice = instance.addDevice("daq.mqtt://" + brokerAddress);
+    auto brokerDevice = instance.addDevice("daq.mqtt://" + appConfig.brokerAddress);
     auto availableDeviceNodes = brokerDevice.getAvailableFunctionBlockTypes();
 
-    if (availableDeviceNodes.getCount() == 0)
-    {
-        std::cout << "No function block available from the device." << std::endl;
-        return -1;
-    }
-
-    for (const auto& [key, value] : availableDeviceNodes)
-    {
-        std::cout << "Available function block: " << key << std::endl;
-    }
     const std::string fbName = RAW_FB_NAME;
     std::cout << "Try to add the " << fbName << std::endl;
 
+    // Create RAW function block configuration
     auto config = availableDeviceNodes.get(fbName).createDefaultConfig();
     auto topicList = List<IString>();
-    for (auto& topic : topics)
+    for (auto& topic : appConfig.topics)
     {
         addToList(topicList, std::move(topic));
     }
     config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, topicList);
+
+    // Add the RAW function block to the broker device
     daq::FunctionBlockPtr rawFb = brokerDevice.addFunctionBlock(fbName, config);
 
-    auto signals = rawFb.getSignals();
+    // Create packet readers for all signals
+    const auto signals = rawFb.getSignals();
     std::map<std::string, PacketReaderPtr> readers;
     for (const auto& s : signals)
     {
         readers.emplace(std::pair<std::string, PacketReaderPtr>(s.getName().toStdString(), daq::PacketReader(s)));
     }
 
+    // Start a thread to read packets from the readers
     std::atomic<bool> running = true;
     std::thread readerThread(
         [&readers, &running]()
         {
             while (running)
             {
-                for (const auto& pair : readers)
+                for (const auto& [signalName, reader] : readers)
                 {
-                    const auto& reader = pair.second;
                     while (!reader.getEmpty() && running)
                     {
                         auto packet = reader.read();
-                        const auto eventPacket = packet.asPtrOrNull<IEventPacket>();
-                        if (eventPacket.assigned())
+                        if (packet.getType() == PacketType::Event)
                         {
                             continue;
                         }
-                        const auto dataPacket = packet.asPtrOrNull<IDataPacket>();
-                        if (dataPacket.assigned())
+                        else if (packet.getType() == PacketType::Data)
                         {
-                            std::string tmp(static_cast<char*>(dataPacket.getData()), dataPacket.getDataSize());
-                            std::cout << pair.first << " - " << tmp << std::endl;
+                            const auto dataPacket = packet.asPtr<IDataPacket>();
+                            std::string dataStr(static_cast<char*>(dataPacket.getData()), dataPacket.getDataSize());
+                            std::cout << signalName << " - " << dataStr << std::endl;
                         }
                     }
                 }
