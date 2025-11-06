@@ -33,6 +33,3 @@ if(EXISTS "${OPENDAQ_VERSION_FILE}")
 else()
   message(WARNING "opendaq_version file not found at: ${OPENDAQ_VERSION_FILE}")
 endif()
-
-
-

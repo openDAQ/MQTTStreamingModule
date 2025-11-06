@@ -72,7 +72,11 @@ void MqttStreamingServerImpl::setupMqttPublisher()
     publisher.setConnectedCb([this]() { LOG_I("MQTT: Connection established"); });
 
     LOG_I("MQTT: Trying to connect to MQTT broker ({})", serverUrl);
-    publisher.connect();
+    auto status = publisher.connect();
+    if (!status.success)
+    {
+        LOG_E("MQTT: Connection failed! The reason: {}", status.msg);
+    }
 }
 
 void MqttStreamingServerImpl::sendData(const std::string& topic, const ChannelData& data, SizeT readAmount)

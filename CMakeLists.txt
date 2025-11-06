@@ -4,6 +4,7 @@
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 cmake_minimum_required(VERSION 3.25)
 
+set(SDK_TARGET_NAMESPACE daq)
 set(REPO_NAME mqtt_module)
 set(REPO_OPTION_PREFIX MQTT_MODULE)
 
@@ -30,6 +31,7 @@ set(CMAKE_MESSAGE_CONTEXT_SHOW ON CACHE BOOL "Show CMake message context")
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+option(OPENDAQ_MQTT_MODULE_ENABLE_SSL "Enable building with openSSL" OFF)
 option(OPENDAQ_DEVICE_EXAMPLE_ENABLE_EXAMPLE_APPS "Enable building example applications" OFF)
 
 if ((CMAKE_COMPILER_IS_GNUCXX OR CMAKE_COMPILER_IS_CLANGXX) AND NOT MSVC)
@@ -42,17 +44,20 @@ include(CommonUtils)
 setup_repo(${REPO_OPTION_PREFIX})
 
 if(OPENDAQ_DEVICE_EXAMPLE_ENABLE_EXAMPLE_APPS)
-	set(DAQMODULES_REF_DEVICE_MODULE ON CACHE BOOL "" FORCE)
+    set(DAQMODULES_REF_DEVICE_MODULE ON CACHE BOOL "" FORCE)
 endif()
 
 option(OPENDAQ_MQTT_ENABLE_TESTS "Enable module testing" OFF)
 option(OPENDAQ_MQTT_ENABLE_EXAMPLE_APPS "Enable example applications building" OFF)
 
-find_package(OpenSSL REQUIRED)
-if (OPENSSL_FOUND)
-  message(STATUS "Found OpenSSL ${OPENSSL_VERSION}")
-else()
-  message(STATUS "OpenSSL Not Found")
+if(OPENDAQ_MQTT_MODULE_ENABLE_SSL)
+    find_package(OpenSSL REQUIRED)
+    if (OPENSSL_FOUND)
+        message(STATUS "Found OpenSSL ${OPENSSL_VERSION}")
+    else()
+        message(FATAL_ERROR "OpenSSL Not Found")
+    endif()
+    add_compile_definitions(OPENDAQ_MQTT_MODULE_ENABLE_SSL)
 endif()
 
 add_subdirectory(external)
