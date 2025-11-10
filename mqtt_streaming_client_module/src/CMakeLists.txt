@@ -8,8 +8,13 @@ set(SRC_Include common.h
                 mqtt_base_fb.h
                 mqtt_json_receiver_fb_impl.h
                 mqtt_raw_receiver_fb_impl.h
+                mqtt_publisher_fb_impl.h
                 constants.h
                 helper.h
+                handler_factory.h
+                handler_base.h
+                single_handler.h
+                types.h
 )
 
 set(SRC_Srcs module_dll.cpp
@@ -18,7 +23,9 @@ set(SRC_Srcs module_dll.cpp
              mqtt_base_fb.cpp
              mqtt_json_receiver_fb_impl.cpp
              mqtt_raw_receiver_fb_impl.cpp
+             mqtt_publisher_fb_impl.cpp
              helper.cpp
+             single_handler.cpp
 )
 
 prepend_include(${TARGET_FOLDER_NAME} SRC_Include)
@@ -26,6 +33,7 @@ prepend_include(${TARGET_FOLDER_NAME} SRC_Include)
 source_group("common" FILES ${MODULE_HEADERS_DIR}/common.h
                             ${MODULE_HEADERS_DIR}/constants.h
                             ${MODULE_HEADERS_DIR}/helper.h
+                            ${MODULE_HEADERS_DIR}/types.h
                             helper.cpp
 )
 
@@ -43,8 +51,16 @@ source_group("functionalBlock" FILES ${MODULE_HEADERS_DIR}/mqtt_json_receiver_fb
                             mqtt_json_receiver_fb_impl.cpp
                             ${MODULE_HEADERS_DIR}/mqtt_raw_receiver_fb_impl.h
                             mqtt_raw_receiver_fb_impl.cpp
+                            ${MODULE_HEADERS_DIR}/mqtt_publisher_fb_impl.h
+                            mqtt_publisher_fb_impl.cpp
                             ${MODULE_HEADERS_DIR}/mqtt_base_fb.h
                             mqtt_base_fb.cpp
+)
+
+source_group("handlers" FILES ${MODULE_HEADERS_DIR}/handler_base.h
+                            ${MODULE_HEADERS_DIR}/handler_factory.h
+                            ${MODULE_HEADERS_DIR}/single_handler.h
+                            single_handler.cpp
 )
 
 find_package(Boost REQUIRED COMPONENTS algorithm)

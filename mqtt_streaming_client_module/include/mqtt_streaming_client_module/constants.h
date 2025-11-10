@@ -30,8 +30,14 @@ static constexpr const char* PROPERTY_NAME_CONNECT_TIMEOUT = "ConnectTimeout";
 static constexpr const char* PROPERTY_NAME_DISCOVERY_TIMEOUT = "DiscoveryTimeout";
 static constexpr const char* PROPERTY_NAME_SIGNAL_LIST = "SignalList";
 
+static constexpr const char* PROPERTY_NAME_PUB_TOPIC_MODE = "TopicMode";
+static constexpr const char* PROPERTY_NAME_PUB_SHARED_TS = "SharedTimestamp";
+static constexpr const char* PROPERTY_NAME_PUB_GROUP_VALUES = "GroupValues";
+static constexpr const char* PROPERTY_NAME_PUB_USE_SIGNAL_NAMES = "UseSignalNames";
+
 static constexpr const char* RAW_FB_NAME = "@rawMqttFb";
 static constexpr const char* JSON_FB_NAME = "@jsonMqttFb";
+static constexpr const char* PUB_FB_NAME = "@publisherMqttFb";
 
 static const char* TOPIC_ALL_SIGNALS = "openDAQ/+/$signals";
 

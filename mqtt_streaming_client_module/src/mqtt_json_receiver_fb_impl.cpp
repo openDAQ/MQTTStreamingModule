@@ -31,6 +31,19 @@ MqttJsonReceiverFbImpl::~MqttJsonReceiverFbImpl()
     unsubscribeFromTopics();
 }
 
+
+FunctionBlockTypePtr MqttJsonReceiverFbImpl::CreateType()
+{
+    auto defaultConfig = PropertyObject();
+    defaultConfig.addProperty(StringProperty(PROPERTY_NAME_SIGNAL_LIST, String("")));
+
+    const auto fbType = FunctionBlockType(JSON_FB_NAME,
+                                          JSON_FB_NAME,
+                                          "",
+                                          defaultConfig);
+    return fbType;
+}
+
 void MqttJsonReceiverFbImpl::readProperties()
 {
     auto lock = std::lock_guard<std::mutex>(sync);

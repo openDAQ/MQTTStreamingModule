@@ -31,6 +31,17 @@ MqttRawReceiverFbImpl::~MqttRawReceiverFbImpl()
     unsubscribeFromTopics();
 }
 
+FunctionBlockTypePtr MqttRawReceiverFbImpl::CreateType()
+{
+    auto defaultConfig = PropertyObject();
+    defaultConfig.addProperty(ListProperty(PROPERTY_NAME_SIGNAL_LIST, List<IString>()));
+    const auto fbType = FunctionBlockType(RAW_FB_NAME,
+                                          RAW_FB_NAME,
+                                          "",
+                                          defaultConfig);
+    return fbType;
+}
+
 void MqttRawReceiverFbImpl::readProperties()
 {
     auto lock = std::lock_guard<std::mutex>(sync);
