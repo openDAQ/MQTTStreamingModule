@@ -1,3 +1,5 @@
+#include "MqttAsyncClientWrapper.h"
+#include "Timer.h"
 #include "mqtt_streaming_client_module/mqtt_publisher_fb_impl.h"
 #include "test_daq_test_helper.h"
 #include <coreobjects/property_factory.h>
@@ -341,16 +343,49 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
 }
 
-// TEST_F(MqttPublisherFbTest, Transfer)
-// {
-//     StartUp();
-//     daq::FunctionBlockPtr fb;
-//     ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME));
-//     // Create helper
-//     auto help = ReferenceDomainOffsetHelper();
+TEST_F(MqttPublisherFbTest, Transfer)
+{
+    StartUp();
+    daq::FunctionBlockPtr fb;
+    ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME));
 
-//     // Set input (port) and output (signal) of the function block
-//     fb.getInputPorts()[0].connect(help.signal);
-//     help.send();
-//     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-// }
+    int sampleCnt = 15;
+    auto help = ReferenceDomainOffsetHelper<int64_t>(sampleCnt);
+    fb.getInputPorts()[0].connect(help.signal);
+
+    MqttAsyncClientWrapper subscriber(std::make_shared<mqtt::MqttAsyncClient>(),
+                                      std::string(::testing::UnitTest::GetInstance()->current_test_info()->name()) + "testSubscriberId");
+    ASSERT_TRUE(subscriber.connect("127.0.0.1"));
+
+    const std::string topic = help.signal.getGlobalId().toStdString();
+    std::promise<bool> receivedPromise;
+    auto receivedFuture = receivedPromise.get_future();
+    std::atomic<bool> done{false};
+    std::atomic<int> cnt{sampleCnt};
+    subscriber.instance
+        ->setMessageArrivedCb(topic,
+                              [&done,
+                               &cnt,
+                               promise = &receivedPromise](const mqtt::MqttAsyncClient &subscriber,
+                                                           mqtt::MqttMessage &receivedMsg) {
+                                  if (receivedMsg.getData().empty()) {
+                                      return;
+                                  }
+                                  bool expected = false;
+                                  if (--cnt <= 0 && done.compare_exchange_strong(expected, true)) {
+                                      promise->set_value(true);
+                                  }
+                              });
+
+    Timer receiveTimer(3000);
+    auto result = subscriber.instance->subscribe(topic, 2);
+    ASSERT_TRUE(result.success);
+    help.send();
+    auto status = receivedFuture.wait_for(receiveTimer.remain());
+    subscriber.instance->setMessageArrivedCb(nullptr);
+    result = subscriber.instance->unsubscribe(topic);
+    if (result.success)
+        subscriber.instance->waitForCompletion(result.token, 1000);
+    ASSERT_TRUE(status == std::future_status::ready);
+    ASSERT_TRUE(receivedFuture.get());
+}
