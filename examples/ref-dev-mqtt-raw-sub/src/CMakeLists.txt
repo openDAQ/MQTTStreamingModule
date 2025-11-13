@@ -7,7 +7,6 @@ add_executable(${EXAMPLE_PROJECT_NAME} ref-dev-mqtt-raw-sub.cpp)
 
 target_link_libraries(${EXAMPLE_PROJECT_NAME} PRIVATE daq::opendaq
                                                       rapidjson
-                                                      mqtt_stream_cli_module
 )
 target_include_directories(${EXAMPLE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../)
 

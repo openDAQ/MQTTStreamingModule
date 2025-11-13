@@ -1,5 +1,4 @@
 #include "../../InputArgs.h"
-#include <mqtt_streaming_client_module/constants.h>
 #include <opendaq/opendaq.h>
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
@@ -7,7 +6,6 @@
 #include <iostream>
 
 using namespace daq;
-using namespace daq::modules::mqtt_streaming_client_module;
 
 struct ConfigStruct {
     std::string brokerAddress;
@@ -60,7 +58,7 @@ int main(int argc, char* argv[])
     auto brokerDevice = instance.addDevice("daq.mqtt://" + appConfig.brokerAddress);
     auto availableDeviceNodes = brokerDevice.getAvailableFunctionBlockTypes();
 
-    const std::string fbName = RAW_FB_NAME;
+    const std::string fbName = "@rawMqttFb";
     std::cout << "Try to add the " << fbName << std::endl;
 
     // Create RAW function block configuration
@@ -70,7 +68,7 @@ int main(int argc, char* argv[])
     {
         addToList(topicList, std::move(topic));
     }
-    config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, topicList);
+    config.setPropertyValue("SignalList", topicList);
 
     // Add the RAW function block to the broker device
     daq::FunctionBlockPtr rawFb = brokerDevice.addFunctionBlock(fbName, config);

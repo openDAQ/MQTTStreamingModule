@@ -1,6 +1,5 @@
 #include "../../InputArgs.h"
 #include <iomanip>
-#include <mqtt_streaming_client_module/constants.h>
 #include <opendaq/opendaq.h>
 
 #include <fstream>
@@ -8,7 +7,6 @@
 #include <sstream>
 
 using namespace daq;
-using namespace daq::modules::mqtt_streaming_client_module;
 
 struct ConfigStruct {
     std::string brokerAddress;
@@ -128,13 +126,13 @@ int main(int argc, char* argv[])
     auto brokerDevice = instance.addDevice("daq.mqtt://" + appConfig.brokerAddress);
     auto availableDeviceNodes = brokerDevice.getAvailableFunctionBlockTypes();
 
-    const std::string fbName = JSON_FB_NAME;
+    const std::string fbName = "@jsonMqttFb";
     std::cout << "Try to add the " << fbName << std::endl;
 
     // Read JSON function block configuration from file and fill out the function block config
     const std::string jsonConfig = readFileToString(appConfig.configFilePath);
     auto config = availableDeviceNodes.get(fbName).createDefaultConfig();
-    config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, jsonConfig);
+    config.setPropertyValue("SignalList", jsonConfig);
 
     // Add the JSON function block to the broker device
     daq::FunctionBlockPtr jsonFb = brokerDevice.addFunctionBlock(fbName, config);

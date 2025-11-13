@@ -1,11 +1,9 @@
 #include "../../InputArgs.h"
-#include <mqtt_streaming_client_module/constants.h>
 #include <opendaq/opendaq.h>
 
 #include <iostream>
 
 using namespace daq;
-using namespace daq::modules::mqtt_streaming_client_module;
 
 struct ConfigStruct {
     std::string brokerAddress;
@@ -89,7 +87,7 @@ int main(int argc, char* argv[])
     for (const auto& [key, value] : availableDeviceNodes)
     {
         std::cout << " - " << key << std::endl;
-        if (key == RAW_FB_NAME || key == JSON_FB_NAME)
+        if (key == "@rawMqttFb" || key == "@jsonMqttFb")
             continue;
         fbList.push_back(brokerDevice.addFunctionBlock(key));
     }
