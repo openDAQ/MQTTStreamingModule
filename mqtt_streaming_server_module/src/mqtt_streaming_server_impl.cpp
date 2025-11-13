@@ -65,13 +65,18 @@ MqttStreamingServerImpl::~MqttStreamingServerImpl()
 void MqttStreamingServerImpl::setupMqttPublisher()
 {
     publisher.disconnect();
-    publisher.setServerURL(connectionSettings.mqttUrl);
+    const auto serverUrl = connectionSettings.mqttUrl + ((connectionSettings.port > 0) ? ":" + std::to_string(connectionSettings.port) : "");
+    publisher.setServerURL(serverUrl);
     publisher.setClientId(connectionSettings.clientId);
     publisher.setUsernamePasswrod(connectionSettings.username, connectionSettings.password);
     publisher.setConnectedCb([this]() { LOG_I("MQTT: Connection established"); });
 
-    LOG_I("MQTT: Trying to connect to MQTT broker ({})", connectionSettings.mqttUrl);
-    publisher.connect();
+    LOG_I("MQTT: Trying to connect to MQTT broker ({})", serverUrl);
+    auto status = publisher.connect();
+    if (!status.success)
+    {
+        LOG_E("MQTT: Connection failed! The reason: {}", status.msg);
+    }
 }
 
 void MqttStreamingServerImpl::sendData(const std::string& topic, const ChannelData& data, SizeT readAmount)
@@ -84,11 +89,10 @@ void MqttStreamingServerImpl::sendData(const std::string& topic, const ChannelDa
     {
         for (const auto& jsonMessage : jsonMessages)
         {
-            std::string err;
-            auto status = publisher.publish(topic, (void*)jsonMessage.c_str(), jsonMessage.length(), &err);
-            if (!status)
+            auto status = publisher.publish(topic, (void*)jsonMessage.c_str(), jsonMessage.length());
+            if (!status.success)
             {
-                LOG_W("Failed to publish data to {}; reason - {}", topic, err);
+                LOG_W("Failed to publish data to {}; reason - {}", topic, status.msg);
             }
         }
     }
@@ -117,10 +121,10 @@ void MqttStreamingServerImpl::sendTopicList()
     auto topicsMessage = prepareJsonTopics();
     if (publisher.isConnected() == mqtt::MqttConnectionStatus::connected)
     {
-        bool status = publisher.publish(topic, (void*)topicsMessage.c_str(), topicsMessage.length(), nullptr, 1, nullptr, true);
-        if (!status)
+        auto status = publisher.publish(topic, (void*)topicsMessage.c_str(), topicsMessage.length(), 1, true);
+        if (!status.success)
         {
-            LOG_W("Failed to publish topics list to {}", topic);
+            LOG_W("Failed to publish topics list to {}; reason: {}", topic, status.msg);
         }
         else
         {
@@ -145,7 +149,7 @@ void MqttStreamingServerImpl::processingThreadFunc()
     while (processingThreadRunning)
     {
         {
-            std::scoped_lock lock(readersSync);
+            auto lock = std::scoped_lock(readersSync);
             if (!topicsAreSent)
                 sendTopicList();
             bool hasPacketsToRead;
@@ -346,7 +350,7 @@ void MqttStreamingServerImpl::onStopServer()
 
 void MqttStreamingServerImpl::addReader(SignalPtr signalToRead)
 {
-    std::scoped_lock lock(readersSync);
+    auto lock = std::scoped_lock(readersSync);
     signals.pushBack(signalToRead);
     streamReaders.emplace_back(StreamReaderBuilder()
                                    .setSignal(signalToRead)

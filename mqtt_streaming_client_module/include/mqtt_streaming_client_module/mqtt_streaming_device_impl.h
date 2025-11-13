@@ -47,12 +47,15 @@ protected:
     DictPtr<IString, IFunctionBlockType> onGetAvailableFunctionBlockTypes() override;
     FunctionBlockPtr onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config) override;
 
+    void initBaseFunctionalBlocks();
     void initMqttSubscriber();
+    void buildFunctionBlockTypes();
     bool waitForConnection(const int timeoutMs);
     void receiveSignalTopics(const int timeoutMs);
     void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg);
 
     DictObjectPtr<IDict, IString, IFunctionBlockType> fbTypes;
+    DictObjectPtr<IDict, IString, IFunctionBlockType> baseFbTypes;
 
     StringPtr connectionString;
     EnumerationPtr connectionStatus;
@@ -63,7 +66,7 @@ protected:
     std::promise<bool> connectedPromise;
     std::future<bool> connectedFuture;
     std::atomic<bool> connectedDone{false};
-    std::unordered_map<std::string, std::vector<mqtt::SignalDescriptor>> deviceMap;
+    std::unordered_map<std::string, std::string> deviceMap;         // device name -> signal list JSON
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

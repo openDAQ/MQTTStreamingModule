@@ -32,7 +32,6 @@ source_group("module" FILES ${MODULE_HEADERS_DIR}/mqtt_streaming_server_module_i
                             mqtt_streaming_server_impl.cpp
 )
 
-
 add_library(${LIB_NAME} SHARED ${SRC_Include}
                                ${SRC_Srcs}
 )

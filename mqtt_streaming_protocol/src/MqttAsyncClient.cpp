@@ -44,7 +44,7 @@ MqttAsyncClient::~MqttAsyncClient()
     }
 }
 
-bool MqttAsyncClient::connect()
+CmdResult MqttAsyncClient::connect()
 {
     if (client != nullptr)
     {
@@ -53,14 +53,14 @@ bool MqttAsyncClient::connect()
 
     if (serverUrl.empty() || clientId.empty())
     {
-        return false;
+        return CmdResult(false, "serverUrl or clientId is empty");
     }
 
     int rc = MQTTAsync_createWithOptions(&client, serverUrl.c_str(), clientId.c_str(), MQTTCLIENT_PERSISTENCE_NONE, NULL, &createOpts);
 
     if (rc != MQTTASYNC_SUCCESS)
     {
-        return false;
+        return CmdResult(false, MQTTAsync_strerror(rc));
     }
 
     rc = MQTTAsync_setCallbacks(client,
@@ -71,33 +71,33 @@ bool MqttAsyncClient::connect()
 
     if (rc != MQTTASYNC_SUCCESS)
     {
-        return false;
+        return CmdResult(false, MQTTAsync_strerror(rc));
     }
 
     rc = MQTTAsync_setConnected(client, this, &MqttAsyncClient::onConnected);
     if (rc != MQTTASYNC_SUCCESS)
     {
-        return false;
+        return CmdResult(false, MQTTAsync_strerror(rc));
     }
 
     rc = MQTTAsync_connect(client, &connOpts);
     if (rc != MQTTASYNC_SUCCESS)
     {
-        return false;
+        return CmdResult(false, MQTTAsync_strerror(rc));
     }
     pendingConnect = true;
-    return true;
+    return CmdResult(true);
 }
 
-bool MqttAsyncClient::disconnect()
+CmdResult MqttAsyncClient::disconnect()
 {
     if (client == nullptr)
-        return true;
+        return CmdResult(true, "The client is null");
 
     // It is only the result of the request to disconnect (queuing)
     auto status = MQTTAsync_disconnect(client, &disconnOpts);
     bool result = (status == MQTTASYNC_SUCCESS || status == MQTTASYNC_DISCONNECTED);
-    return result;
+    return CmdResult(result, MQTTAsync_strerror(status));
 }
 
 bool MqttAsyncClient::syncDisconnect(int timeoutMs)
@@ -105,33 +105,38 @@ bool MqttAsyncClient::syncDisconnect(int timeoutMs)
     if (client == nullptr)
         return true;
 
-    bool result = disconnect();
-    if (result)
+    if (isConnected() != MqttConnectionStatus::not_connected)
     {
         std::atomic<bool> done{false};
         std::promise<bool> disconnectedPromise;
         auto disconnectedFuture = disconnectedPromise.get_future();
         {
             auto lock = getCbLock();
-            onInternalDisconnectCb = [promise = &disconnectedPromise, &done](bool result) {
+            onInternalDisconnectCb = [promise = &disconnectedPromise, &done](bool result)
+            {
                 bool expected = false;
-                if (done.compare_exchange_strong(expected, true)) {
+                if (done.compare_exchange_strong(expected, true))
                     promise->set_value(result);
-                }
             };
         }
-        auto status = disconnectedFuture.wait_for(std::chrono::milliseconds(timeoutMs));
+        if (disconnect().success)
+        {
+            auto status = disconnectedFuture.wait_for(std::chrono::milliseconds(timeoutMs));
+        }
         {
             auto lock = getCbLock();
             onInternalDisconnectCb = nullptr;
         }
-        if (status == std::future_status::ready && disconnectedFuture.get() == true)
-        {
-            MQTTAsync_destroy(&client);
-            return true;
-        }
     }
-    return false;
+    if (isConnected() == MqttConnectionStatus::not_connected)
+    {
+        MQTTAsync_destroy(&client);
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
 
 MqttConnectionStatus MqttAsyncClient::isConnected() const
@@ -142,9 +147,9 @@ MqttConnectionStatus MqttAsyncClient::isConnected() const
     return MQTTAsync_isConnected(client) ? MqttConnectionStatus::connected : MqttConnectionStatus::not_connected;
 }
 
-std::lock_guard<std::recursive_mutex> MqttAsyncClient::getCbLock()
+std::scoped_lock<std::recursive_mutex> MqttAsyncClient::getCbLock()
 {
-    return std::lock_guard<decltype(cbMtx)>(cbMtx);
+    return std::scoped_lock(cbMtx);
 }
 
 void MqttAsyncClient::setUsernamePasswrod(std::string username, std::string password)
@@ -156,36 +161,26 @@ void MqttAsyncClient::setUsernamePasswrod(std::string username, std::string pass
     connOpts.password = !password.empty() ? password.c_str() : NULL;
 }
 
-bool MqttAsyncClient::publish(const std::string& topic, void* data, size_t dataLen, std::string* err, int qos, int* token, bool retained)
+CmdResult MqttAsyncClient::publish(const std::string& topic, void* data, size_t dataLen, int qos, bool retained)
 {
     std::string tmpErr;
     if (client == nullptr)
     {
-        tmpErr = "MQTTAsync is nullptr";
+        return CmdResult(false, "MQTTAsync is nullptr");
     }
 
     if (topic.empty())
     {
-        tmpErr = "topic is empty";
+        return CmdResult(false, "topic is empty");
     }
 
     if (qos > 2 || qos < 0)
     {
-        tmpErr = "QoS is wrong";
-    }
-
-    if (!tmpErr.empty())
-    {
-        if (err != nullptr)
-        {
-            *err = std::move(tmpErr);
-        }
-        return false;
+        return CmdResult(false, "QoS is wrong");
     }
 
     MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
     MQTTAsync_message pubmsg = MQTTAsync_message_initializer;
-    int rc;
     opts.onSuccess = (MQTTAsync_onSuccess*)&MqttAsyncClient::onSendSuccess;
     opts.onFailure = (MQTTAsync_onFailure*)&MqttAsyncClient::onSendFailure;
     opts.context = this;
@@ -193,57 +188,49 @@ bool MqttAsyncClient::publish(const std::string& topic, void* data, size_t dataL
     pubmsg.payloadlen = (int)dataLen;
     pubmsg.qos = qos;
     pubmsg.retained = retained ? 1 : 0;
-    if ((rc = MQTTAsync_sendMessage(client, topic.c_str(), &pubmsg, &opts)) != MQTTASYNC_SUCCESS)
-    {
-        if (err != nullptr)
-        {
-            *err = MQTTAsync_strerror(rc);
-        }
-    }
-    if (token != nullptr)
-    {
-        *token = opts.token;
-    }
-    return rc == MQTTASYNC_SUCCESS;
+    int rc = MQTTAsync_sendMessage(client, topic.c_str(), &pubmsg, &opts);
+    return CmdResult(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc), opts.token);
 }
 
-bool MqttAsyncClient::subscribe(std::string topic, int qos)
+CmdResult MqttAsyncClient::subscribe(std::string topic, int qos)
 {
     MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
-    int rc;
     opts.onSuccess = MqttAsyncClient::onSubscribeSuccess;
     opts.onFailure = MqttAsyncClient::onSubscribeFailure;
     opts.context = this;
-    if ((rc = MQTTAsync_subscribe(client, topic.c_str(), qos, &opts)) == MQTTASYNC_SUCCESS)
-    {
-        subscriptions.emplace_back(topic, qos);
-    }
-    return rc == MQTTASYNC_SUCCESS;
+    int rc = MQTTAsync_subscribe(client, topic.c_str(), qos, &opts);
+    return CmdResult(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc), opts.token);
 }
 
-bool MqttAsyncClient::unsubscribe(std::string topic)
+CmdResult MqttAsyncClient::unsubscribe(std::string topic)
 {
     MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
     opts.onSuccess = (MQTTAsync_onSuccess*)&MqttAsyncClient::onUnsubscribeSuccess;
     opts.onFailure = (MQTTAsync_onFailure*)&MqttAsyncClient::onUnsubscribeFailure;
     opts.context = this;
     int rc = MQTTAsync_unsubscribe(client, topic.c_str(), &opts);
-    auto it =
-        std::find_if(subscriptions.begin(), subscriptions.end(), [&topic](const MqttSubscription& sub) { return sub.topic == topic; });
-    if (it != subscriptions.end())
-        subscriptions.erase(it);
-    return rc == MQTTASYNC_SUCCESS;
+    return CmdResult(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc), opts.token);
 }
 
-bool MqttAsyncClient::unsubscribeAll()
+CmdResult MqttAsyncClient::unsubscribe(const std::vector<std::string>& topics)
 {
-    for (auto& sub : subscriptions)
+    MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
+    opts.onSuccess = (MQTTAsync_onSuccess*)&MqttAsyncClient::onUnsubscribeSuccess;
+    opts.onFailure = (MQTTAsync_onFailure*)&MqttAsyncClient::onUnsubscribeFailure;
+    opts.context = this;
+    const char* topicArray[topics.size()];
+    for (size_t i = 0; i < topics.size(); ++i)
     {
-        unsubscribe(sub.topic);
+        topicArray[i] = topics[i].c_str();
     }
-    subscriptions.clear();
+    int rc = MQTTAsync_unsubscribeMany(client, topics.size(), (char* const*)topicArray, &opts);
+    return CmdResult(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc), opts.token);
+}
 
-    return true;
+CmdResult MqttAsyncClient::waitForCompletion(int token, unsigned long toutMs)
+{
+    int rc = MQTTAsync_waitForCompletion(client, token, toutMs);
+    return CmdResult(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc));
 }
 
 void MqttAsyncClient::setServerURL(std::string serverUrl)
@@ -407,10 +394,24 @@ void MqttAsyncClient::onSubscribeFailure(void* context, MQTTAsync_failureData* r
 
 void MqttAsyncClient::onUnsubscribeSuccess(void* context, MQTTAsync_successData* response)
 {
+    if (context != nullptr)
+    {
+        auto clienttInst = (MqttAsyncClient*)context;
+        auto lock = clienttInst->getCbLock();
+        if (clienttInst->onUnsubscribeCb)
+            clienttInst->onUnsubscribeCb(response->token, true);
+    }
 }
 
 void MqttAsyncClient::onUnsubscribeFailure(void* context, MQTTAsync_failureData* response)
 {
+    if (context != nullptr)
+    {
+        auto clienttInst = (MqttAsyncClient*)context;
+        auto lock = clienttInst->getCbLock();
+        if (clienttInst->onUnsubscribeCb)
+            clienttInst->onUnsubscribeCb(response->token, false);
+    }
 }
 
 void MqttAsyncClient::setConnectedCb(std::function<void()> cb)
@@ -422,7 +423,22 @@ void MqttAsyncClient::setConnectedCb(std::function<void()> cb)
 void MqttAsyncClient::setMessageArrivedCb(std::string topic, std::function<MsgArrivedCb_type> cb)
 {
     auto lock = getCbLock();
-    onMsgArrivedCbs.insert({topic, cb});
+    if (!cb)
+        onMsgArrivedCbs.erase(topic);
+    else
+        onMsgArrivedCbs.insert({topic, cb});
+}
+
+void MqttAsyncClient::setMessageArrivedCb(std::vector<std::string> topics, std::function<MsgArrivedCb_type> cb)
+{
+    auto lock = getCbLock();
+    for (const auto& topic : topics)
+    {
+        if (!cb)
+            onMsgArrivedCbs.erase(topic);
+        else
+            onMsgArrivedCbs.insert({topic, cb});
+    }
 }
 
 void MqttAsyncClient::setMessageArrivedCb(std::function<MsgArrivedCb_type> cb)
@@ -441,6 +457,12 @@ void MqttAsyncClient::setSentCb(std::function<void(int, bool)> cb)
 {
     auto lock = getCbLock();
     onSentCb = cb;
+}
+
+void MqttAsyncClient::setUnsubscribeCb(std::function<void(int, bool)> cb)
+{
+    auto lock = getCbLock();
+    onUnsubscribeCb = cb;
 }
 
 void MqttAsyncClient::setDeliveryCompletedCb(std::function<void(int)> cb)

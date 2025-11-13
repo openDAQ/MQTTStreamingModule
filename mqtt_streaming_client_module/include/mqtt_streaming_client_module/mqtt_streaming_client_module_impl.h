@@ -23,6 +23,7 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 
 class MqttStreamingClientModule final : public Module
 {
+    friend class MqttStreamingClientModuleTest;
 public:
     MqttStreamingClientModule(ContextPtr context);
 
@@ -41,7 +42,6 @@ private:
     static PropertyObjectPtr populateDefaultConfig(const PropertyObjectPtr& config);
 
     std::mutex sync;
-    DevicePtr device;
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

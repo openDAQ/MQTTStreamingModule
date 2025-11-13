@@ -68,7 +68,7 @@ protected:
 
     static void populateDefaultConfigFromProvider(const ContextPtr& context, const PropertyObjectPtr& config);
 
-    daq::ListObjectPtr<daq::IList, daq::ISignal, daq::GenericSignalPtr<daq::ISignal>> signals;
+    daq::ListPtr<ISignal> signals;
     std::vector<StreamReaderPtr> streamReaders;
 
     std::string rootDeviceGlobalId;

@@ -1,27 +1,27 @@
-#include <testutils/testutils.h>
+#include "test_daq_test_helper.h"
+#include <coretypes/common.h>
+#include <mqtt_streaming_client_module/constants.h>
 #include <mqtt_streaming_client_module/module_dll.h>
 #include <mqtt_streaming_client_module/version.h>
-#include <mqtt_streaming_client_module/constants.h>
-#include <gmock/gmock.h>
-
-#include <opendaq/module_ptr.h>
-#include <coretypes/common.h>
-
+#include <mqtt_streaming_client_module/mqtt_streaming_client_module_impl.h>
+#include <mqtt_streaming_client_module/helper.h>
 #include <opendaq/context_factory.h>
-#include <coreobjects/property_factory.h>
-#include <coreobjects/property_object_factory.h>
-#include <opendaq/device_info_factory.h>
+#include <testutils/testutils.h>
 
-using MqttStreamingClientModuleTest = testing::Test;
 using namespace daq;
 using namespace daq::modules::mqtt_streaming_client_module;
 
-static ModulePtr CreateModule()
+namespace daq::modules::mqtt_streaming_client_module
 {
-    ModulePtr module;
-    createModule(&module, NullContext());
-    return module;
-}
+class MqttStreamingClientModuleTest : public testing::Test, public DaqTestHelper
+{
+public:
+    static PropertyObjectPtr createDefaultConfig()
+    {
+        return MqttStreamingClientModule::createDefaultConfig();
+    }
+};
+} // namespace daq::modules::mqtt_streaming_client_module
 
 TEST_F(MqttStreamingClientModuleTest, CreateModule)
 {
@@ -70,13 +70,6 @@ TEST_F(MqttStreamingClientModuleTest, CreateDeviceConnectionStringNull)
     DevicePtr device;
     ASSERT_THROW(device = module.createDevice(nullptr, nullptr), ArgumentNullException);
 }
-
-// TEST_F(MqttStreamingClientModuleTest, CreateDeviceConnectionFailed)
-// {
-//     auto module = CreateModule();
-
-//     ASSERT_THROW(module.createDevice("daq.mqtt://127.0.0.1", nullptr), CreateFailedException);
-// }
 
 TEST_F(MqttStreamingClientModuleTest, GetAvailableComponentTypes)
 {
@@ -129,15 +122,24 @@ TEST_F(MqttStreamingClientModuleTest, GetAvailableComponentTypes)
     }
 }
 
-TEST_F(MqttStreamingClientModuleTest, DefaultDeviceConfig)
+TEST_F(MqttStreamingClientModuleTest, ConfigFilling)
 {
-    const auto module = CreateModule();
+    const auto defConfig = createDefaultConfig();
+    auto customConfig = PropertyObject();
+    customConfig.addProperty(StringProperty(PROPERTY_NAME_MQTT_BROKER_ADDRESS, "testBrokerAddress.com"));
+    customConfig.addProperty(IntProperty(PROPERTY_NAME_CONNECT_TIMEOUT, 123456));
+    auto newConfig = ::daq::modules::mqtt_streaming_client_module::populateDefaultConfig(defConfig, customConfig);
 
-    DictPtr<IString, IDeviceType> deviceTypes;
-    ASSERT_NO_THROW(deviceTypes = module.getAvailableDeviceTypes());
-    ASSERT_EQ(deviceTypes.getCount(), 1u);
-
-    ASSERT_TRUE(deviceTypes.hasKey(DaqMqttDeviceTypeId));
-    auto pseudoDeviceConfig = deviceTypes.get(DaqMqttDeviceTypeId).createDefaultConfig();
-    ASSERT_TRUE(pseudoDeviceConfig.assigned());
+    ASSERT_EQ(defConfig.getAllProperties().getCount(), newConfig.getAllProperties().getCount());
+    for (const auto& prop : defConfig.getAllProperties())
+    {
+        if (customConfig.hasProperty(prop.getName()))
+        {
+            EXPECT_EQ(newConfig.getPropertyValue(prop.getName()), customConfig.getPropertyValue(prop.getName()));
+        }
+        else
+        {
+            EXPECT_EQ(newConfig.getPropertyValue(prop.getName()), prop.getValue());
+        }
+    }
 }

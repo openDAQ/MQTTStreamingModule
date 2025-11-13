@@ -1,5 +1,7 @@
 #include "../../InputArgs.h"
 #include <opendaq/opendaq.h>
+#include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
 
 #include <iostream>
 
@@ -7,6 +9,7 @@ using namespace daq;
 
 struct ConfigStruct {
     std::string brokerAddress;
+    std::vector<std::string> topics;
     bool exit = true;
     int error = 0;
 };
@@ -17,6 +20,7 @@ ConfigStruct StartUp(int argc, char* argv[])
     InputArgs args;
     args.addArg("--help", "Show help message");
     args.addArg("--address", "MQTT broker address", true);
+    args.setUsageHelp(APP_NAME " [options] <topic1> <topic2> ... <topicN>");
     args.parse(argc, argv);
 
     if (args.hasArg("--help") || args.hasUnknownArgs())
@@ -27,38 +31,17 @@ ConfigStruct StartUp(int argc, char* argv[])
     }
 
     config.brokerAddress = args.getArgValue("--address", "127.0.0.1");
+    config.topics = args.getPositionalArgs();
+
+    if (config.topics.empty())
+    {
+        std::cout << "MQTT topics are required." << std::endl;
+        config.error = -1;
+        return config;
+    }
+
     config.exit = false;
     return config;
-}
-
-std::string to_string(daq::DataPacketPtr packet)
-{
-    std::string result;
-    std::string data;
-    switch (packet.getDataDescriptor().getSampleType())
-    {
-    case SampleType::Float64:
-        data = std::to_string(*(static_cast<double*>(packet.getData())));
-        break;
-    case SampleType::UInt64:
-        data = std::to_string(*(static_cast<uint64_t*>(packet.getData())));
-        break;
-    case SampleType::Int64:
-        data = std::to_string(*(static_cast<int64_t*>(packet.getData())));
-        break;
-    case SampleType::Binary:
-        data = '\"' + std::string(static_cast<char*>(packet.getData()), packet.getDataSize()) + '\"';
-        break;
-    default:
-        break;
-    }
-    result = fmt::format("Data: {};", data);
-    if (packet.getDomainPacket().assigned())
-    {
-        uint64_t ts = *(static_cast<uint64_t*>(packet.getDomainPacket().getData()));
-        result += fmt::format(" Timestamp : {};", ts);
-    }
-    return result;
 }
 
 int main(int argc, char* argv[])
@@ -75,31 +58,27 @@ int main(int argc, char* argv[])
     auto brokerDevice = instance.addDevice("daq.mqtt://" + appConfig.brokerAddress);
     auto availableDeviceNodes = brokerDevice.getAvailableFunctionBlockTypes();
 
-    // Check available function blocks, skip RAW and JSON FBs
-    if (availableDeviceNodes.getCount() <= 2)
-    {
-        std::cout << "No function block available from the device." << std::endl;
-        return -1;
-    }
+    const std::string fbName = "@rawMqttFb";
+    std::cout << "Try to add the " << fbName << std::endl;
 
-    std::vector<daq::FunctionBlockPtr> fbList;
-    std::cout << "Available function blocks: " << std::endl;
-    for (const auto& [key, value] : availableDeviceNodes)
+    // Create RAW function block configuration
+    auto config = availableDeviceNodes.get(fbName).createDefaultConfig();
+    auto topicList = List<IString>();
+    for (auto& topic : appConfig.topics)
     {
-        std::cout << " - " << key << std::endl;
-        if (key == "@rawMqttFb" || key == "@jsonMqttFb")
-            continue;
-        fbList.push_back(brokerDevice.addFunctionBlock(key));
+        addToList(topicList, std::move(topic));
     }
+    config.setPropertyValue("SignalList", topicList);
 
-    std::cout << "Try to connect the " << fbList[0].getLocalId() << std::endl;
+    // Add the RAW function block to the broker device
+    daq::FunctionBlockPtr rawFb = brokerDevice.addFunctionBlock(fbName, config);
 
     // Create packet readers for all signals
-    auto signals = fbList[0].getSignals();
-    std::vector<PacketReaderPtr> readers;
+    const auto signals = rawFb.getSignals();
+    std::map<std::string, PacketReaderPtr> readers;
     for (const auto& s : signals)
     {
-        readers.emplace_back(daq::PacketReader(s));
+        readers.emplace(std::pair<std::string, PacketReaderPtr>(s.getName().toStdString(), daq::PacketReader(s)));
     }
 
     // Start a thread to read packets from the readers
@@ -109,20 +88,20 @@ int main(int argc, char* argv[])
         {
             while (running)
             {
-                for (int iRdr = 0; iRdr < readers.size(); ++iRdr)
+                for (const auto& [signalName, reader] : readers)
                 {
-                    const auto& reader = readers[iRdr];
                     while (!reader.getEmpty() && running)
                     {
                         auto packet = reader.read();
                         if (packet.getType() == PacketType::Event)
                         {
-                            std::cout << "Event packet is skipped!" << std::endl;
+                            continue;
                         }
                         else if (packet.getType() == PacketType::Data)
                         {
-                            const auto dataPacket = packet.asPtrOrNull<IDataPacket>();
-                            std::cout << "READER #" << iRdr << " - " << to_string(dataPacket) << std::endl;
+                            const auto dataPacket = packet.asPtr<IDataPacket>();
+                            std::string dataStr(static_cast<char*>(dataPacket.getData()), dataPacket.getDataSize());
+                            std::cout << signalName << " - " << dataStr << std::endl;
                         }
                     }
                 }
@@ -136,6 +115,5 @@ int main(int argc, char* argv[])
     running = false;
     readerThread.join();
     std::cout << "Reader thread finished. Exiting.\n";
-
     return 0;
 }

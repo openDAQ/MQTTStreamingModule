@@ -5,20 +5,28 @@ set(SRC_Include common.h
                 module_dll.h
                 mqtt_streaming_client_module_impl.h
                 mqtt_streaming_device_impl.h
-                mqtt_receiver_fb_impl.h
+                mqtt_base_fb.h
+                mqtt_json_receiver_fb_impl.h
+                mqtt_raw_receiver_fb_impl.h
                 constants.h
+                helper.h
 )
 
 set(SRC_Srcs module_dll.cpp
              mqtt_streaming_client_module_impl.cpp
              mqtt_streaming_device_impl.cpp
-             mqtt_receiver_fb_impl.cpp
+             mqtt_base_fb.cpp
+             mqtt_json_receiver_fb_impl.cpp
+             mqtt_raw_receiver_fb_impl.cpp
+             helper.cpp
 )
 
 prepend_include(${TARGET_FOLDER_NAME} SRC_Include)
 
 source_group("common" FILES ${MODULE_HEADERS_DIR}/common.h
                             ${MODULE_HEADERS_DIR}/constants.h
+                            ${MODULE_HEADERS_DIR}/helper.h
+                            helper.cpp
 )
 
 source_group("module" FILES ${MODULE_HEADERS_DIR}/mqtt_streaming_client_module_impl.h
@@ -31,9 +39,12 @@ source_group("device" FILES ${MODULE_HEADERS_DIR}/mqtt_streaming_device_impl.h
                             mqtt_streaming_device_impl.cpp
 )
 
-source_group("functionalBlock" FILES ${MODULE_HEADERS_DIR}/mqtt_receiver_fb_impl.h
-                            dispatch.h
-                            mqtt_receiver_fb_impl.cpp
+source_group("functionalBlock" FILES ${MODULE_HEADERS_DIR}/mqtt_json_receiver_fb_impl.h
+                            mqtt_json_receiver_fb_impl.cpp
+                            ${MODULE_HEADERS_DIR}/mqtt_raw_receiver_fb_impl.h
+                            mqtt_raw_receiver_fb_impl.cpp
+                            ${MODULE_HEADERS_DIR}/mqtt_base_fb.h
+                            mqtt_base_fb.cpp
 )
 
 find_package(Boost REQUIRED COMPONENTS algorithm)
@@ -48,8 +59,8 @@ if (MSVC)
 endif()
 
 target_link_libraries(${LIB_NAME} PUBLIC  daq::opendaq
-                                  PRIVATE mqtt_streaming_protocol
-                                          $<BUILD_INTERFACE:Boost::algorithm>
+                                          mqtt_streaming_protocol
+                                  PRIVATE $<BUILD_INTERFACE:Boost::algorithm>
 )
 
 target_include_directories(${LIB_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>

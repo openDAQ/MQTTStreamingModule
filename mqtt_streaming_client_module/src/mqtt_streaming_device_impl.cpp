@@ -1,5 +1,6 @@
 #include "mqtt_streaming_client_module/constants.h"
-#include "mqtt_streaming_client_module/mqtt_receiver_fb_impl.h"
+#include "mqtt_streaming_client_module/mqtt_json_receiver_fb_impl.h"
+#include "mqtt_streaming_client_module/mqtt_raw_receiver_fb_impl.h"
 #include <mqtt_streaming_client_module/mqtt_streaming_device_impl.h>
 
 #include <coreobjects/property_object_protected_ptr.h>
@@ -35,27 +36,38 @@ MqttStreamingDeviceImpl::MqttStreamingDeviceImpl(const ContextPtr& ctx, const Co
     connectionString =
         std::string(DaqMqttDevicePrefix) + "://" + connectionSettings.mqttUrl + ":" + std::to_string(connectionSettings.port);
 
-    int initTimeout = config.getPropertyValue(PROPERTY_NAME_INIT_DELAY);
+    int connectTimeout = config.getPropertyValue(PROPERTY_NAME_CONNECT_TIMEOUT);
+    int discoveryTimeout = config.getPropertyValue(PROPERTY_NAME_DISCOVERY_TIMEOUT);
 
     initComponentStatus();
-
+    initBaseFunctionalBlocks();
     initMqttSubscriber();
-    if (!waitForConnection(initTimeout))
+
+    if (!waitForConnection(connectTimeout))
     {
-        LOG_E("MQTT: could not connect to MQTT broker within {} ms", initTimeout);
-        DAQ_THROW_EXCEPTION(CreateFailedException, "could not connect to MQTT broker within {} ms", initTimeout);
+        LOG_E("MQTT: could not connect to MQTT broker within {} ms", connectTimeout);
+        DAQ_THROW_EXCEPTION(CreateFailedException, "could not connect to MQTT broker within {} ms", connectTimeout);
     }
 
     LOG_I("MQTT: Connection established");
-    receiveSignalTopics(initTimeout);
+    receiveSignalTopics(discoveryTimeout);
+    // Build function block types based on received signal lists only once
+    buildFunctionBlockTypes();
 }
 
 void MqttStreamingDeviceImpl::removed()
 {
+    Device::removed();
+    LOG_I("MQTT: disconnecting from the MQTT broker...", connectionSettings.mqttUrl + ":" + std::to_string(connectionSettings.port));
     bool disRes = subscriber->syncDisconnect(MQTT_CLIENT_SYNC_DISCONNECT_TOUT);
     if (!disRes)
+    {
         LOG_E("MQTT: disconnection was unsuccessful");
-    Device::removed();
+    }
+    else
+    {
+        LOG_I("MQTT: disconnection was successful");
+    }
 }
 
 DeviceInfoPtr MqttStreamingDeviceImpl::onGetInfo()
@@ -63,9 +75,38 @@ DeviceInfoPtr MqttStreamingDeviceImpl::onGetInfo()
     return DeviceInfo(connectionString, MQTT_DEVICE_NAME);
 }
 
+
+void MqttStreamingDeviceImpl::initBaseFunctionalBlocks()
+{
+    baseFbTypes = Dict<IString, IFunctionBlockType>();
+    // Add a function block type for manual JSON configuration
+    {
+        auto defaultConfig = PropertyObject();
+        defaultConfig.addProperty(StringProperty(PROPERTY_NAME_SIGNAL_LIST, String("")));
+
+        const auto fbType = FunctionBlockType(JSON_FB_NAME,
+                                              JSON_FB_NAME,
+                                              "",
+                                              defaultConfig);
+
+        baseFbTypes.set(fbType.getId(), fbType);
+    }
+    // Add a function block type for raw MQTT messages
+    {
+        auto defaultConfig = PropertyObject();
+        defaultConfig.addProperty(ListProperty(PROPERTY_NAME_SIGNAL_LIST, List<IString>()));
+        const auto fbType = FunctionBlockType(RAW_FB_NAME,
+                                              RAW_FB_NAME,
+                                              "",
+                                              defaultConfig);
+        baseFbTypes.set(fbType.getId(), fbType);
+    }
+}
+
 void MqttStreamingDeviceImpl::initMqttSubscriber()
 {
-    subscriber->setServerURL(connectionSettings.mqttUrl);
+    const auto serverUrl = connectionSettings.mqttUrl + ((connectionSettings.port > 0) ? ":" + std::to_string(connectionSettings.port) : "");
+    subscriber->setServerURL(serverUrl);
     subscriber->setClientId(connectionSettings.clientId);
     subscriber->setUsernamePasswrod(connectionSettings.username, connectionSettings.password);
 
@@ -83,7 +124,7 @@ void MqttStreamingDeviceImpl::initMqttSubscriber()
             }
         });
 
-    LOG_I("MQTT: Trying to connect to MQTT broker ({})", connectionSettings.mqttUrl);
+    LOG_I("MQTT: Trying to connect to the MQTT broker ({})", serverUrl);
     subscriber->connect();
 }
 
@@ -97,66 +138,67 @@ bool MqttStreamingDeviceImpl::waitForConnection(const int timeoutMs)
 
 void MqttStreamingDeviceImpl::receiveSignalTopics(const int timeoutMs)
 {
-    subscriber->setMessageArrivedCb(
-        std::bind(&MqttStreamingDeviceImpl::onSignalsMessage, this, std::placeholders::_1, std::placeholders::_2));
-    subscriber->subscribe(TOPIC_ALL_SIGNALS, 1);
+    if (timeoutMs > 0)
+    {
+        subscriber->setMessageArrivedCb(
+            std::bind(&MqttStreamingDeviceImpl::onSignalsMessage, this, std::placeholders::_1, std::placeholders::_2));
+        subscriber->subscribe(TOPIC_ALL_SIGNALS, 1);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(timeoutMs)); // TODO : remove it!
+        std::this_thread::sleep_for(std::chrono::milliseconds(timeoutMs)); // TODO : remove it!
 
-    subscriber->unsubscribe(TOPIC_ALL_SIGNALS);
-    subscriber->setMessageArrivedCb(nullptr);
+        subscriber->unsubscribe(TOPIC_ALL_SIGNALS);
+        subscriber->setMessageArrivedCb(nullptr);
+    }
+    else
+    {
+        LOG_W("Signal discovering step was skipped");
+    }
 }
 
 void MqttStreamingDeviceImpl::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg)
 {
     const std::string signalList(msg.getData().begin(), msg.getData().end());
     const std::string topic = msg.getTopic();
-    auto [status, data] = mqtt::MqttDataWrapper::parseSignalDescriptors(topic, signalList);
-    if (status.ok)
+    std::string deviceName = mqtt::MqttDataWrapper::extractDeviceName(topic);
+    if (!deviceName.empty()) {
+        deviceMap.insert({std::move(deviceName), std::move(signalList)});
+    }
+}
+void MqttStreamingDeviceImpl::buildFunctionBlockTypes()
+{
+    fbTypes = Dict<IString, IFunctionBlockType>();
+    // Add base function block types
+    fbTypes = baseFbTypes;
+    // Add function block types from deviceMap (devices that sent signal lists)
+    for (const auto& [deviceName, config] : deviceMap)
     {
-        deviceMap.insert({std::move(data.first), std::move(data.second)});
+        auto defaultConfig = PropertyObject();
+        defaultConfig.addProperty(StringProperty(PROPERTY_NAME_SIGNAL_LIST, config));
+
+        const auto fbType = FunctionBlockType(deviceName,
+                                              deviceName,
+                                              "",
+                                              defaultConfig);
+
+        fbTypes.set(fbType.getId(), fbType);
+    }
+    if (fbTypes.getCount() != 0)
+    {
+        LOG_I("Function block types available:");
     }
     else
     {
-        for (const auto& s : status.msg)
-            LOG_W("Data error: {}", s);
+        LOG_I("No function block types available");
+    }
+
+    for (const auto& [fbName, _] : fbTypes)
+    {
+        LOG_I("\t{}", fbName.toStdString());
     }
 }
 
 DictPtr<IString, IFunctionBlockType> MqttStreamingDeviceImpl::onGetAvailableFunctionBlockTypes()
 {
-    fbTypes = Dict<IString, IFunctionBlockType>();
-    for (const auto& device : deviceMap)
-    {
-        auto defaultConfig = PropertyObject();
-        auto signalDict = Dict<IString, IDataDescriptor>();
-        for (const auto& signal : device.second)
-        {
-            auto builder = DataDescriptorBuilder().setSampleType(SampleType::Float64);
-            if (!signal.name.empty())
-                builder.setName(signal.name);
-            if (!signal.unit.empty())
-            {
-                std::string symbol{""};
-                std::string name{""};
-                std::string quantity{""};
-                if (signal.unit.size() > 0)
-                    symbol = signal.unit[0];
-                if (signal.unit.size() > 1)
-                    name = signal.unit[1];
-                if (signal.unit.size() > 2)
-                    quantity = signal.unit[2];
-                builder.setUnit(Unit(symbol, -1, name, quantity));
-            }
-            auto signalDsc = builder.build();
-            signalDict.set(signal.topic, signalDsc);
-        }
-        defaultConfig.addProperty(DictProperty(PROPERTY_NAME_SIGNAL_LIST, signalDict));
-
-        const auto fbType = FunctionBlockType(device.first, device.first, "", defaultConfig);
-
-        fbTypes.set(fbType.getId(), fbType);
-    }
     return fbTypes;
 }
 
@@ -167,18 +209,21 @@ FunctionBlockPtr MqttStreamingDeviceImpl::onAddFunctionBlock(const StringPtr& ty
         if (fbTypes.hasKey(typeId))
         {
             auto fbTypePtr = fbTypes.getOrDefault(typeId);
-            nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttReceiverFbImpl>(context,
-                                                                                               functionBlocks,
-                                                                                               fbTypePtr,
-                                                                                               typeId,
-                                                                                               subscriber,
-                                                                                               config);
+            if (fbTypePtr.getName() == RAW_FB_NAME)
+            {
+                nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttRawReceiverFbImpl>(context, functionBlocks, fbTypePtr, typeId, subscriber, config);
+            }
+            else
+            {
+                nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttJsonReceiverFbImpl>(context, functionBlocks, fbTypePtr, typeId, subscriber, config);
+            }
+
             addNestedFunctionBlock(nestedFunctionBlock);
             setComponentStatus(ComponentStatus::Ok);
         }
         else
         {
-            setComponentStatusWithMessage(ComponentStatus::Error, "Function block type is not available: " + typeId.toStdString());
+            DAQ_THROW_EXCEPTION(NotFoundException, "Function block type is not available: " + typeId.toStdString());
         }
     }
     return nestedFunctionBlock;

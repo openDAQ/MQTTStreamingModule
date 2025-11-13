@@ -78,8 +78,15 @@ public:
         return false;
     }
 
+    void setUsageHelp(const std::string& str)
+    {
+        usageString = str;
+    }
+
     void printHelp() const
     {
+        if (!usageString.empty())
+            std::cout << "Usage: " << usageString << std::endl;
         std::cout << "Available arguments:" << std::endl;
         for (const auto& [name, descStruct] : argDescriptions)
         {
@@ -100,4 +107,5 @@ private:
     std::vector<std::string> parsedArgs;
     std::unordered_map<std::string, std::string> argValues;
     std::vector<std::string> positionalArgs;
+    std::string usageString;
 };

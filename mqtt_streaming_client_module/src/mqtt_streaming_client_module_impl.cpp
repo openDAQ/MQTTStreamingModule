@@ -4,6 +4,7 @@
 #include <coretypes/version_info_factory.h>
 #include <mqtt_streaming_client_module/constants.h>
 #include <mqtt_streaming_client_module/mqtt_streaming_client_module_impl.h>
+#include <mqtt_streaming_client_module/helper.h>
 #include <mqtt_streaming_client_module/mqtt_streaming_device_impl.h>
 #include <mqtt_streaming_client_module/version.h>
 #include <opendaq/address_info_factory.h>
@@ -14,7 +15,7 @@
 #include <opendaq/search_filter_factory.h>
 #include <regex>
 
-#include <mqtt_streaming_client_module/mqtt_receiver_fb_impl.h>
+#include <mqtt_streaming_client_module/mqtt_json_receiver_fb_impl.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 
@@ -71,9 +72,11 @@ MqttStreamingClientModule::onCreateDevice(const StringPtr& connectionString, con
     std::string host = configPtr.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_ADDRESS);
     Int port = configPtr.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_PORT);
 
-    std::scoped_lock lock(sync);
+    auto lock = std::scoped_lock(sync);
 
-    device = createWithImplementation<IDevice, MqttStreamingDeviceImpl>(context, parent, configPtr);
+    DevicePtr device = createWithImplementation<IDevice, MqttStreamingDeviceImpl>(context, parent, configPtr);
+
+    LOG_I("MQTT device (GlobalId: {}) created with connection string: {}", device.getGlobalId(), connectionString.toStdString());
 
     // Set the connection info for the device
     ServerCapabilityConfigPtr connectionInfo = device.getInfo().getConfigurationConnectionInfo();
@@ -101,15 +104,7 @@ MqttStreamingClientModule::onCreateDevice(const StringPtr& connectionString, con
 
 PropertyObjectPtr MqttStreamingClientModule::populateDefaultConfig(const PropertyObjectPtr& config)
 {
-    const auto defConfig = createDefaultConfig();
-    for (const auto& prop : defConfig.getAllProperties())
-    {
-        const auto name = prop.getName();
-        if (config.hasProperty(name))
-            defConfig.setPropertyValue(name, config.getPropertyValue(name));
-    }
-
-    return defConfig;
+    return ::daq::modules::mqtt_streaming_client_module::populateDefaultConfig(createDefaultConfig(), config);
 }
 
 void MqttStreamingClientModule::extractConnectionParams(const StringPtr& connectionString,
@@ -231,7 +226,7 @@ DeviceTypePtr MqttStreamingClientModule::createDeviceType()
 {
     return DeviceTypeBuilder()
         .setId(DaqMqttDeviceTypeId)
-        .setName("MQTT enabled device")
+        .setName(MQTT_DEVICE_NAME)
         .setDescription("Network device connected over MQTT protocol")
         .setConnectionStringPrefix(DaqMqttDevicePrefix)
         .setDefaultConfig(createDefaultConfig())
@@ -246,7 +241,8 @@ PropertyObjectPtr MqttStreamingClientModule::createDefaultConfig()
     config.addProperty(StringProperty(PROPERTY_NAME_MQTT_USERNAME, DEFAULT_USERNAME));
     config.addProperty(StringProperty(PROPERTY_NAME_MQTT_PASSWORD, DEFAULT_PASSWORD));
     config.addProperty(IntProperty(PROPERTY_NAME_MQTT_BROKER_PORT, DEFAULT_PORT));
-    config.addProperty(IntProperty(PROPERTY_NAME_INIT_DELAY, DEFAULT_INIT_DELAY));
+    config.addProperty(IntProperty(PROPERTY_NAME_CONNECT_TIMEOUT, DEFAULT_INIT_TIMEOUT));
+    config.addProperty(IntProperty(PROPERTY_NAME_DISCOVERY_TIMEOUT, DEFAULT_DISCOVERY_TIMEOUT));
 
     return config;
 }
