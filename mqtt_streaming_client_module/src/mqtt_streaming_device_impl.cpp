@@ -223,7 +223,7 @@ FunctionBlockPtr MqttStreamingDeviceImpl::onAddFunctionBlock(const StringPtr& ty
         }
         else
         {
-            setComponentStatusWithMessage(ComponentStatus::Error, "Function block type is not available: " + typeId.toStdString());
+            DAQ_THROW_EXCEPTION(NotFoundException, "Function block type is not available: " + typeId.toStdString());
         }
     }
     return nestedFunctionBlock;

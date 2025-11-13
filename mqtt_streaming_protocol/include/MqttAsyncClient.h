@@ -116,7 +116,7 @@ private:
     std::function<MsgArrivedCb_type> onMsgArrivedCmnCb;
     std::unordered_map<std::string, std::function<MsgArrivedCb_type>> onMsgArrivedCbs;
 
-    std::lock_guard<std::recursive_mutex> getCbLock();
+    std::scoped_lock<std::recursive_mutex> getCbLock();
 
     static void onDeliveryCompleted(void *context, MQTTAsync_token token);
     static void onConnected(void *context, char *cause);

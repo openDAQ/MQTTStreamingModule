@@ -33,7 +33,7 @@ MqttRawReceiverFbImpl::~MqttRawReceiverFbImpl()
 
 void MqttRawReceiverFbImpl::readProperties()
 {
-    auto lock = std::lock_guard<std::mutex>(sync);
+    auto lock = std::scoped_lock<std::mutex>(sync);
     topicsForSubscribing.clear();
     bool isPresent = false;
     if (objPtr.hasProperty(PROPERTY_NAME_SIGNAL_LIST))
@@ -69,7 +69,7 @@ void MqttRawReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
 {
     std::string topic(msg.getTopic());
 
-    auto lock = std::lock_guard<std::mutex>(sync);
+    auto lock = std::scoped_lock<std::mutex>(sync);
     auto signalIter = outputSignals.find(topic);
     if (signalIter == outputSignals.end())
     {
@@ -84,7 +84,7 @@ void MqttRawReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
 
 void MqttRawReceiverFbImpl::createSignals()
 {
-    auto lock = std::lock_guard<std::mutex>(sync);
+    auto lock = std::scoped_lock<std::mutex>(sync);
     if (!topicsForSubscribing.empty())
         LOG_I("Creating signals...");
     for (const auto& topic : topicsForSubscribing)

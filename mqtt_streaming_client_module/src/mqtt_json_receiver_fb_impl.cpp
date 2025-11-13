@@ -33,7 +33,7 @@ MqttJsonReceiverFbImpl::~MqttJsonReceiverFbImpl()
 
 void MqttJsonReceiverFbImpl::readProperties()
 {
-    auto lock = std::lock_guard<std::mutex>(sync);
+    auto lock = std::scoped_lock<std::mutex>(sync);
     subscribedSignals.clear();
     signalIdList.clear();
     bool isPresent = false;
@@ -66,7 +66,7 @@ void MqttJsonReceiverFbImpl::readProperties()
 
 void MqttJsonReceiverFbImpl::createDataPacket(const std::string& topic, const std::string& json)
 {
-    auto lock = std::lock_guard<std::mutex>(sync);
+    auto lock = std::scoped_lock<std::mutex>(sync);
     jsonDataWorker.createAndSendDataPacket(topic, json);
 }
 
@@ -79,7 +79,7 @@ void MqttJsonReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
 
 void MqttJsonReceiverFbImpl::createSignals()
 {
-    auto lock = std::lock_guard<std::mutex>(sync);
+    auto lock = std::scoped_lock<std::mutex>(sync);
     if (!subscribedSignals.empty())
         LOG_I("Creating signals...");
 
@@ -131,7 +131,7 @@ void MqttJsonReceiverFbImpl::createSignals()
 
 std::vector<std::string> MqttJsonReceiverFbImpl::getSubscribedTopics() const
 {
-    auto lock = std::lock_guard<std::mutex>(sync);
+    auto lock = std::scoped_lock<std::mutex>(sync);
     std::set<std::string> topicsSet;
     for (const auto& [signalId, _] : subscribedSignals)
     {
@@ -142,7 +142,7 @@ std::vector<std::string> MqttJsonReceiverFbImpl::getSubscribedTopics() const
 
 void MqttJsonReceiverFbImpl::clearSubscribedTopics()
 {
-    auto lock = std::lock_guard<std::mutex>(sync);
+    auto lock = std::scoped_lock<std::mutex>(sync);
     subscribedSignals.clear();
     signalIdList.clear();
 }

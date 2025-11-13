@@ -7,7 +7,7 @@ class DaqTestHelper
 {
 public:
     daq::InstancePtr daqInstance;
-    daq::GenericDevicePtr<daq::IDevice> device;
+    daq::DevicePtr device;
 
     void StartUp(std::string connectionStr = "daq.mqtt://127.0.0.1", int discoveryTimeoutMs = 0)
     {

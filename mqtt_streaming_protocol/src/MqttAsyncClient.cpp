@@ -147,9 +147,9 @@ MqttConnectionStatus MqttAsyncClient::isConnected() const
     return MQTTAsync_isConnected(client) ? MqttConnectionStatus::connected : MqttConnectionStatus::not_connected;
 }
 
-std::lock_guard<std::recursive_mutex> MqttAsyncClient::getCbLock()
+std::scoped_lock<std::recursive_mutex> MqttAsyncClient::getCbLock()
 {
-    return std::lock_guard<decltype(cbMtx)>(cbMtx);
+    return std::scoped_lock<decltype(cbMtx)>(cbMtx);
 }
 
 void MqttAsyncClient::setUsernamePasswrod(std::string username, std::string password)
