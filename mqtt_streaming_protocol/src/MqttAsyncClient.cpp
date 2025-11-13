@@ -107,25 +107,25 @@ bool MqttAsyncClient::syncDisconnect(int timeoutMs)
 
     if (isConnected() != MqttConnectionStatus::not_connected)
     {
+        std::atomic<bool> done{false};
+        std::promise<bool> disconnectedPromise;
+        auto disconnectedFuture = disconnectedPromise.get_future();
+        {
+            auto lock = getCbLock();
+            onInternalDisconnectCb = [promise = &disconnectedPromise, &done](bool result)
+            {
+                bool expected = false;
+                if (done.compare_exchange_strong(expected, true))
+                    promise->set_value(result);
+            };
+        }
         if (disconnect().success)
         {
-            std::atomic<bool> done{false};
-            std::promise<bool> disconnectedPromise;
-            auto disconnectedFuture = disconnectedPromise.get_future();
-            {
-                auto lock = getCbLock();
-                onInternalDisconnectCb = [promise = &disconnectedPromise, &done](bool result)
-                {
-                    bool expected = false;
-                    if (done.compare_exchange_strong(expected, true))
-                        promise->set_value(result);
-                };
-            }
             auto status = disconnectedFuture.wait_for(std::chrono::milliseconds(timeoutMs));
-            {
-                auto lock = getCbLock();
-                onInternalDisconnectCb = nullptr;
-            }
+        }
+        {
+            auto lock = getCbLock();
+            onInternalDisconnectCb = nullptr;
         }
     }
     if (isConnected() == MqttConnectionStatus::not_connected)
