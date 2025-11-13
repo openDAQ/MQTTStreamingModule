@@ -34,7 +34,7 @@ MqttData MultipleHandler::processSignalContexts(std::vector<SignalContext>& sign
             {
                 const auto signal = signalContexts[signalCnt].inputPort.getSignal();
                 std::string valueFieldName = (useSignalNames ? signal.getName() : signal.getGlobalId()).toStdString();
-                fields.emplace_back(toString<SampleTypeToType<SampleType::Int64>::Type>(valueFieldName, dataBuffers[signalCnt], sampleCnt));
+                fields.emplace_back(toString(signal.getDescriptor().getSampleType(), valueFieldName, dataBuffers[signalCnt], sampleCnt));
             }
             fields.emplace_back(tsToString(domainBuffers[0], sampleCnt));
             std::string topic = buildTopicName();
@@ -101,6 +101,22 @@ ProcedureStatus MultipleHandler::signalListChanged(std::vector<SignalContext>& s
     ProcedureStatus status{true, {}};
     createReader(signalContexts);
     return status;
+}
+
+std::string MultipleHandler::toString(const SampleType sampleType, const std::string& valueFieldName, void* data, SizeT offset)
+{
+    switch (sampleType)
+    {
+        case SampleType::Float64:
+            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::Float64>::Type*>(data) + offset)));
+        case SampleType::UInt64:
+            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt64>::Type*>(data) + offset)));
+        case SampleType::Int64:
+            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::Int64>::Type*>(data) + offset)));
+        default:
+            break;
+    }
+    return "";
 }
 
 template <typename T>

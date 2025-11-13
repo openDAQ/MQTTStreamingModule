@@ -39,6 +39,7 @@ protected:
 
     template<typename T>
     std::string toString(const std::string& valueFieldName, void* data, SizeT offset);
+    std::string toString(const SampleType sampleType, const std::string& valueFieldName, void* data, SizeT offset);
     std::string tsToString(void* data, SizeT offset);
     std::string buildTopicName();
     void createReader(const std::vector<SignalContext>& signalContexts);
