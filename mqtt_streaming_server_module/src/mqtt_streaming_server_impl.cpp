@@ -149,7 +149,7 @@ void MqttStreamingServerImpl::processingThreadFunc()
     while (processingThreadRunning)
     {
         {
-            std::scoped_lock lock(readersSync);
+            auto lock = std::scoped_lock(readersSync);
             if (!topicsAreSent)
                 sendTopicList();
             bool hasPacketsToRead;
@@ -350,7 +350,7 @@ void MqttStreamingServerImpl::onStopServer()
 
 void MqttStreamingServerImpl::addReader(SignalPtr signalToRead)
 {
-    std::scoped_lock lock(readersSync);
+    auto lock = std::scoped_lock(readersSync);
     signals.pushBack(signalToRead);
     streamReaders.emplace_back(StreamReaderBuilder()
                                    .setSignal(signalToRead)

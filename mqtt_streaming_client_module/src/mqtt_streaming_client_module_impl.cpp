@@ -72,7 +72,7 @@ MqttStreamingClientModule::onCreateDevice(const StringPtr& connectionString, con
     std::string host = configPtr.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_ADDRESS);
     Int port = configPtr.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_PORT);
 
-    std::scoped_lock lock(sync);
+    auto lock = std::scoped_lock(sync);
 
     DevicePtr device = createWithImplementation<IDevice, MqttStreamingDeviceImpl>(context, parent, configPtr);
 

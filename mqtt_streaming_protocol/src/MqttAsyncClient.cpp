@@ -149,7 +149,7 @@ MqttConnectionStatus MqttAsyncClient::isConnected() const
 
 std::scoped_lock<std::recursive_mutex> MqttAsyncClient::getCbLock()
 {
-    return std::scoped_lock<decltype(cbMtx)>(cbMtx);
+    return std::scoped_lock(cbMtx);
 }
 
 void MqttAsyncClient::setUsernamePasswrod(std::string username, std::string password)
