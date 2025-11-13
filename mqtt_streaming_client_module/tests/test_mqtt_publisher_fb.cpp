@@ -19,18 +19,16 @@ public:
     ModulePtr module;
     DataDescriptorPtr domainSignalDescriptor;
     DataDescriptorPtr signalDescriptor;
-    SignalConfigPtr signal;
+    SignalConfigPtr signal0;
+    SignalConfigPtr signal1;
     SignalConfigPtr signalWithoutDomain;
-    uint64_t sampleCount;
     SignalConfigPtr domainSignal;
     ContextPtr context;
     SampleType sampleType;
 
-    ReferenceDomainOffsetHelper(uint64_t count = 5)
+    ReferenceDomainOffsetHelper()
     {
         sampleType = SampleTypeFromType<T>::SampleType;
-        // Save desired sample count for later
-        sampleCount = count;
         // Create domain signal
         auto logger = Logger();
         context = Context(Scheduler(logger), logger, TypeManager(), nullptr, nullptr);
@@ -46,43 +44,54 @@ public:
         // Create signal with descriptor
         signalDescriptor =
             DataDescriptorBuilder().setSampleType(sampleType).build();
-        signal = SignalWithDescriptor(context, signalDescriptor, nullptr, "Signal");
+        signal0 = SignalWithDescriptor(context, signalDescriptor, nullptr, "Signal0");
+        signal1 = SignalWithDescriptor(context, signalDescriptor, nullptr, "Signal1");
         // Set domain signal of signal
-        signal.setDomainSignal(domainSignal);
+        signal0.setDomainSignal(domainSignal);
+        signal1.setDomainSignal(domainSignal);
 
         signalWithoutDomain = SignalWithDescriptor(context, signalDescriptor, nullptr, "Signal");
         // Create module
         createModule(&module, context);
     }
 
-    std::vector<std::pair<T, uint64_t>> send()
+    T generateData(size_t i)
     {
-        std::vector<std::pair<T, uint64_t>> output;
-        output.reserve(sampleCount);
-        for (size_t i = 0; i < sampleCount; i++)
+        T sampleData;
+        if constexpr (std::is_integral_v<T>)
         {
-            auto domainPacket = DataPacket(domainSignalDescriptor, 1, i);
-            auto dataPacket = DataPacketWithDomain(domainPacket, signalDescriptor, 1);
-            T sampleData = i;
-            if constexpr (std::is_integral_v<T>)
+            sampleData = i;
+            if constexpr (std::is_signed_v<T>)
             {
-                sampleData = i;
-                if constexpr (std::is_signed_v<T>)
-                {
-                    sampleData *= ((i % 2 == 0) ? 1 : -1);
-                }
+                sampleData *= ((i % 2 == 0) ? 1 : -1);
             }
-            else if constexpr (std::is_fundamental_v<T>)
-            {
-                sampleData = static_cast<T>(i) * 1.1 * ((i % 2 == 0) ? 1 : -1);
-            }
-            uint64_t ts = domainPacket.getLastValue().getValue(1);
-            output.push_back({sampleData, ts});
-            copyData(dataPacket, sampleData);
-            domainSignal.sendPacket(domainPacket);
-            signal.sendPacket(dataPacket);
         }
-        return output;
+        else if constexpr (std::is_fundamental_v<T>)
+        {
+            sampleData = static_cast<T>(i) * 1.1 * ((i % 2 == 0) ? 1 : -1);
+        }
+        return sampleData;
+    }
+
+    void send(int sampleCount, uint divider = 1)
+    {
+        if (divider == 0)
+            divider = 1;
+        for (size_t i = 0; i < sampleCount * divider; i++)
+        {
+            auto sendPacket = [this](SignalConfigPtr signal, T data, DataPacketPtr domainPacket)
+            {
+                auto dataPacket = DataPacketWithDomain(domainPacket, signalDescriptor, 1);
+                copyData(dataPacket, data);
+                signal.sendPacket(dataPacket);
+            };
+            auto domainPacket = DataPacket(domainSignalDescriptor, 1, i);
+            domainSignal.sendPacket(domainPacket);
+            if (i % divider == 0)
+                sendPacket(signal0, generateData(i / divider), domainPacket);
+
+            sendPacket(signal1, generateData(i), domainPacket);
+        }
     }
 protected:
     bool checkType(SampleType type)
@@ -157,7 +166,7 @@ public:
     {
         auto config = PropertyObject();
         const auto fbType = MqttPublisherFbImpl::CreateType();
-        obj = std::make_unique<MqttPublisherFbImpl>(NullContext(), nullptr, fbType, "localId", nullptr, config);
+        obj = std::make_unique<MqttPublisherFbImpl>(NullContext(), nullptr, fbType, nullptr, config);
     }
 
     auto getSignals()
@@ -182,6 +191,9 @@ private:
 };
 
 class MqttPublisherFbTest : public testing::Test, public DaqTestHelper, public MqttPublisherFbHelper
+{
+};
+class MqttPublisherFbPTest : public ::testing::TestWithParam<uint>, public DaqTestHelper, public MqttPublisherFbHelper
 {
 };
 } // namespace daq::modules::mqtt_streaming_client_module
@@ -268,23 +280,25 @@ TEST_F(MqttPublisherFbTest, Creation)
     ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME));
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    ASSERT_EQ(fb.getName(), PUB_FB_NAME);
-    auto fbs = device.getFunctionBlocks();
-    bool contain = false;
-    daq::GenericFunctionBlockPtr<daq::IFunctionBlock> fbFromList;
-    for (const auto& fb : fbs)
+}
+
+TEST_F(MqttPublisherFbTest, TwoFbCreation)
+{
+    StartUp();
     {
-        contain = (fb.getName() == PUB_FB_NAME);
-        if (contain)
-        {
-            fbFromList = fb;
-            break;
-        }
+        daq::FunctionBlockPtr fb;
+        ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
     }
-    ASSERT_TRUE(contain);
-    ASSERT_TRUE(fbFromList.assigned());
-    ASSERT_EQ(fbFromList.getName(), fb.getName());
-    ASSERT_TRUE(fbFromList == fb);
+    {
+        daq::FunctionBlockPtr fb;
+        ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+    }
+    auto fbs = device.getFunctionBlocks();
+    ASSERT_EQ(fbs.getCount(), 2u);
 }
 
 TEST_F(MqttPublisherFbTest, CreationWithDefaultConfig)
@@ -318,11 +332,11 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
     auto help = ReferenceDomainOffsetHelper<double>();
 
     ASSERT_EQ(fb.getInputPorts().getCount(), 1u);
-    fb.getInputPorts()[0].connect(help.signal);
+    fb.getInputPorts()[0].connect(help.signal0);
     ASSERT_EQ(fb.getInputPorts().getCount(), 2u);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    fb.getInputPorts()[1].connect(help.signal);
+    fb.getInputPorts()[1].connect(help.signal0);
     ASSERT_EQ(fb.getInputPorts().getCount(), 3u);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
@@ -350,14 +364,14 @@ TEST_F(MqttPublisherFbTest, Transfer)
     ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME));
 
     int sampleCnt = 15;
-    auto help = ReferenceDomainOffsetHelper<int64_t>(sampleCnt);
-    fb.getInputPorts()[0].connect(help.signal);
+    auto help = ReferenceDomainOffsetHelper<int64_t>();
+    fb.getInputPorts()[0].connect(help.signal0);
 
     MqttAsyncClientWrapper subscriber(std::make_shared<mqtt::MqttAsyncClient>(),
                                       std::string(::testing::UnitTest::GetInstance()->current_test_info()->name()) + "testSubscriberId");
     ASSERT_TRUE(subscriber.connect("127.0.0.1"));
 
-    const std::string topic = help.signal.getGlobalId().toStdString();
+    const std::string topic = help.signal0.getGlobalId().toStdString();
     std::promise<bool> receivedPromise;
     auto receivedFuture = receivedPromise.get_future();
     std::atomic<bool> done{false};
@@ -380,7 +394,7 @@ TEST_F(MqttPublisherFbTest, Transfer)
     Timer receiveTimer(3000);
     auto result = subscriber.instance->subscribe(topic, 2);
     ASSERT_TRUE(result.success);
-    help.send();
+    help.send(sampleCnt);
     auto status = receivedFuture.wait_for(receiveTimer.remain());
     subscriber.instance->setMessageArrivedCb(nullptr);
     result = subscriber.instance->unsubscribe(topic);
@@ -389,3 +403,63 @@ TEST_F(MqttPublisherFbTest, Transfer)
     ASSERT_TRUE(status == std::future_status::ready);
     ASSERT_TRUE(receivedFuture.get());
 }
+
+TEST_P(MqttPublisherFbPTest, MultiTransfer)
+{
+    const auto divider = GetParam();
+    StartUp();
+    daq::FunctionBlockPtr fb;
+    auto config = device.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+    config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, True);
+    ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME, config));
+
+    int sampleCnt = 15;
+    auto help = ReferenceDomainOffsetHelper<uint64_t>();
+    fb.getInputPorts()[0].connect(help.signal0);
+    fb.getInputPorts()[1].connect(help.signal1);
+
+    MqttAsyncClientWrapper subscriber(std::make_shared<mqtt::MqttAsyncClient>(),
+                                      std::string(::testing::UnitTest::GetInstance()->current_test_info()->name()) + "testSubscriberId");
+    {
+        auto result = subscriber.connect("127.0.0.1");
+        ASSERT_TRUE(result);
+    }
+
+    const std::string topic = fb.getGlobalId();
+    std::promise<bool> receivedPromise;
+    auto receivedFuture = receivedPromise.get_future();
+    std::atomic<bool> done{false};
+    std::atomic<int> cnt{sampleCnt - 2}; // -2 because of MultiReadr bug
+    subscriber.instance
+        ->setMessageArrivedCb(topic,
+                              [&done,
+                               &cnt,
+                               promise = &receivedPromise](const mqtt::MqttAsyncClient &subscriber,
+                                                           mqtt::MqttMessage &receivedMsg) {
+                                  if (receivedMsg.getData().empty()) {
+                                      return;
+                                  }
+                                  bool expected = false;
+                                  if (--cnt <= 0 && done.compare_exchange_strong(expected, true)) {
+                                      promise->set_value(true);
+                                  }
+                              });
+
+    Timer receiveTimer(3000);
+    {
+        auto result = subscriber.instance->subscribe(topic, 2);
+        ASSERT_TRUE(result.success);
+    }
+    help.send(sampleCnt, divider);
+    auto status = receivedFuture.wait_for(receiveTimer.remain());
+    subscriber.instance->setMessageArrivedCb(nullptr);
+    {
+        auto result = subscriber.instance->unsubscribe(topic);
+        if (result.success)
+            subscriber.instance->waitForCompletion(result.token, 1000);
+    }
+    ASSERT_TRUE(status == std::future_status::ready);
+    ASSERT_TRUE(receivedFuture.get());
+}
+
+INSTANTIATE_TEST_SUITE_P(SignalUnit, MqttPublisherFbPTest, ::testing::Values(3, 4, 5));

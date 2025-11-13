@@ -17,24 +17,33 @@
 #pragma once
 
 #include <mqtt_streaming_client_module/handler_base.h>
+#include <opendaq/multi_reader_ptr.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 
-class SingleHandler : public HandlerBase
+class MultipleHandler : public HandlerBase
 {
 public:
-    explicit SingleHandler(bool useSignalNames);
+    explicit MultipleHandler(bool useSignalNames, std::string topic);
 
     MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) override;
     ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const override;
-    ProcedureStatus signalListChanged(std::vector<SignalContext>& signalContexts) override {return ProcedureStatus{true, {}};};
+    ProcedureStatus signalListChanged(std::vector<SignalContext>& signalContexts) override;
 protected:
     bool useSignalNames;
-    MqttData processSignalContext(SignalContext& signalContext);
-    void processSignalDescriptorChanged(SignalContext& signalCtx, const DataDescriptorPtr& valueSigDesc, const DataDescriptorPtr& domainSigDesc);
-    MqttDataSample processDataPacket(SignalContext& signalContext, const DataPacketPtr& dataPacket);
-    std::string toString(const std::string valueFieldName, daq::DataPacketPtr packet);
-    std::string buildTopicName(const SignalContext& signalContext);
+    const size_t buffersSize;
+    const std::string topic;
+    std::vector<void*> domainBuffers;
+    std::vector<void*> dataBuffers;
+    daq::MultiReaderPtr reader;
+
+    template<typename T>
+    std::string toString(const std::string& valueFieldName, void* data, SizeT offset);
+    std::string tsToString(void* data, SizeT offset);
+    std::string buildTopicName();
+    void createReader(const std::vector<SignalContext>& signalContexts);
+    void allocateBuffers(const std::vector<SignalContext>& signalContexts);
+    static std::string messageFromFields(const std::vector<std::string>& fields);
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

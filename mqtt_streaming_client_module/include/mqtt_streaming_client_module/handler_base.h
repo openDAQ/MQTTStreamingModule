@@ -28,6 +28,7 @@ public:
     virtual ~HandlerBase() = default;
     virtual MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) = 0;
     virtual ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const = 0;
+    virtual ProcedureStatus signalListChanged(std::vector<SignalContext>& signalContexts) = 0;
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

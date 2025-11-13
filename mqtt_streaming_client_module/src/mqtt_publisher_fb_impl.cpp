@@ -7,13 +7,14 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 
+std::atomic<int> MqttPublisherFbImpl::localIndex = 0;
+
 MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
                                        const ComponentPtr& parent,
                                        const FunctionBlockTypePtr& type,
-                                       const StringPtr& localId,
                                        std::shared_ptr<mqtt::MqttAsyncClient> mqttClient,
                                        const PropertyObjectPtr& config)
-    : FunctionBlock(type, ctx, parent, localId),
+    : FunctionBlock(type, ctx, parent, getLocalId()),
       mqttClient(mqttClient),
       jsonDataWorker(loggerComponent),
       inputPortCount(0),
@@ -26,7 +27,7 @@ MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
     else
         initProperties(type.createDefaultConfig());
 
-    handler = HandlerFactory::create(this->config);
+    handler = HandlerFactory::create(this->config, globalId.toStdString());
     updateInputPorts();
     validateInputPorts();
     runReaderThread();
@@ -112,6 +113,7 @@ void MqttPublisherFbImpl::validateInputPorts()
     else
     {
         setComponentStatus(ComponentStatus::Ok);
+        handler->signalListChanged(signalContexts);
     }
 }
 
@@ -192,5 +194,10 @@ void MqttPublisherFbImpl::sendMessages(const MqttData& data)
             LOG_W("Failed to publish data to {}; reason - {}", topic, status.msg);
         }
     }
+}
+
+std::string MqttPublisherFbImpl::getLocalId()
+{
+    return std::string(MQTT_LOCAL_PUB_FB_ID_PREFIX + std::to_string(localIndex++));
 }
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

@@ -30,7 +30,6 @@ public:
     explicit MqttPublisherFbImpl(const ContextPtr& ctx,
                                 const ComponentPtr& parent,
                                 const FunctionBlockTypePtr& type,
-                                const StringPtr& localId,
                                 std::shared_ptr<mqtt::MqttAsyncClient> mqttClient,
                                 const PropertyObjectPtr& config = nullptr);
     ~MqttPublisherFbImpl();
@@ -42,6 +41,7 @@ public:
     void onDisconnected(const InputPortPtr& port) override;
 
 private:
+    static std::atomic<int> localIndex;
     std::shared_ptr<mqtt::MqttAsyncClient> mqttClient;
     mqtt::MqttDataWrapper jsonDataWorker;
     PublisherFbConfig config;
@@ -52,6 +52,7 @@ private:
     std::atomic<bool> hasError;
     std::unique_ptr<HandlerBase> handler;
 
+    static std::string getLocalId();
     void initProperties(const PropertyObjectPtr& config);
     void readProperties();
     void updateInputPorts();

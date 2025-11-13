@@ -44,4 +44,5 @@ static const char* TOPIC_ALL_SIGNALS = "openDAQ/+/$signals";
 static const char* MQTT_LOCAL_DEVICE_ID_PREFIX = "MqttDevice";
 static const char* MQTT_DEVICE_NAME = "MqttStreamingClientPseudoDevice";
 
+static const char* MQTT_LOCAL_PUB_FB_ID_PREFIX = "publisherMqttFb";
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
