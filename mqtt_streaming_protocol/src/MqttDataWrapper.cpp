@@ -44,8 +44,7 @@ std::string MqttDataWrapper::serializeSampleData(const SampleData& data)
     return result;
 }
 
-std::string MqttDataWrapper::serializeSignalDescriptors(
-    daq::ListObjectPtr<daq::IList, daq::ISignal, daq::GenericSignalPtr<daq::ISignal>> signals)
+std::string MqttDataWrapper::serializeSignalDescriptors(daq::ListPtr<daq::ISignal> signals)
 {
     std::string result;
     rapidjson::Document doc;

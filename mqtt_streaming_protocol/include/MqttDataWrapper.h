@@ -52,8 +52,7 @@ public:
     static std::string extractDeviceName(const std::string& topic);
 
     static std::string serializeSampleData(const SampleData& data);
-    static std::string serializeSignalDescriptors(
-        daq::ListObjectPtr<daq::IList, daq::ISignal, daq::GenericSignalPtr<daq::ISignal>> signals);
+    static std::string serializeSignalDescriptors(daq::ListPtr<daq::ISignal> signals);
 
     static std::string buildTopicFromId(const std::string& globalId);
     static std::string buildSignalsTopic(const std::string& deviceId);
