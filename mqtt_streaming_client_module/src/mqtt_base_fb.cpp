@@ -52,7 +52,9 @@ void MqttBaseFb::subscribeToTopics()
         bool success = true;
         auto lambda = [this](const mqtt::MqttAsyncClient &client, mqtt::MqttMessage &msg){this->onSignalsMessage(client, msg);};
         if (!getSubscribedTopics().empty())
+        {
             LOG_I("Trying to subscribe to the topics");
+        }
         for (const auto& topic : getSubscribedTopics())
         {
             subscriber->setMessageArrivedCb(topic, lambda);

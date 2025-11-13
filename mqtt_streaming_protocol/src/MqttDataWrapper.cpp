@@ -128,7 +128,9 @@ bool MqttDataWrapper::validateTopic(const daq::StringPtr topic, const daq::Logge
     if (!topic.assigned() || topic.getLength() == 0)
     {
         if (loggerComponent.assigned())
+        {
             LOG_W("Empty topic is not allowed!");
+        }
         return false;
     }
 
@@ -140,7 +142,9 @@ bool MqttDataWrapper::validateTopic(const daq::StringPtr topic, const daq::Logge
         if (part == "#" || part == "+")
         {
             if (loggerComponent.assigned())
+            {
                 LOG_W("Wildcard characters '+' and '#' are not allowed in topic: {}", topic.toStdString());
+            }
             return false;
         }
     }

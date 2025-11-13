@@ -81,7 +81,9 @@ void MqttJsonReceiverFbImpl::createSignals()
 {
     auto lock = std::scoped_lock<std::mutex>(sync);
     if (!subscribedSignals.empty())
+    {
         LOG_I("Creating signals...");
+    }
 
     for (const auto& signalId : signalIdList)
     {

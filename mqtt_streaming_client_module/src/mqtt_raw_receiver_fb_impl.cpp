@@ -43,7 +43,9 @@ void MqttRawReceiverFbImpl::readProperties()
         {
             isPresent = true;
             if (prop.getCount() != 0)
+            {
                 LOG_I("Topics in the list:");
+            }
             for (const auto& topic : prop)
             {
                 auto topicStr = topic.asPtr<IString>();
@@ -86,7 +88,9 @@ void MqttRawReceiverFbImpl::createSignals()
 {
     auto lock = std::scoped_lock<std::mutex>(sync);
     if (!topicsForSubscribing.empty())
+    {
         LOG_I("Creating signals...");
+    }
     for (const auto& topic : topicsForSubscribing)
     {
         LOG_D("\tfor the topic: {}", topic);
