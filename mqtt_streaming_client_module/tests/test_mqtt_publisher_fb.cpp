@@ -463,3 +463,285 @@ TEST_P(MqttPublisherFbPTest, MultiTransfer)
 }
 
 INSTANTIATE_TEST_SUITE_P(SignalUnit, MqttPublisherFbPTest, ::testing::Values(3, 4, 5));
+
+TEST_F(MqttPublisherFbTest, DISABLED_MultiReaderTest)
+{
+
+    constexpr auto samples = 15;
+    constexpr auto signalNum = 2;
+    constexpr auto timeoutS = 5;
+    constexpr auto divider = 2;
+    constexpr size_t buffersSize = samples * divider;
+    auto logger = Logger();
+    auto context = Context(Scheduler(logger), logger, TypeManager(), nullptr, nullptr);
+    auto domainSignalDescriptor = DataDescriptorBuilder()
+                                      .setUnit(Unit("s", -1, "seconds", "time"))
+                                      .setSampleType(SampleType::UInt64)
+                                      .setRule(LinearDataRule(5, 3))
+                                      .setOrigin("1970")
+                                      .setTickResolution(Ratio(1, 1000))
+                                      .setReferenceDomainInfo(ReferenceDomainInfoBuilder().setReferenceDomainOffset(100).build())
+                                      .build();
+    auto domainSignal = SignalWithDescriptor(context, domainSignalDescriptor, nullptr, "DomainSignal");
+
+    auto signalDescriptor =
+        DataDescriptorBuilder().setSampleType(SampleType::UInt64).build();
+    auto signal0 = SignalWithDescriptor(context, signalDescriptor, nullptr, "Signal0");
+    auto signal1 = SignalWithDescriptor(context, signalDescriptor, nullptr, "Signal1");
+
+    signal0.setDomainSignal(domainSignal);
+    signal1.setDomainSignal(domainSignal);
+
+    auto readerBuilder = MultiReaderBuilder().setValueReadType(SampleType::UInt64).setDomainReadType(SampleType::UInt64);
+    readerBuilder.addSignal(signal0);
+    readerBuilder.addSignal(signal1);
+
+    auto reader = readerBuilder.build();
+
+    auto domainBuffers = std::vector<void*>(signalNum, nullptr);
+    auto dataBuffers = std::vector<void*>(signalNum, nullptr);
+
+    for (size_t i = 0; i < signalNum; ++i)
+    {
+        dataBuffers[i] = std::malloc(buffersSize * getSampleSize(SampleType::UInt64));
+        domainBuffers[i] = std::malloc(buffersSize * getSampleSize(SampleType::UInt64));
+    }
+
+    auto sendPacket = [&signalDescriptor](SignalConfigPtr signal, uint64_t data, DataPacketPtr domainPacket)
+    {
+        auto dataPacket = DataPacketWithDomain(domainPacket, signalDescriptor, 1);
+        memcpy(dataPacket.getData(), &data, sizeof(data));
+        signal.sendPacket(dataPacket);
+    };
+
+    auto send = [&]()
+    {
+        std::cout << "---------------sending-data---------------" << std::endl;
+        for (size_t i = 0; i < samples * divider; i++)
+        {
+            auto domainPacket = DataPacket(domainSignalDescriptor, 1, i);
+            domainSignal.sendPacket(domainPacket);
+            if (i % divider == 0)
+            {
+                sendPacket(signal0, (i / divider), domainPacket);
+                sendPacket(signal1, i, domainPacket);
+                std::cout << fmt::format("{{Signal0 | Signal1 | TS}} : {:^3} | {:^3} | {:^3}", i / divider, i, domainPacket.getLastValue().getValue(0)) << std::endl;
+            }
+            else
+            {
+                sendPacket(signal1, i, domainPacket);
+                std::cout << fmt::format("{{Signal0 | Signal1 | TS}} : {:^3} | {:^3} | {:^3}", "-", i, domainPacket.getLastValue().getValue(0)) << std::endl;
+            }
+        }
+        std::cout << "---------------sending-data-end---------------" << std::endl;
+    };
+
+
+    auto toString = [](const std::string& valueFieldName, void* data, SizeT offset) -> std::string
+    {
+        return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<uint64_t*>(data) + offset)));
+    };
+
+    SizeT sampleCnt = 0;
+    auto finishTime = std::chrono::steady_clock::now() + std::chrono::seconds(timeoutS);
+
+    send();
+    std::cout << "---------------reading-data---------------" << std::endl;
+    while (sampleCnt < samples && std::chrono::steady_clock::now() < finishTime)
+    {
+        auto dataAvailable = reader.getAvailableCount();
+        auto count = std::min(SizeT{buffersSize}, dataAvailable);
+        auto status = reader.readWithDomain(dataBuffers.data(), domainBuffers.data(), &count);
+        if (status.getReadStatus() == ReadStatus::Ok && count > 0)
+        {
+            sampleCnt += count;
+            for (SizeT sampleCnt = 0; sampleCnt < count; ++sampleCnt)
+            {
+                std::vector<std::string> fields;
+                for (size_t signalCnt = 0; signalCnt < signalNum; ++signalCnt)
+                {
+                    std::string valueFieldName = "Signal" + std::to_string(signalCnt);
+                    fields.emplace_back(toString(valueFieldName, dataBuffers[signalCnt], sampleCnt));
+                }
+                for (size_t signalCnt = 0; signalCnt < signalNum; ++signalCnt)
+                {
+                    std::string valueFieldName = "TS" + std::to_string(signalCnt);
+                    fields.emplace_back(toString(valueFieldName, domainBuffers[signalCnt], sampleCnt));
+                }
+                std::string msg;
+                for (size_t i = 0; i < fields.size(); ++i)
+                {
+                    if (i > 0)
+                        msg += ", ";
+                    msg += fields[i];
+                }
+                std::cout << msg << std::endl;
+            }
+            for (SizeT sampleCnt = 0; sampleCnt < count; ++sampleCnt)
+            {
+                std::vector<std::string> fields;
+
+                fields.emplace_back(toString("Signal0", dataBuffers[0], sampleCnt));
+                fields.emplace_back(toString("Signal1", dataBuffers[1], sampleCnt*2));
+                fields.emplace_back(toString("Signal1", dataBuffers[1], sampleCnt*2 +1));
+
+                fields.emplace_back(toString("TS0", domainBuffers[0], sampleCnt));
+                fields.emplace_back(toString("TS1", domainBuffers[1], sampleCnt*2));
+                fields.emplace_back(toString("TS1", domainBuffers[1], sampleCnt*2 +1));
+                std::string msg;
+                for (size_t i = 0; i < fields.size(); ++i)
+                {
+                    if (i > 0)
+                        msg += ", ";
+                    msg += fields[i];
+                }
+                std::cout << msg << std::endl;
+            }
+        }
+    }
+    std::cout << "---------------reading-data-end---------------" << std::endl;
+    ASSERT_EQ(sampleCnt, samples);
+}
+
+TEST_F(MqttPublisherFbTest, DISABLED_MultiReaderTest2)
+{
+    constexpr auto samples = 15;
+    constexpr size_t buffersSize = samples;
+    constexpr auto signalNum = 2;
+    constexpr auto timeoutS = 5;
+    constexpr auto divider = 2;
+    auto logger = Logger();
+    auto context = Context(Scheduler(logger), logger, TypeManager(), nullptr, nullptr);
+    auto domainSignalDescriptor0 = DataDescriptorBuilder()
+                                       .setUnit(Unit("s", -1, "seconds", "time"))
+                                       .setSampleType(SampleType::UInt64)
+                                       .setRule(LinearDataRule(5, 3))
+                                       .setOrigin("1970")
+                                       .setTickResolution(Ratio(1, 1000 / divider))
+                                       .setReferenceDomainInfo(ReferenceDomainInfoBuilder().setReferenceDomainOffset(100).build())
+                                       .build();
+    auto domainSignalDescriptor1 = DataDescriptorBuilder()
+                                      .setUnit(Unit("s", -1, "seconds", "time"))
+                                      .setSampleType(SampleType::UInt64)
+                                      .setRule(LinearDataRule(5, 3))
+                                      .setOrigin("1970")
+                                      .setTickResolution(Ratio(1, 1000))
+                                      .setReferenceDomainInfo(ReferenceDomainInfoBuilder().setReferenceDomainOffset(100).build())
+                                      .build();
+    auto domainSignal0 = SignalWithDescriptor(context, domainSignalDescriptor0, nullptr, "DomainSignal0");
+    auto domainSignal1 = SignalWithDescriptor(context, domainSignalDescriptor1, nullptr, "DomainSignal1");
+
+    auto signalDescriptor =
+        DataDescriptorBuilder().setSampleType(SampleType::UInt64).build();
+    auto signal0 = SignalWithDescriptor(context, signalDescriptor, nullptr, "Signal0");
+    auto signal1 = SignalWithDescriptor(context, signalDescriptor, nullptr, "Signal1");
+
+    signal0.setDomainSignal(domainSignal0);
+    signal1.setDomainSignal(domainSignal1);
+
+    auto readerBuilder = MultiReaderBuilder().setValueReadType(SampleType::UInt64).setDomainReadType(SampleType::UInt64);
+    readerBuilder.addSignal(signal0);
+    readerBuilder.addSignal(signal1);
+
+    auto reader = readerBuilder.build();
+
+
+    auto domainBuffers = std::vector<void*>(signalNum, nullptr);
+    auto dataBuffers = std::vector<void*>(signalNum, nullptr);
+
+
+    for (size_t i = 0; i < signalNum; ++i)
+    {
+        dataBuffers[i] = std::malloc(buffersSize * getSampleSize(SampleType::UInt64));
+        domainBuffers[i] = std::malloc(buffersSize * getSampleSize(SampleType::UInt64));
+    }
+
+    auto sendPacket = [&signalDescriptor](SignalConfigPtr signal, uint64_t data, DataPacketPtr domainPacket)
+    {
+        auto dataPacket = DataPacketWithDomain(domainPacket, signalDescriptor, 1);
+        memcpy(dataPacket.getData(), &data, sizeof(data));
+        signal.sendPacket(dataPacket);
+    };
+
+    auto send = [&]()
+    {
+        std::cout << "---------------sending-data---------------" << std::endl;
+        for (size_t i = 0; i < samples * divider; i++)
+        {
+            uint64_t ts0, ts1;
+            if (i % divider == 0)
+            {
+                {
+                    auto domainPacket = DataPacket(domainSignalDescriptor0, 1, i);
+                    domainSignal0.sendPacket(domainPacket);
+                    sendPacket(signal0, (i / divider), domainPacket);
+                    ts0 = domainPacket.getLastValue().getValue(0);
+                }
+                {
+                    auto domainPacket = DataPacket(domainSignalDescriptor1, 1, i);
+                    domainSignal1.sendPacket(domainPacket);
+                    sendPacket(signal1, i, domainPacket);
+                    ts1 = domainPacket.getLastValue().getValue(0);
+                }
+                std::cout << fmt::format("{{Signal0 | Signal1 | TS0 | TS1}} : {:^3} | {:^3} | {:^3} | {:^3}", i / divider, i, ts0, ts1)
+                          << std::endl;
+            }
+            else
+            {
+                auto domainPacket = DataPacket(domainSignalDescriptor1, 1, i);
+                domainSignal1.sendPacket(domainPacket);
+                sendPacket(signal1, i, domainPacket);
+                ts1 = domainPacket.getLastValue().getValue(0);
+                std::cout << fmt::format("{{Signal0 | Signal1 | TS0 | TS1}} : {:^3} | {:^3} | {:^3} | {:^3}", "-", i, "-", ts1)
+                          << std::endl;
+            }
+        }
+        std::cout << "---------------sending-data-end---------------" << std::endl;
+    };
+
+
+    auto toString = [](const std::string& valueFieldName, void* data, SizeT offset) -> std::string
+    {
+        return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<uint64_t*>(data) + offset)));
+    };
+
+    SizeT sampleCnt = 0;
+    auto finishTime = std::chrono::steady_clock::now() + std::chrono::seconds(timeoutS);
+
+    send();
+    std::cout << "---------------reading-data---------------" << std::endl;
+    while (sampleCnt < samples && std::chrono::steady_clock::now() < finishTime)
+    {
+        auto dataAvailable = reader.getAvailableCount();
+        auto count = std::min(SizeT{buffersSize}, dataAvailable);
+        auto status = reader.readWithDomain(dataBuffers.data(), domainBuffers.data(), &count);
+        if (status.getReadStatus() == ReadStatus::Ok && count > 0)
+        {
+            sampleCnt += count;
+            for (SizeT sampleCnt = 0; sampleCnt < count; ++sampleCnt)
+            {
+                std::vector<std::string> fields;
+                for (size_t signalCnt = 0; signalCnt < signalNum; ++signalCnt)
+                {
+                    std::string valueFieldName = "Signal" + std::to_string(signalCnt);
+                    fields.emplace_back(toString(valueFieldName, dataBuffers[signalCnt], sampleCnt));
+                }
+                for (size_t signalCnt = 0; signalCnt < signalNum; ++signalCnt)
+                {
+                    std::string valueFieldName = "TS" + std::to_string(signalCnt);
+                    fields.emplace_back(toString(valueFieldName, domainBuffers[signalCnt], sampleCnt));
+                }
+                std::string msg;
+                for (size_t i = 0; i < fields.size(); ++i)
+                {
+                    if (i > 0)
+                        msg += ", ";
+                    msg += fields[i];
+                }
+                std::cout << msg << std::endl;
+            }
+        }
+    }
+    std::cout << "---------------reading-data-end---------------" << std::endl;
+    ASSERT_EQ(sampleCnt, samples);
+}
