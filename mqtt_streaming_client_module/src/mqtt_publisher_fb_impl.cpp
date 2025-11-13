@@ -48,6 +48,11 @@ FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
                                   .build());
     defaultConfig.addProperty(BoolProperty(PROPERTY_NAME_PUB_GROUP_VALUES, False));
     defaultConfig.addProperty(BoolProperty(PROPERTY_NAME_PUB_USE_SIGNAL_NAMES, False));
+    defaultConfig.addProperty(IntPropertyBuilder(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, DEFAULT_PUB_PACK_SIZE)
+                                  .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_GROUP_VALUES))
+                                  .build());
+    defaultConfig.addProperty(IntProperty(PROPERTY_NAME_PUB_QOS, DEFAULT_PUB_QOS));
+    defaultConfig.addProperty(IntProperty(PROPERTY_NAME_PUB_READ_PERIOD, DEFAULT_PUB_READ_PERIOD));
     const auto fbType = FunctionBlockType(PUB_FB_NAME,
                                           PUB_FB_NAME,
                                           "",
@@ -145,6 +150,13 @@ void MqttPublisherFbImpl::readProperties()
     config.sharedTs = readProperty<bool, IBoolean>(PROPERTY_NAME_PUB_SHARED_TS, false);
     config.groupValues = readProperty<bool, IBoolean>(PROPERTY_NAME_PUB_GROUP_VALUES, false);
     config.useSignalNames = readProperty<bool, IBoolean>(PROPERTY_NAME_PUB_USE_SIGNAL_NAMES, false);
+    config.groupValuesPackSize = readProperty<size_t, IInteger>(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, DEFAULT_PUB_PACK_SIZE);
+    config.qos = readProperty<int, IInteger>(PROPERTY_NAME_PUB_QOS, DEFAULT_PUB_QOS);
+    if (config.qos < 0 || config.qos > 2)
+        config.qos = DEFAULT_PUB_QOS;
+    config.periodMs = readProperty<int, IInteger>(PROPERTY_NAME_PUB_READ_PERIOD, DEFAULT_PUB_READ_PERIOD);
+    if (config.periodMs < 0)
+        config.periodMs = DEFAULT_PUB_READ_PERIOD;
 }
 
 template<typename retT, typename intfT>
@@ -180,7 +192,7 @@ void MqttPublisherFbImpl::readerLoop()
             msgs = handler->processSignalContexts(signalContexts);
         }
         sendMessages(msgs);
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        std::this_thread::sleep_for(std::chrono::milliseconds(config.periodMs));
     }
 }
 

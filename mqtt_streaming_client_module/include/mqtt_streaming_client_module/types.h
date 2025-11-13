@@ -22,12 +22,16 @@ struct PublisherFbConfig {
     bool sharedTs;
     bool groupValues;
     bool useSignalNames;
+    size_t groupValuesPackSize;
+    int qos;
+    int periodMs;
 };
 
 struct SignalContext
 {
     size_t index;
     InputPortConfigPtr inputPort;
+    std::vector<DataPacketPtr> data;
 };
 
 struct ProcedureStatus

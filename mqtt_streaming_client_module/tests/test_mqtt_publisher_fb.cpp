@@ -210,7 +210,7 @@ TEST_F(MqttPublisherFbTest, DefaultConfig)
 
     ASSERT_TRUE(defaultConfig.assigned());
 
-    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 4u);
+    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 7u);
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_TOPIC_MODE));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_MODE).getValueType(), CoreType::ctInt);
@@ -229,7 +229,18 @@ TEST_F(MqttPublisherFbTest, DefaultConfig)
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_USE_SIGNAL_NAMES).getValueType(), CoreType::ctBool);
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_USE_SIGNAL_NAMES).asPtr<IBoolean>(), False);
 
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE));
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getValueType(), CoreType::ctInt);
+    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).asPtr<IInteger>(), DEFAULT_PUB_PACK_SIZE);
+    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getVisible());
 
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_QOS));
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_QOS).getValueType(), CoreType::ctInt);
+    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_QOS).asPtr<IInteger>(), DEFAULT_PUB_QOS);
+
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_READ_PERIOD));
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_READ_PERIOD).getValueType(), CoreType::ctInt);
+    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_READ_PERIOD).asPtr<IInteger>(), DEFAULT_PUB_READ_PERIOD);
 }
 
 TEST_F(MqttPublisherFbTest, PropertyVisability)
@@ -241,6 +252,10 @@ TEST_F(MqttPublisherFbTest, PropertyVisability)
     ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_SHARED_TS).getVisible());
     defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1); // Set to Multi topic
     ASSERT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_SHARED_TS).getVisible());
+
+    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getVisible());
+    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES, True);
+    ASSERT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getVisible());
 }
 
 TEST_F(MqttPublisherFbTest, Config)
@@ -252,6 +267,9 @@ TEST_F(MqttPublisherFbTest, Config)
     config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, True);
     config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES, True);
     config.setPropertyValue(PROPERTY_NAME_PUB_USE_SIGNAL_NAMES, True);
+    config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, 3);
+    config.setPropertyValue(PROPERTY_NAME_PUB_QOS, 2);
+    config.setPropertyValue(PROPERTY_NAME_PUB_READ_PERIOD, 100);
     daq::FunctionBlockPtr fb;
     ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME, config));
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
@@ -271,6 +289,9 @@ TEST_F(MqttPublisherFbTest, Config)
     EXPECT_TRUE(ptr->getFbConfig().sharedTs);
     EXPECT_TRUE(ptr->getFbConfig().groupValues);
     EXPECT_TRUE(ptr->getFbConfig().useSignalNames);
+    EXPECT_EQ(ptr->getFbConfig().groupValuesPackSize, 3);
+    EXPECT_EQ(ptr->getFbConfig().qos, 2);
+    EXPECT_EQ(ptr->getFbConfig().periodMs, 100);
 }
 
 TEST_F(MqttPublisherFbTest, Creation)
@@ -349,7 +370,7 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
     fb.getInputPorts()[1].connect(help.signalWithoutDomain);
     ASSERT_EQ(fb.getInputPorts().getCount(), 3u);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-              Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager()));
+              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
     // disconnection
     fb.getInputPorts()[1].disconnect();
     ASSERT_EQ(fb.getInputPorts().getCount(), 2u);
@@ -357,7 +378,7 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
 }
 
-TEST_F(MqttPublisherFbTest, Transfer)
+TEST_F(MqttPublisherFbTest, TransferSingle)
 {
     StartUp();
     daq::FunctionBlockPtr fb;
@@ -404,7 +425,7 @@ TEST_F(MqttPublisherFbTest, Transfer)
     ASSERT_TRUE(receivedFuture.get());
 }
 
-TEST_P(MqttPublisherFbPTest, MultiTransfer)
+TEST_P(MqttPublisherFbPTest, MultiTransferSingle)
 {
     const auto divider = GetParam();
     StartUp();

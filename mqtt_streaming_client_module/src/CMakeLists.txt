@@ -14,6 +14,7 @@ set(SRC_Include common.h
                 handler_factory.h
                 handler_base.h
                 single_handler.h
+                multisingle_handler.h
                 multiple_handler.h
                 types.h
 )
@@ -27,6 +28,7 @@ set(SRC_Srcs module_dll.cpp
              mqtt_publisher_fb_impl.cpp
              helper.cpp
              single_handler.cpp
+             multisingle_handler.cpp
              multiple_handler.cpp
 )
 
@@ -63,6 +65,8 @@ source_group("handlers" FILES ${MODULE_HEADERS_DIR}/handler_base.h
                             ${MODULE_HEADERS_DIR}/handler_factory.h
                             ${MODULE_HEADERS_DIR}/single_handler.h
                             single_handler.cpp
+                            ${MODULE_HEADERS_DIR}/multisingle_handler.h
+                            multisingle_handler.cpp
                             ${MODULE_HEADERS_DIR}/multiple_handler.h
                             multiple_handler.cpp
 )

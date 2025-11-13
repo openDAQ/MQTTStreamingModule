@@ -18,6 +18,7 @@
 
 #include "mqtt_streaming_client_module/types.h"
 #include <mqtt_streaming_client_module/single_handler.h>
+#include <mqtt_streaming_client_module/multisingle_handler.h>
 #include <mqtt_streaming_client_module/multiple_handler.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
@@ -28,9 +29,18 @@ public:
     static std::unique_ptr<HandlerBase> create(const PublisherFbConfig config, const std::string& publisherFbGlobalId)
     {
         if (config.sharedTs)
+        {
             return std::make_unique<MultipleHandler>(config.useSignalNames, publisherFbGlobalId);
-        else
-            return std::make_unique<SingleHandler>(config.useSignalNames);
+        }
+        else if (config.topicMode == TopicMode::Single)
+        {
+            if (config.groupValues)
+                return std::make_unique<MultisingleHandler>(config.useSignalNames, config.groupValuesPackSize);
+            else
+                return std::make_unique<SingleHandler>(config.useSignalNames);
+        }
+
+        return std::make_unique<SingleHandler>(config.useSignalNames);
     }
 };
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
