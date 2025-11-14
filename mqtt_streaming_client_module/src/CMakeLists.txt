@@ -15,6 +15,7 @@ set(SRC_Include common.h
                 handler_base.h
                 single_handler.h
                 multisingle_handler.h
+                multiple_shared_handler.h
                 multiple_handler.h
                 types.h
 )
@@ -29,6 +30,7 @@ set(SRC_Srcs module_dll.cpp
              helper.cpp
              single_handler.cpp
              multisingle_handler.cpp
+             multiple_shared_handler.cpp
              multiple_handler.cpp
 )
 
@@ -67,6 +69,8 @@ source_group("handlers" FILES ${MODULE_HEADERS_DIR}/handler_base.h
                             single_handler.cpp
                             ${MODULE_HEADERS_DIR}/multisingle_handler.h
                             multisingle_handler.cpp
+                            ${MODULE_HEADERS_DIR}/multiple_shared_handler.h
+                            multiple_shared_handler.cpp
                             ${MODULE_HEADERS_DIR}/multiple_handler.h
                             multiple_handler.cpp
 )

@@ -12,7 +12,6 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 
 MultipleHandler::MultipleHandler(bool useSignalNames, std::string topic)
     : useSignalNames(useSignalNames),
-      buffersSize(1000),
       topic(topic)
 {
 }
@@ -20,29 +19,39 @@ MultipleHandler::MultipleHandler(bool useSignalNames, std::string topic)
 MqttData MultipleHandler::processSignalContexts(std::vector<SignalContext>& signalContexts)
 {
     MqttData messages;
-    if (!reader.assigned())
-        return messages;
-    auto dataAvailable = reader.getAvailableCount();
-    auto count = std::min(SizeT{buffersSize}, dataAvailable);
-    auto status = reader.readWithDomain(dataBuffers.data(), domainBuffers.data(), &count);
-    if (status.getReadStatus() == ReadStatus::Ok && count > 0)
+    bool dataAvailable = true;
+    while (dataAvailable)
     {
-        for (SizeT sampleCnt = 0; sampleCnt < count; ++sampleCnt)
+        dataAvailable = false;
+        std::vector<std::string> array;
+        for (const auto& signalContext : signalContexts)
         {
-            std::vector<std::string> fields;
-            for (size_t signalCnt = 0; signalCnt < signalContexts.size() - 1; ++signalCnt)
+            const auto conn = signalContext.inputPort.getConnection();
+            if (!conn.assigned())
+                continue;
+            PacketPtr packet = conn.dequeue();
+            if (packet.assigned())
             {
-                const auto signal = signalContexts[signalCnt].inputPort.getSignal();
-                std::string valueFieldName = (useSignalNames ? signal.getName() : signal.getGlobalId()).toStdString();
-                fields.emplace_back(toString(signal.getDescriptor().getSampleType(), valueFieldName, dataBuffers[signalCnt], sampleCnt));
+                dataAvailable = true;
+                if (packet.getType() == PacketType::Event)
+                {
+                    auto eventPacket = packet.asPtr<IEventPacket>(true);
+                    LOG_T("Processing {} event", eventPacket.getEventId());
+                }
+                else if (packet.getType() == PacketType::Data)
+                {
+                    const auto signal = signalContext.inputPort.getSignal();
+                    std::string valueFieldName = (useSignalNames ? signal.getName() : signal.getGlobalId()).toStdString();
+                    array.emplace_back(toString(valueFieldName, packet));
+                }
             }
-            fields.emplace_back(tsToString(domainBuffers[0], sampleCnt));
-            std::string topic = buildTopicName();
-            std::string msg = messageFromFields(fields);
-            messages.emplace_back(std::move(topic), std::move(msg));
         }
+        if (array.empty())
+            continue;
+        std::string topic = buildTopicName();
+        std::string msg = messageFromArray(array);
+        messages.emplace_back(std::move(topic), std::move(msg));
     }
-
     return messages;
 }
 
@@ -67,12 +76,6 @@ ProcedureStatus MultipleHandler::validateSignalContexts(const std::vector<Signal
         auto signal = sigCtx.inputPort.getSignal();
         if (!signal.assigned())
             continue;
-        if (!signal.getDomainSignal().assigned())
-        {
-            status.messages.emplace_back(fmt::format("Connected signal \"{}\" doesn't contain a domain signal. This is not allowed.",
-                                                     sigCtx.inputPort.getSignal().getGlobalId()));
-            status.success = false;
-        }
         if (!signal.getDescriptor().assigned())
         {
             status.messages.emplace_back(fmt::format("Connected signal \"{}\" doesn't contain a descroptor. This is not allowed.",
@@ -98,36 +101,50 @@ ProcedureStatus MultipleHandler::validateSignalContexts(const std::vector<Signal
 
 ProcedureStatus MultipleHandler::signalListChanged(std::vector<SignalContext>& signalContexts)
 {
-    ProcedureStatus status{true, {}};
-    createReader(signalContexts);
-    return status;
+    return ProcedureStatus{true, {}};
 }
 
-std::string MultipleHandler::toString(const SampleType sampleType, const std::string& valueFieldName, void* data, SizeT offset)
+std::string MultipleHandler::toString(const std::string valueFieldName, daq::DataPacketPtr packet)
 {
+    std::string result;
+    std::string data = toString(packet);
+    if (auto domainPacket = packet.getDomainPacket(); domainPacket.assigned())
+    {
+        uint64_t ts = *(static_cast<uint64_t*>(domainPacket.getData()));
+        result = fmt::format("{{\"{}\" : {}, \"timestamp\": {}}}", valueFieldName, data, ts);
+    }
+    else
+    {
+        result = fmt::format("{{\"{}\" : {}}}", valueFieldName, data);
+    }
+
+    return result;
+}
+
+std::string MultipleHandler::toString(const DataPacketPtr& dataPacket)
+{
+    auto sampleType = dataPacket.getDataDescriptor().getSampleType();
+    std::string data;
+
     switch (sampleType)
     {
         case SampleType::Float64:
-            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::Float64>::Type*>(data) + offset)));
+            data = std::to_string(*(static_cast<double*>(dataPacket.getData())));
+            break;
         case SampleType::UInt64:
-            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt64>::Type*>(data) + offset)));
+            data = std::to_string(*(static_cast<uint64_t*>(dataPacket.getData())));
+            break;
         case SampleType::Int64:
-            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::Int64>::Type*>(data) + offset)));
+            data = std::to_string(*(static_cast<int64_t*>(dataPacket.getData())));
+            break;
+        case SampleType::Binary:
+            data = '\"' + std::string(static_cast<char*>(dataPacket.getData()), dataPacket.getDataSize()) + '\"';
+            break;
         default:
             break;
     }
-    return "";
-}
 
-template <typename T>
-std::string MultipleHandler::toString(const std::string& valueFieldName, void* data, SizeT offset)
-{
-    return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<T*>(data) + offset)));
-}
-
-std::string MultipleHandler::tsToString(void* data, SizeT offset)
-{
-    return fmt::format("\"timestamp\" : {}", std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt64>::Type*>(data) + offset)));
+    return data;
 }
 
 std::string MultipleHandler::buildTopicName()
@@ -135,57 +152,17 @@ std::string MultipleHandler::buildTopicName()
     return topic;
 }
 
-void MultipleHandler::createReader(const std::vector<SignalContext>& signalContexts)
-{
-    // signalContexts always contain an unconnected input port
-    if (signalContexts.size() <= 1)
-        return;
-
-    if (reader.assigned())
-        reader.release();
-
-    auto multiReaderBuilder = MultiReaderBuilder().setValueReadType(SampleType::Undefined).setDomainReadType(SampleType::UInt64);
-    for (const auto& sContext : signalContexts)
-    {
-        if (sContext.inputPort.getSignal().assigned())
-            multiReaderBuilder.addInputPort(sContext.inputPort);
-    }
-
-    reader = multiReaderBuilder.build();
-    allocateBuffers(signalContexts);
-}
-
-void MultipleHandler::allocateBuffers(const std::vector<SignalContext>& signalContexts)
-{
-    // Allocate buffers for each signal
-    auto signalsCount = signalContexts.size() - 1;
-    for (size_t i = 0; i < domainBuffers.size(); ++i)
-    {
-        std::free(domainBuffers[i]);
-        std::free(dataBuffers[i]);
-    }
-
-    domainBuffers = std::vector<void*>(signalsCount, nullptr);
-    dataBuffers = std::vector<void*>(signalsCount, nullptr);
-
-    for (size_t i = 0; i < signalsCount; ++i)
-    {
-        dataBuffers[i] = std::malloc(buffersSize * getSampleSize(signalContexts[i].inputPort.getSignal().getDescriptor().getSampleType()));
-        domainBuffers[i] = std::malloc(buffersSize * getSampleSize(SampleType::UInt64));
-    }
-}
-
-std::string MultipleHandler::messageFromFields(const std::vector<std::string>& fields)
+std::string MultipleHandler::messageFromArray(const std::vector<std::string>& array)
 {
     std::ostringstream oss;
-    oss << "{";
-    for (size_t i = 0; i < fields.size(); ++i)
+    oss << "[";
+    for (size_t i = 0; i < array.size(); ++i)
     {
         if (i > 0)
             oss << ", ";
-        oss << std::move(fields[i]);
+        oss << std::move(array[i]);
     }
-    oss << "}";
+    oss << "]";
     return oss.str();
 }
 
