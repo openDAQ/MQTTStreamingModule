@@ -68,7 +68,7 @@ std::string MultisingleHandler::toString(const std::string valueFieldName, const
 
         if (auto domainPacket = dataPackets[i].getDomainPacket(); domainPacket.assigned())
         {
-            uint64_t ts = *(static_cast<uint64_t*>(domainPacket.getData()));
+            uint64_t ts = convertToEpoch(domainPacket);
             tsOss << std::to_string(ts);
         }
         else

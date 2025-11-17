@@ -21,6 +21,15 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 
+struct TimestampTickStruct
+{
+    uint64_t firstTick;
+    uint64_t delta;
+    uint64_t ratioNum;
+    uint64_t ratioDen;
+    uint64_t multiplier;
+};
+
 class MultipleSharedHandler : public HandlerBase
 {
 public:
@@ -33,18 +42,18 @@ protected:
     bool useSignalNames;
     const size_t buffersSize;
     const std::string topic;
-    std::vector<void*> domainBuffers;
     std::vector<void*> dataBuffers;
     daq::MultiReaderPtr reader;
 
     template<typename T>
     std::string toString(const std::string& valueFieldName, void* data, SizeT offset);
     std::string toString(const SampleType sampleType, const std::string& valueFieldName, void* data, SizeT offset);
-    std::string tsToString(void* data, SizeT offset);
+    std::string tsToString(TimestampTickStruct tsStruct, SizeT offset);
     std::string buildTopicName();
     void createReader(const std::vector<SignalContext>& signalContexts);
     void allocateBuffers(const std::vector<SignalContext>& signalContexts);
     static std::string messageFromFields(const std::vector<std::string>& fields);
+    static TimestampTickStruct domainToTs(const MultiReaderStatusPtr status);
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

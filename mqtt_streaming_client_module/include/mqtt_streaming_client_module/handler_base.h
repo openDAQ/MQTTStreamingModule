@@ -29,6 +29,27 @@ public:
     virtual MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) = 0;
     virtual ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const = 0;
     virtual ProcedureStatus signalListChanged(std::vector<SignalContext>& signalContexts) = 0;
+protected:
+    static std::pair<uint64_t, uint64_t> calculateRatio(const DataDescriptorPtr descriptor)
+    {
+        const auto tickResolution = descriptor.getTickResolution().simplify();
+        const uint64_t packetDelta = descriptor.getRule().getParameters().get("delta");
+        uint64_t num = tickResolution.getNumerator() * packetDelta;
+        uint64_t den = tickResolution.getDenominator();
+        const uint64_t g = std::gcd(num, den);
+        num /= g;
+        den /= g;
+        return std::pair<uint64_t, uint64_t>{num, den};
+    }
+
+    static uint64_t convertToEpoch(const DataPacketPtr domainPacket)
+    {
+        const auto [ratioNum, ratioDen]  = calculateRatio(domainPacket.getDataDescriptor());
+        constexpr uint64_t US_IN_S = 1'000'000; // amount microseconds in a second
+        uint64_t ts = *(static_cast<uint64_t*>(domainPacket.getData()));
+        ts = ts * ratioNum * US_IN_S / ratioDen;    // us
+        return ts;
+    }
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

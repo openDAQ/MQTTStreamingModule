@@ -6,6 +6,7 @@
 #include <opendaq/reader_factory.h>
 #include <opendaq/reader_utils.h>
 #include <opendaq/sample_type_traits.h>
+#include <optional>
 #include <set>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
@@ -24,9 +25,10 @@ MqttData MultipleSharedHandler::processSignalContexts(std::vector<SignalContext>
         return messages;
     auto dataAvailable = reader.getAvailableCount();
     auto count = std::min(SizeT{buffersSize}, dataAvailable);
-    auto status = reader.readWithDomain(dataBuffers.data(), domainBuffers.data(), &count);
+    auto status = reader.read(dataBuffers.data(), &count);
     if (status.getReadStatus() == ReadStatus::Ok && count > 0)
     {
+        const auto tsStruct = domainToTs(status);
         for (SizeT sampleCnt = 0; sampleCnt < count; ++sampleCnt)
         {
             std::vector<std::string> fields;
@@ -36,7 +38,8 @@ MqttData MultipleSharedHandler::processSignalContexts(std::vector<SignalContext>
                 std::string valueFieldName = (useSignalNames ? signal.getName() : signal.getGlobalId()).toStdString();
                 fields.emplace_back(toString(signal.getDescriptor().getSampleType(), valueFieldName, dataBuffers[signalCnt], sampleCnt));
             }
-            fields.emplace_back(tsToString(domainBuffers[0], sampleCnt));
+
+            fields.emplace_back(tsToString(tsStruct, sampleCnt));
             std::string topic = buildTopicName();
             std::string msg = messageFromFields(fields);
             messages.emplace_back(std::move(topic), std::move(msg));
@@ -73,6 +76,19 @@ ProcedureStatus MultipleSharedHandler::validateSignalContexts(const std::vector<
                                                      sigCtx.inputPort.getSignal().getGlobalId()));
             status.success = false;
         }
+        if (!signal.getDomainSignal().getDescriptor().assigned())
+        {
+            status.messages.emplace_back(
+                fmt::format("Connected signal \"{}\" doesn't contain a descroptor for a domain signal. This is not allowed.",
+                            sigCtx.inputPort.getSignal().getGlobalId()));
+            status.success = false;
+        }
+        if (auto domainDataRule = signal.getDomainSignal().getDescriptor().getRule(); domainDataRule.getType() != DataRuleType::Linear)
+        {
+            status.messages.emplace_back(fmt::format("Connected signal \"{}\" has an incompatible data rule for its domain signal.",
+                                                     sigCtx.inputPort.getSignal().getGlobalId()));
+            status.success = false;
+        }
         if (!signal.getDescriptor().assigned())
         {
             status.messages.emplace_back(fmt::format("Connected signal \"{}\" doesn't contain a descroptor. This is not allowed.",
@@ -93,7 +109,50 @@ ProcedureStatus MultipleSharedHandler::validateSignalContexts(const std::vector<
             status.success = false;
         }
     }
+
+    std::optional<std::pair<uint64_t, uint64_t>> ratio0;
+    bool error = false;
+    for (size_t i = 0; i < signalContexts.size() && !error; ++i)
+    {
+        auto signal = signalContexts[i].inputPort.getSignal();
+        if (!signal.assigned())
+            continue;
+
+        if (!ratio0.has_value())
+        {
+            ratio0 = calculateRatio(signal.getDomainSignal().getDescriptor());
+        }
+        else
+        {
+            auto ratio = calculateRatio(signal.getDomainSignal().getDescriptor());
+            error = (ratio != ratio0);
+        }
+    }
+
+    if (error)
+    {
+        status.messages.emplace_back(fmt::format("Connected signals have incompatible sample rates. This is not allowed."));
+        status.success = false;
+    }
     return status;
+}
+
+TimestampTickStruct MultipleSharedHandler::domainToTs(const MultiReaderStatusPtr status)
+{
+    TimestampTickStruct res;
+    const auto descriptor =
+        status.getMainDescriptor().getParameters().get(event_packet_param::DOMAIN_DATA_DESCRIPTOR).asPtr<IDataDescriptor>();
+    const auto [ratioNum, ratioDen] = calculateRatio(descriptor);
+    const uint64_t offset = status.getOffset().getValue<uint64_t>(0);
+    const uint64_t start = descriptor.getRule().getParameters().get("start").getValue<uint64_t>(0);
+    const uint64_t refOffset = descriptor.getReferenceDomainInfo().getReferenceDomainOffset().getValue<uint64_t>(0);
+
+    res.firstTick = offset + start + refOffset;
+    res.ratioNum = ratioNum;
+    res.ratioDen = ratioDen;
+    res.multiplier = 1'000'000; // amount of us in a second
+    res.delta = descriptor.getRule().getParameters().get("delta").getValue<uint64_t>(0);
+    return res;
 }
 
 ProcedureStatus MultipleSharedHandler::signalListChanged(std::vector<SignalContext>& signalContexts)
@@ -125,9 +184,12 @@ std::string MultipleSharedHandler::toString(const std::string& valueFieldName, v
     return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<T*>(data) + offset)));
 }
 
-std::string MultipleSharedHandler::tsToString(void* data, SizeT offset)
+std::string MultipleSharedHandler::tsToString(TimestampTickStruct tsStruct, SizeT offset)
 {
-    return fmt::format("\"timestamp\" : {}", std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt64>::Type*>(data) + offset)));
+    // const uint64_t epochTime = (firstTick + delta * offset) * ratioNum * US_IN_S / ratioDen;    // us
+    return fmt::format("\"timestamp\" : {}",
+                       std::to_string(((tsStruct.firstTick + tsStruct.delta * offset) * tsStruct.ratioNum * tsStruct.multiplier) /
+                                      tsStruct.ratioDen));
 }
 
 std::string MultipleSharedHandler::buildTopicName()
@@ -159,19 +221,16 @@ void MultipleSharedHandler::allocateBuffers(const std::vector<SignalContext>& si
 {
     // Allocate buffers for each signal
     auto signalsCount = signalContexts.size() - 1;
-    for (size_t i = 0; i < domainBuffers.size(); ++i)
+    for (size_t i = 0; i < dataBuffers.size(); ++i)
     {
-        std::free(domainBuffers[i]);
         std::free(dataBuffers[i]);
     }
 
-    domainBuffers = std::vector<void*>(signalsCount, nullptr);
     dataBuffers = std::vector<void*>(signalsCount, nullptr);
 
     for (size_t i = 0; i < signalsCount; ++i)
     {
         dataBuffers[i] = std::malloc(buffersSize * getSampleSize(signalContexts[i].inputPort.getSignal().getDescriptor().getSampleType()));
-        domainBuffers[i] = std::malloc(buffersSize * getSampleSize(SampleType::UInt64));
     }
 }
 

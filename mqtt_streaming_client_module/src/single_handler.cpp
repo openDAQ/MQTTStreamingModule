@@ -142,7 +142,7 @@ std::string SingleHandler::toString(const std::string valueFieldName, daq::DataP
     std::string data = toString(packet);
     if (auto domainPacket = packet.getDomainPacket(); domainPacket.assigned())
     {
-        uint64_t ts = *(static_cast<uint64_t*>(domainPacket.getData()));
+        uint64_t ts = convertToEpoch(domainPacket);
         result = fmt::format("{{\"{}\" : {}, \"timestamp\": {}}}", valueFieldName, data, ts);
     }
     else
