@@ -341,7 +341,7 @@ public:
         auto singal = device.addFunctionBlock(JSON_FB_NAME, config).getSignals()[0];
         auto reader = daq::PacketReader(singal);
 
-        MqttAsyncClientWrapper publisher(std::make_shared<mqtt::MqttAsyncClient>(), buildClientId());
+        MqttAsyncClientWrapper publisher(buildClientId());
         result.deviceProblem = !publisher.connect(url);
         if (result.deviceProblem)
             return result;

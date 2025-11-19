@@ -2,19 +2,26 @@
 #include "MqttAsyncClient.h"
 #include "Timer.h"
 #include <future>
+#include <iostream>
+#include <ostream>
 
 using namespace std::chrono;
 
 MqttAsyncClientWrapper::MqttAsyncClientWrapper(std::string clientId)
-    : instance(std::make_shared<mqtt::MqttAsyncClient>()),
+    : instance(std::make_unique<mqtt::MqttAsyncClient>()),
       clientId(clientId) {};
 
-MqttAsyncClientWrapper::MqttAsyncClientWrapper(std::shared_ptr<mqtt::MqttAsyncClient> instance, std::string clientId)
-    : instance(instance)
+MqttAsyncClientWrapper::~MqttAsyncClientWrapper()
 {
-    if (!clientId.empty())
+    if (instance)
     {
-        this->clientId = clientId;
+        instance->setMessageArrivedCb(nullptr);
+        auto result = instance->unsubscribe(subscribedTopics);
+        if (result.success)
+            result = instance->waitForCompletion(result.token, 1000);
+        subscribedTopics.clear();
+        instance->syncDisconnect(1000);
+        instance.reset();
     }
 }
 
@@ -119,4 +126,32 @@ bool MqttAsyncClientWrapper::publishMsg(const mqtt::MqttMessage& msg)
     auto status = deliveryFuture.wait_for(sendTimer.remain());
     instance->setDeliveryCompletedCb(nullptr);
     return (status == std::future_status::ready && deliveryFuture.get() == result.token);
+}
+
+bool MqttAsyncClientWrapper::subscribe(const std::string& topic, uint qos)
+{
+    auto status = instance->subscribe(topic, qos);
+    if (status.success)
+        subscribedTopics.push_back(topic);
+    return status.success;
+}
+
+void MqttAsyncClientWrapper::expectMsgs(const std::string& topic,
+                                        const std::vector<std::string>& msgs,
+                                        std::promise<bool>& promise,
+                                        std::atomic<bool>& done)
+{
+    instance->setMessageArrivedCb(topic,
+                                  [topic, &done, &msgs, &promise, i = 0](const mqtt::MqttAsyncClient& subscriber,
+                                                                         mqtt::MqttMessage& receivedMsg) mutable
+                                  {
+                                      const auto receivedStr = receivedMsg.toString();
+                                      std::cout << "{topic | msg}: " << receivedMsg.getTopic() << " | " << receivedStr << std::endl;
+                                      if (receivedMsg.getTopic() != topic || msgs[i] != receivedStr)
+                                          return;
+
+                                      bool expected = false;
+                                      if (++i == msgs.size() && done.compare_exchange_strong(expected, true))
+                                          promise.set_value(true);
+                                  });
 }

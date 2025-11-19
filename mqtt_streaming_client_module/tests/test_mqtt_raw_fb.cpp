@@ -254,7 +254,7 @@ TEST_F(MqttRawFbTest, CheckRawFbFullDataTransfer)
     auto singal = device.addFunctionBlock(RAW_FB_NAME, config).getSignals()[0];
     auto reader = daq::PacketReader(singal);
 
-    MqttAsyncClientWrapper publisher(std::make_shared<mqtt::MqttAsyncClient>(), "testPublisherId");
+    MqttAsyncClientWrapper publisher("testPublisherId");
     ASSERT_TRUE(publisher.connect("127.0.0.1"));
 
     const auto dataToSend = std::vector<std::vector<uint8_t>>{std::vector<uint8_t>{0x01, 0x02, 0x03, 0x04, 0x05},

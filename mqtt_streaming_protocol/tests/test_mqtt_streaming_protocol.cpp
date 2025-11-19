@@ -13,12 +13,7 @@ using namespace std::chrono;
 class MqttStreamingProtocolTest : public ::testing::Test,  public MqttAsyncClientWrapper {
 protected:
     void SetUp() override {
-        instance = std::make_shared<MqttAsyncClient>();
         clientId = std::string("clientId_") + std::string(::testing::UnitTest::GetInstance()->current_test_info()->name());
-    }
-
-    void TearDown() override {
-        instance.reset();
     }
 
     std::string buildTopicName() {
@@ -204,7 +199,7 @@ TEST_F(MqttStreamingProtocolTest, PublishingRetainedWithReceivingControl)
 
     std::this_thread::sleep_for(milliseconds(500)); // Give some time to the broker to store the retained message)
 
-    MqttAsyncClientWrapper subscriber(std::make_shared<MqttAsyncClient>(), "testSubscriberId");
+    MqttAsyncClientWrapper subscriber("testSubscriberId");
     ASSERT_TRUE(subscriber.connect("127.0.0.1"));
 
     std::promise<MqttMessage> receivedPromise;
@@ -247,7 +242,7 @@ TEST_F(MqttStreamingProtocolTest, PublishingWithReceivingControl)
 
     const std::string text = "test data";
     const MqttMessage msg(topic, std::vector<uint8_t>(text.begin(), text.end()), 1, false);
-    MqttAsyncClientWrapper subscriber(std::make_shared<MqttAsyncClient>(), "testSubscriberId");
+    MqttAsyncClientWrapper subscriber("testSubscriberId");
     ASSERT_TRUE(subscriber.connect("127.0.0.1"));
 
     std::promise<MqttMessage> receivedPromise;
