@@ -34,7 +34,6 @@ protected:
     const std::string topic;
 
     std::string toString(const std::string valueFieldName, daq::DataPacketPtr packet);
-    std::string toString(const DataPacketPtr& dataPackets);
     std::string buildTopicName();
     static std::string messageFromArray(const std::vector<std::string>& array);
 };

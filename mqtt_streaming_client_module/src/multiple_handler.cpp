@@ -78,22 +78,40 @@ ProcedureStatus MultipleHandler::validateSignalContexts(const std::vector<Signal
             continue;
         if (!signal.getDescriptor().assigned())
         {
-            status.messages.emplace_back(fmt::format("Connected signal \"{}\" doesn't contain a descroptor. This is not allowed.",
+            status.addError(fmt::format("Connected signal \"{}\" doesn't contain a descroptor. This is not allowed.",
                                                      sigCtx.inputPort.getSignal().getGlobalId()));
-            status.success = false;
         }
         if (auto demensions = signal.getDescriptor().getDimensions(); demensions.assigned() && demensions.getCount() > 0)
         {
-            status.messages.emplace_back(fmt::format("Connected signal \"{}\" has more then 1 demention. This is not allowed.",
+            status.addError(fmt::format("Connected signal \"{}\" has more then 1 demention. This is not allowed.",
                                                      sigCtx.inputPort.getSignal().getGlobalId()));
-            status.success = false;
         }
         if (auto sampleType = signal.getDescriptor().getSampleType(); allowedSampleTypes.find(sampleType) == allowedSampleTypes.cend())
         {
-            status.messages.emplace_back(fmt::format("Connected signal \"{}\" has an incompatible sample type ({}).",
+            status.addError(fmt::format("Connected signal \"{}\" has an incompatible sample type ({}).",
                                                      sigCtx.inputPort.getSignal().getGlobalId(),
                                                      convertSampleTypeToString(sampleType)));
-            status.success = false;
+        }
+        if (auto dSignal = signal.getDomainSignal(); dSignal.assigned())
+        {
+            auto descriptor = dSignal.getDescriptor();
+            if (!descriptor.assigned())
+            {
+                status.addError(fmt::format("Connected signal \"{}\" has a domain signal without descriptor. This is not allowed.",
+                                                         sigCtx.inputPort.getSignal().getGlobalId()));
+            }
+            else if (descriptor.getSampleType() != SampleType::UInt64 && descriptor.getSampleType() != SampleType::Int64)
+            {
+                status.addError(fmt::format("Connected signal \"{}\" has an incompatible sample type for its domain signal. "
+                                                         "Only SampleType::UInt64 and SampleType::Int64 are allowed.",
+                                                         sigCtx.inputPort.getSignal().getGlobalId()));
+            }
+            else if (auto unit = descriptor.getUnit(); !unit.assigned() || unit.getSymbol() != "s")
+            {
+                status.addError(fmt::format("Connected signal \"{}\" has an incompatible unit for its domain signal. "
+                                                         "Only 's' (seconds) is allowed.",
+                                                         sigCtx.inputPort.getSignal().getGlobalId()));
+            }
         }
     }
     return status;
@@ -107,7 +125,7 @@ ProcedureStatus MultipleHandler::signalListChanged(std::vector<SignalContext>& s
 std::string MultipleHandler::toString(const std::string valueFieldName, daq::DataPacketPtr packet)
 {
     std::string result;
-    std::string data = toString(packet);
+    std::string data = HandlerBase::toString(packet);
     if (auto domainPacket = packet.getDomainPacket(); domainPacket.assigned())
     {
         uint64_t ts = convertToEpoch(domainPacket);
@@ -119,32 +137,6 @@ std::string MultipleHandler::toString(const std::string valueFieldName, daq::Dat
     }
 
     return result;
-}
-
-std::string MultipleHandler::toString(const DataPacketPtr& dataPacket)
-{
-    auto sampleType = dataPacket.getDataDescriptor().getSampleType();
-    std::string data;
-
-    switch (sampleType)
-    {
-        case SampleType::Float64:
-            data = std::to_string(*(static_cast<double*>(dataPacket.getData())));
-            break;
-        case SampleType::UInt64:
-            data = std::to_string(*(static_cast<uint64_t*>(dataPacket.getData())));
-            break;
-        case SampleType::Int64:
-            data = std::to_string(*(static_cast<int64_t*>(dataPacket.getData())));
-            break;
-        case SampleType::Binary:
-            data = '\"' + std::string(static_cast<char*>(dataPacket.getData()), dataPacket.getDataSize()) + '\"';
-            break;
-        default:
-            break;
-    }
-
-    return data;
 }
 
 std::string MultipleHandler::buildTopicName()

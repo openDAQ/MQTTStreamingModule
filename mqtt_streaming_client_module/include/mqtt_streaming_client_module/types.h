@@ -38,6 +38,12 @@ struct ProcedureStatus
 {
     bool success;
     std::vector<std::string> messages;
+
+    void addError(const std::string& msg)
+    {
+        success = false;
+        messages.push_back(msg);
+    }
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

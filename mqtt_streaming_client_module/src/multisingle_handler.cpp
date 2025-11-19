@@ -64,7 +64,7 @@ std::string MultisingleHandler::toString(const std::string valueFieldName, const
             tsOss << ", ";
         }
 
-        dataOss << SingleHandler::toString(dataPackets[i]);
+        dataOss << HandlerBase::toString(dataPackets[i]);
 
         if (auto domainPacket = dataPackets[i].getDomainPacket(); domainPacket.assigned())
         {

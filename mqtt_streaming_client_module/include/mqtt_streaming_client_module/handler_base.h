@@ -17,8 +17,9 @@
 #pragma once
 
 #include "mqtt_streaming_client_module/common.h"
-#include <vector>
 #include <mqtt_streaming_client_module/types.h>
+#include <opendaq/sample_type_traits.h>
+#include <vector>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 
@@ -44,11 +45,68 @@ protected:
 
     static uint64_t convertToEpoch(const DataPacketPtr domainPacket)
     {
-        const auto [ratioNum, ratioDen]  = calculateRatio(domainPacket.getDataDescriptor());
         constexpr uint64_t US_IN_S = 1'000'000; // amount microseconds in a second
-        uint64_t ts = *(static_cast<uint64_t*>(domainPacket.getData()));
-        ts = ts * ratioNum * US_IN_S / ratioDen;    // us
+        const auto tickResolution = domainPacket.getDataDescriptor().getTickResolution().simplify();
+        uint64_t num = tickResolution.getNumerator() * US_IN_S;
+        uint64_t den = tickResolution.getDenominator();
+        const uint64_t g = std::gcd(num, den);
+        num /= g;
+        den /= g;
+
+        uint64_t ts = 0;
+        if (domainPacket.getDataDescriptor().getSampleType() == SampleType::UInt64)
+            ts = *(static_cast<uint64_t*>(domainPacket.getData()));
+        else if (domainPacket.getDataDescriptor().getSampleType() == SampleType::Int64)
+            ts = *(static_cast<int64_t*>(domainPacket.getData()));
+        ts = ts * num / den;    // us
         return ts;
+    }
+
+    static std::string toString(const DataPacketPtr& dataPacket)
+    {
+        auto sampleType = dataPacket.getDataDescriptor().getSampleType();
+        std::string data("unsupported");
+
+        switch (sampleType)
+        {
+            case SampleType::Float64:
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Float64>::Type*>(dataPacket.getData())));
+                break;
+            case SampleType::Float32:
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Float32>::Type*>(dataPacket.getData())));
+                break;
+            case SampleType::UInt64:
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt64>::Type*>(dataPacket.getData())));
+                break;
+            case SampleType::Int64:
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Int64>::Type*>(dataPacket.getData())));
+                break;
+            case SampleType::UInt32:
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt32>::Type*>(dataPacket.getData())));
+                break;
+            case SampleType::Int32:
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Int32>::Type*>(dataPacket.getData())));
+                break;
+            case SampleType::UInt16:
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt16>::Type*>(dataPacket.getData())));
+                break;
+            case SampleType::Int16:
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Int16>::Type*>(dataPacket.getData())));
+                break;
+            case SampleType::UInt8:
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt8>::Type*>(dataPacket.getData())));
+                break;
+            case SampleType::Int8:
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Int8>::Type*>(dataPacket.getData())));
+                break;
+            case SampleType::String:
+            case SampleType::Binary:
+                data = '\"' + std::string(static_cast<char*>(dataPacket.getData()), dataPacket.getDataSize()) + '\"';
+                break;
+            default:
+                break;
+        }
+        return data;
     }
 };
 

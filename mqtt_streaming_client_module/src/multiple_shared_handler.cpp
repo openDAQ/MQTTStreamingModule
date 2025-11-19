@@ -54,8 +54,6 @@ ProcedureStatus MultipleSharedHandler::validateSignalContexts(const std::vector<
 
     static const std::set<SampleType> allowedSampleTypes{SampleType::Float64,
                                                          SampleType::Float32,
-                                                         SampleType::Float32,
-                                                         SampleType::Float64,
                                                          SampleType::UInt8,
                                                          SampleType::Int8,
                                                          SampleType::UInt16,
@@ -70,43 +68,54 @@ ProcedureStatus MultipleSharedHandler::validateSignalContexts(const std::vector<
         auto signal = sigCtx.inputPort.getSignal();
         if (!signal.assigned())
             continue;
-        if (!signal.getDomainSignal().assigned())
+        const auto dSignal = signal.getDomainSignal();
+        if (!dSignal.assigned())
         {
-            status.messages.emplace_back(fmt::format("Connected signal \"{}\" doesn't contain a domain signal. This is not allowed.",
-                                                     sigCtx.inputPort.getSignal().getGlobalId()));
-            status.success = false;
+            status.addError(fmt::format("Connected signal \"{}\" doesn't contain a domain signal. This is not allowed.",
+                                        sigCtx.inputPort.getSignal().getGlobalId()));
         }
-        if (!signal.getDomainSignal().getDescriptor().assigned())
+        else if (const auto dSignalDesc = dSignal.getDescriptor(); !dSignalDesc.assigned())
         {
-            status.messages.emplace_back(
-                fmt::format("Connected signal \"{}\" doesn't contain a descroptor for a domain signal. This is not allowed.",
-                            sigCtx.inputPort.getSignal().getGlobalId()));
-            status.success = false;
+            status.addError(fmt::format("Connected signal \"{}\" doesn't contain a descroptor for a domain signal. This is not allowed.",
+                                        sigCtx.inputPort.getSignal().getGlobalId()));
         }
-        if (auto domainDataRule = signal.getDomainSignal().getDescriptor().getRule(); domainDataRule.getType() != DataRuleType::Linear)
+        else
         {
-            status.messages.emplace_back(fmt::format("Connected signal \"{}\" has an incompatible data rule for its domain signal.",
-                                                     sigCtx.inputPort.getSignal().getGlobalId()));
-            status.success = false;
+            if (auto domainDataRule = signal.getDomainSignal().getDescriptor().getRule(); domainDataRule.getType() != DataRuleType::Linear)
+            {
+                status.addError(fmt::format("Connected signal \"{}\" has an incompatible data rule for its domain signal.",
+                                            sigCtx.inputPort.getSignal().getGlobalId()));
+            }
+            if (signal.getDomainSignal().getDescriptor().getSampleType() != SampleType::UInt64 &&
+                signal.getDomainSignal().getDescriptor().getSampleType() != SampleType::Int64)
+            {
+                status.addError(fmt::format("Connected signal \"{}\" has an incompatible sample type for its domain signal. "
+                                            "Only SampleType::UInt64 and SampleType::Int64 are allowed.",
+                                            sigCtx.inputPort.getSignal().getGlobalId()));
+            }
+            if (auto unit = signal.getDomainSignal().getDescriptor().getUnit(); !unit.assigned() || unit.getSymbol() != "s")
+            {
+                status.addError(fmt::format("Connected signal \"{}\" has an incompatible unit for its domain signal. "
+                                            "Only 's' (seconds) is allowed.",
+                                            sigCtx.inputPort.getSignal().getGlobalId()));
+            }
         }
+
         if (!signal.getDescriptor().assigned())
         {
-            status.messages.emplace_back(fmt::format("Connected signal \"{}\" doesn't contain a descroptor. This is not allowed.",
-                                                     sigCtx.inputPort.getSignal().getGlobalId()));
-            status.success = false;
+            status.addError(fmt::format("Connected signal \"{}\" doesn't contain a descroptor. This is not allowed.",
+                                        sigCtx.inputPort.getSignal().getGlobalId()));
         }
         if (auto demensions = signal.getDescriptor().getDimensions(); demensions.assigned() && demensions.getCount() > 0)
         {
-            status.messages.emplace_back(fmt::format("Connected signal \"{}\" has more then 1 demention. This is not allowed.",
-                                                     sigCtx.inputPort.getSignal().getGlobalId()));
-            status.success = false;
+            status.addError(fmt::format("Connected signal \"{}\" has more then 1 demention. This is not allowed.",
+                                        sigCtx.inputPort.getSignal().getGlobalId()));
         }
         if (auto sampleType = signal.getDescriptor().getSampleType(); allowedSampleTypes.find(sampleType) == allowedSampleTypes.cend())
         {
-            status.messages.emplace_back(fmt::format("Connected signal \"{}\" has an incompatible sample type ({}).",
-                                                     sigCtx.inputPort.getSignal().getGlobalId(),
-                                                     convertSampleTypeToString(sampleType)));
-            status.success = false;
+            status.addError(fmt::format("Connected signal \"{}\" has an incompatible sample type ({}).",
+                                        sigCtx.inputPort.getSignal().getGlobalId(),
+                                        convertSampleTypeToString(sampleType)));
         }
     }
 
@@ -131,8 +140,7 @@ ProcedureStatus MultipleSharedHandler::validateSignalContexts(const std::vector<
 
     if (error)
     {
-        status.messages.emplace_back(fmt::format("Connected signals have incompatible sample rates. This is not allowed."));
-        status.success = false;
+        status.addError(fmt::format("Connected signals have incompatible sample rates. This is not allowed."));
     }
     return status;
 }
@@ -142,14 +150,13 @@ TimestampTickStruct MultipleSharedHandler::domainToTs(const MultiReaderStatusPtr
     TimestampTickStruct res;
     const auto descriptor =
         status.getMainDescriptor().getParameters().get(event_packet_param::DOMAIN_DATA_DESCRIPTOR).asPtr<IDataDescriptor>();
-    const auto [ratioNum, ratioDen] = calculateRatio(descriptor);
     const uint64_t offset = status.getOffset().getValue<uint64_t>(0);
     const uint64_t start = descriptor.getRule().getParameters().get("start").getValue<uint64_t>(0);
     const uint64_t refOffset = descriptor.getReferenceDomainInfo().getReferenceDomainOffset().getValue<uint64_t>(0);
 
     res.firstTick = offset + start + refOffset;
-    res.ratioNum = ratioNum;
-    res.ratioDen = ratioDen;
+    res.ratioNum = descriptor.getTickResolution().simplify().getNumerator();
+    res.ratioDen = descriptor.getTickResolution().getDenominator();
     res.multiplier = 1'000'000; // amount of us in a second
     res.delta = descriptor.getRule().getParameters().get("delta").getValue<uint64_t>(0);
     return res;
@@ -168,14 +175,28 @@ std::string MultipleSharedHandler::toString(const SampleType sampleType, const s
     {
         case SampleType::Float64:
             return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::Float64>::Type*>(data) + offset)));
+        case SampleType::Float32:
+            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::Float32>::Type*>(data) + offset)));
         case SampleType::UInt64:
             return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt64>::Type*>(data) + offset)));
         case SampleType::Int64:
             return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::Int64>::Type*>(data) + offset)));
+        case SampleType::UInt32:
+            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt32>::Type*>(data) + offset)));
+        case SampleType::Int32:
+            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::Int32>::Type*>(data) + offset)));
+        case SampleType::UInt16:
+            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt16>::Type*>(data) + offset)));
+        case SampleType::Int16:
+            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::Int16>::Type*>(data) + offset)));
+        case SampleType::UInt8:
+            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt8>::Type*>(data) + offset)));
+        case SampleType::Int8:
+            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::Int8>::Type*>(data) + offset)));
         default:
             break;
     }
-    return "";
+    return "unsupported";
 }
 
 template <typename T>
@@ -187,6 +208,9 @@ std::string MultipleSharedHandler::toString(const std::string& valueFieldName, v
 std::string MultipleSharedHandler::tsToString(TimestampTickStruct tsStruct, SizeT offset)
 {
     // const uint64_t epochTime = (firstTick + delta * offset) * ratioNum * US_IN_S / ratioDen;    // us
+    const uint64_t g = std::gcd(tsStruct.multiplier, tsStruct.ratioDen);
+    tsStruct.multiplier /= g;
+    tsStruct.ratioDen /= g;
     return fmt::format("\"timestamp\" : {}",
                        std::to_string(((tsStruct.firstTick + tsStruct.delta * offset) * tsStruct.ratioNum * tsStruct.multiplier) /
                                       tsStruct.ratioDen));
