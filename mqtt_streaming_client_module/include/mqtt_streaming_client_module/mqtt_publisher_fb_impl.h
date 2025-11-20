@@ -28,10 +28,10 @@ class MqttPublisherFbImpl final : public FunctionBlock
 {
 public:
     explicit MqttPublisherFbImpl(const ContextPtr& ctx,
-                                const ComponentPtr& parent,
-                                const FunctionBlockTypePtr& type,
-                                std::shared_ptr<mqtt::MqttAsyncClient> mqttClient,
-                                const PropertyObjectPtr& config = nullptr);
+                                 const ComponentPtr& parent,
+                                 const FunctionBlockTypePtr& type,
+                                 std::shared_ptr<mqtt::MqttAsyncClient> mqttClient,
+                                 const PropertyObjectPtr& config = nullptr);
     ~MqttPublisherFbImpl();
 
     static FunctionBlockTypePtr CreateType();
@@ -57,12 +57,11 @@ private:
     void readProperties();
     void updateInputPorts();
     void validateInputPorts();
-    template<typename retT, typename intfT>
+    template <typename retT, typename intfT>
     retT readProperty(const std::string& propertyName, const retT defaultValue);
     void runReaderThread();
     void readerLoop();
     void sendMessages(const MqttData& data);
-    //void removed() override;
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE

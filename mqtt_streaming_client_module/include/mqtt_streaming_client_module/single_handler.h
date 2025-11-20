@@ -27,12 +27,17 @@ public:
 
     MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) override;
     ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const override;
-    ProcedureStatus signalListChanged(std::vector<SignalContext>& signalContexts) override {return ProcedureStatus{true, {}};};
+    ProcedureStatus signalListChanged(std::vector<SignalContext>& signalContexts) override
+    {
+        return ProcedureStatus{true, {}};
+    };
+
 protected:
     bool useSignalNames;
 
     virtual MqttData processSignalContext(SignalContext& signalContext);
-    void processSignalDescriptorChanged(SignalContext& signalCtx, const DataDescriptorPtr& valueSigDesc, const DataDescriptorPtr& domainSigDesc);
+    void
+    processSignalDescriptorChanged(SignalContext& signalCtx, const DataDescriptorPtr& valueSigDesc, const DataDescriptorPtr& domainSigDesc);
     MqttDataSample processDataPacket(SignalContext& signalContext, const DataPacketPtr& dataPacket);
     std::string toString(const std::string valueFieldName, daq::DataPacketPtr packet);
     std::string buildTopicName(const SignalContext& signalContext);

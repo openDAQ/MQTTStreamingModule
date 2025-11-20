@@ -38,6 +38,7 @@ public:
     MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) override;
     ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const override;
     ProcedureStatus signalListChanged(std::vector<SignalContext>& signalContexts) override;
+
 protected:
     bool useSignalNames;
     const size_t buffersSize;
@@ -45,7 +46,7 @@ protected:
     std::vector<void*> dataBuffers;
     daq::MultiReaderPtr reader;
 
-    template<typename T>
+    template <typename T>
     std::string toString(const std::string& valueFieldName, void* data, SizeT offset);
     std::string toString(const SampleType sampleType, const std::string& valueFieldName, void* data, SizeT offset);
     std::string tsToString(TimestampTickStruct tsStruct, SizeT offset);

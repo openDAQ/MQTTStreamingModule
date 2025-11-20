@@ -17,10 +17,10 @@
 #pragma once
 
 #include "mqtt_streaming_client_module/types.h"
-#include <mqtt_streaming_client_module/single_handler.h>
-#include <mqtt_streaming_client_module/multisingle_handler.h>
 #include <mqtt_streaming_client_module/multiple_handler.h>
 #include <mqtt_streaming_client_module/multiple_shared_handler.h>
+#include <mqtt_streaming_client_module/multisingle_handler.h>
+#include <mqtt_streaming_client_module/single_handler.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 

@@ -174,25 +174,45 @@ std::string MultipleSharedHandler::toString(const SampleType sampleType, const s
     switch (sampleType)
     {
         case SampleType::Float64:
-            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::Float64>::Type*>(data) + offset)));
+            return fmt::format("\"{}\" : {}",
+                               valueFieldName,
+                               std::to_string(*(static_cast<SampleTypeToType<SampleType::Float64>::Type*>(data) + offset)));
         case SampleType::Float32:
-            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::Float32>::Type*>(data) + offset)));
+            return fmt::format("\"{}\" : {}",
+                               valueFieldName,
+                               std::to_string(*(static_cast<SampleTypeToType<SampleType::Float32>::Type*>(data) + offset)));
         case SampleType::UInt64:
-            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt64>::Type*>(data) + offset)));
+            return fmt::format("\"{}\" : {}",
+                               valueFieldName,
+                               std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt64>::Type*>(data) + offset)));
         case SampleType::Int64:
-            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::Int64>::Type*>(data) + offset)));
+            return fmt::format("\"{}\" : {}",
+                               valueFieldName,
+                               std::to_string(*(static_cast<SampleTypeToType<SampleType::Int64>::Type*>(data) + offset)));
         case SampleType::UInt32:
-            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt32>::Type*>(data) + offset)));
+            return fmt::format("\"{}\" : {}",
+                               valueFieldName,
+                               std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt32>::Type*>(data) + offset)));
         case SampleType::Int32:
-            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::Int32>::Type*>(data) + offset)));
+            return fmt::format("\"{}\" : {}",
+                               valueFieldName,
+                               std::to_string(*(static_cast<SampleTypeToType<SampleType::Int32>::Type*>(data) + offset)));
         case SampleType::UInt16:
-            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt16>::Type*>(data) + offset)));
+            return fmt::format("\"{}\" : {}",
+                               valueFieldName,
+                               std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt16>::Type*>(data) + offset)));
         case SampleType::Int16:
-            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::Int16>::Type*>(data) + offset)));
+            return fmt::format("\"{}\" : {}",
+                               valueFieldName,
+                               std::to_string(*(static_cast<SampleTypeToType<SampleType::Int16>::Type*>(data) + offset)));
         case SampleType::UInt8:
-            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt8>::Type*>(data) + offset)));
+            return fmt::format("\"{}\" : {}",
+                               valueFieldName,
+                               std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt8>::Type*>(data) + offset)));
         case SampleType::Int8:
-            return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<SampleTypeToType<SampleType::Int8>::Type*>(data) + offset)));
+            return fmt::format("\"{}\" : {}",
+                               valueFieldName,
+                               std::to_string(*(static_cast<SampleTypeToType<SampleType::Int8>::Type*>(data) + offset)));
         default:
             break;
     }

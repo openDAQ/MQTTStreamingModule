@@ -79,18 +79,18 @@ ProcedureStatus MultipleHandler::validateSignalContexts(const std::vector<Signal
         if (!signal.getDescriptor().assigned())
         {
             status.addError(fmt::format("Connected signal \"{}\" doesn't contain a descroptor. This is not allowed.",
-                                                     sigCtx.inputPort.getSignal().getGlobalId()));
+                                        sigCtx.inputPort.getSignal().getGlobalId()));
         }
         if (auto demensions = signal.getDescriptor().getDimensions(); demensions.assigned() && demensions.getCount() > 0)
         {
             status.addError(fmt::format("Connected signal \"{}\" has more then 1 demention. This is not allowed.",
-                                                     sigCtx.inputPort.getSignal().getGlobalId()));
+                                        sigCtx.inputPort.getSignal().getGlobalId()));
         }
         if (auto sampleType = signal.getDescriptor().getSampleType(); allowedSampleTypes.find(sampleType) == allowedSampleTypes.cend())
         {
             status.addError(fmt::format("Connected signal \"{}\" has an incompatible sample type ({}).",
-                                                     sigCtx.inputPort.getSignal().getGlobalId(),
-                                                     convertSampleTypeToString(sampleType)));
+                                        sigCtx.inputPort.getSignal().getGlobalId(),
+                                        convertSampleTypeToString(sampleType)));
         }
         if (auto dSignal = signal.getDomainSignal(); dSignal.assigned())
         {
@@ -98,19 +98,19 @@ ProcedureStatus MultipleHandler::validateSignalContexts(const std::vector<Signal
             if (!descriptor.assigned())
             {
                 status.addError(fmt::format("Connected signal \"{}\" has a domain signal without descriptor. This is not allowed.",
-                                                         sigCtx.inputPort.getSignal().getGlobalId()));
+                                            sigCtx.inputPort.getSignal().getGlobalId()));
             }
             else if (descriptor.getSampleType() != SampleType::UInt64 && descriptor.getSampleType() != SampleType::Int64)
             {
                 status.addError(fmt::format("Connected signal \"{}\" has an incompatible sample type for its domain signal. "
-                                                         "Only SampleType::UInt64 and SampleType::Int64 are allowed.",
-                                                         sigCtx.inputPort.getSignal().getGlobalId()));
+                                            "Only SampleType::UInt64 and SampleType::Int64 are allowed.",
+                                            sigCtx.inputPort.getSignal().getGlobalId()));
             }
             else if (auto unit = descriptor.getUnit(); !unit.assigned() || unit.getSymbol() != "s")
             {
                 status.addError(fmt::format("Connected signal \"{}\" has an incompatible unit for its domain signal. "
-                                                         "Only 's' (seconds) is allowed.",
-                                                         sigCtx.inputPort.getSignal().getGlobalId()));
+                                            "Only 's' (seconds) is allowed.",
+                                            sigCtx.inputPort.getSignal().getGlobalId()));
             }
         }
     }

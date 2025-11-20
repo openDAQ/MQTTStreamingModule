@@ -10,10 +10,10 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_CLIENT_MODULE
 std::atomic<int> MqttPublisherFbImpl::localIndex = 0;
 
 MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
-                                       const ComponentPtr& parent,
-                                       const FunctionBlockTypePtr& type,
-                                       std::shared_ptr<mqtt::MqttAsyncClient> mqttClient,
-                                       const PropertyObjectPtr& config)
+                                         const ComponentPtr& parent,
+                                         const FunctionBlockTypePtr& type,
+                                         std::shared_ptr<mqtt::MqttAsyncClient> mqttClient,
+                                         const PropertyObjectPtr& config)
     : FunctionBlock(type, ctx, parent, getLocalId()),
       mqttClient(mqttClient),
       jsonDataWorker(loggerComponent),
@@ -53,10 +53,7 @@ FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
                                   .build());
     defaultConfig.addProperty(IntProperty(PROPERTY_NAME_PUB_QOS, DEFAULT_PUB_QOS));
     defaultConfig.addProperty(IntProperty(PROPERTY_NAME_PUB_READ_PERIOD, DEFAULT_PUB_READ_PERIOD));
-    const auto fbType = FunctionBlockType(PUB_FB_NAME,
-                                          PUB_FB_NAME,
-                                          "",
-                                          defaultConfig);
+    const auto fbType = FunctionBlockType(PUB_FB_NAME, PUB_FB_NAME, "", defaultConfig);
     return fbType;
 }
 
@@ -98,7 +95,7 @@ void MqttPublisherFbImpl::updateInputPorts()
 
     const auto inputPort = createAndAddInputPort(fmt::format("Input{}", inputPortCount++), PacketReadyNotification::SameThread);
 
-    signalContexts.emplace_back(SignalContext{ 0, inputPort });
+    signalContexts.emplace_back(SignalContext{0, inputPort});
     for (size_t i = 0; i < signalContexts.size(); i++)
         signalContexts[i].index = i;
 }
@@ -159,7 +156,7 @@ void MqttPublisherFbImpl::readProperties()
         config.periodMs = DEFAULT_PUB_READ_PERIOD;
 }
 
-template<typename retT, typename intfT>
+template <typename retT, typename intfT>
 retT MqttPublisherFbImpl::readProperty(const std::string& propertyName, const retT defaultValue)
 {
     retT returnValue{};
@@ -183,7 +180,7 @@ void MqttPublisherFbImpl::runReaderThread()
 
 void MqttPublisherFbImpl::readerLoop()
 {
-    while(running)
+    while (running)
     {
         MqttData msgs;
         if (hasError == false)

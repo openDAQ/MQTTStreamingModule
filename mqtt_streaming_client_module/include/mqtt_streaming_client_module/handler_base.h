@@ -30,6 +30,7 @@ public:
     virtual MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) = 0;
     virtual ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const = 0;
     virtual ProcedureStatus signalListChanged(std::vector<SignalContext>& signalContexts) = 0;
+
 protected:
     static std::pair<uint64_t, uint64_t> calculateRatio(const DataDescriptorPtr descriptor)
     {
@@ -58,7 +59,7 @@ protected:
             ts = *(static_cast<uint64_t*>(domainPacket.getData()));
         else if (domainPacket.getDataDescriptor().getSampleType() == SampleType::Int64)
             ts = *(static_cast<int64_t*>(domainPacket.getData()));
-        ts = ts * num / den;    // us
+        ts = ts * num / den; // us
         return ts;
     }
 
