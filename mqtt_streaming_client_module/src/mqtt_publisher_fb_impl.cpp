@@ -42,18 +42,73 @@ MqttPublisherFbImpl::~MqttPublisherFbImpl()
 FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
 {
     auto defaultConfig = PropertyObject();
-    defaultConfig.addProperty(SelectionProperty(PROPERTY_NAME_PUB_TOPIC_MODE, List<IString>("Single topic", "Multi topic"), 0));
-    defaultConfig.addProperty(BoolPropertyBuilder(PROPERTY_NAME_PUB_SHARED_TS, False)
-                                  .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 1"))
-                                  .build());
-    defaultConfig.addProperty(BoolProperty(PROPERTY_NAME_PUB_GROUP_VALUES, False));
-    defaultConfig.addProperty(BoolProperty(PROPERTY_NAME_PUB_USE_SIGNAL_NAMES, False));
-    defaultConfig.addProperty(IntPropertyBuilder(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, DEFAULT_PUB_PACK_SIZE)
-                                  .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_GROUP_VALUES))
-                                  .build());
-    defaultConfig.addProperty(IntProperty(PROPERTY_NAME_PUB_QOS, DEFAULT_PUB_QOS));
-    defaultConfig.addProperty(IntProperty(PROPERTY_NAME_PUB_READ_PERIOD, DEFAULT_PUB_READ_PERIOD));
-    const auto fbType = FunctionBlockType(PUB_FB_NAME, PUB_FB_NAME, "", defaultConfig);
+    {
+        auto builder =
+            SelectionPropertyBuilder(PROPERTY_NAME_PUB_TOPIC_MODE, List<IString>("single-topic", "multiple-topic"), 0)
+                .setDescription(
+                    "Selects whether to publish all signals to separate MQTT topics (one per signal, single-topic mode) or to a single "
+                    "topic (multiple-topic mode), one for all signals. Choose 0 for single-topic mode, 1 for multiple-topic mode. By "
+                    "default it is set to single-topic mode.");
+        defaultConfig.addProperty(builder.build());
+    }
+    {
+        auto builder = BoolPropertyBuilder(PROPERTY_NAME_PUB_SHARED_TS, False)
+                           .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 1"))
+                           .setDescription("Enables the use of a shared timestamp for all signals when publishing in multiple-topic mode. "
+                                           "By default it is set to false.");
+        defaultConfig.addProperty(builder.build());
+    }
+    {
+        auto builder =
+            BoolPropertyBuilder(PROPERTY_NAME_PUB_GROUP_VALUES, False)
+                .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 0"))
+                .setDescription(
+                    "Enables the use of a sample pack for a signal when publishing in single-topic mode. By default it is set to false.");
+        defaultConfig.addProperty(builder.build());
+    }
+    {
+        auto builder = BoolPropertyBuilder(PROPERTY_NAME_PUB_USE_SIGNAL_NAMES, False)
+                           .setDescription("Uses signal names as JSON field names instead of Global IDs. By default it is set to false.");
+        defaultConfig.addProperty(builder.build());
+    }
+    {
+        auto builder =
+            IntPropertyBuilder(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, DEFAULT_PUB_PACK_SIZE)
+                .setMinValue(1)
+                .setVisible(EvalValue(std::string("($") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 0) && " + std::string("($") +
+                                      PROPERTY_NAME_PUB_GROUP_VALUES + ")"))
+                .setDescription(fmt::format("Set the size of the sample pack when publishing grouped values in single-topic mode. "
+                                            "By default it is set to {}.",
+                                            DEFAULT_PUB_PACK_SIZE));
+        defaultConfig.addProperty(builder.build());
+    }
+    {
+        auto builder =
+            IntPropertyBuilder(PROPERTY_NAME_PUB_QOS, DEFAULT_PUB_QOS)
+                .setMinValue(0)
+                .setMaxValue(2)
+                .setSuggestedValues(List<IInteger>(0, 1, 2))
+                .setDescription(
+                    fmt::format("MQTT Quality of Service level for published messages. It can be 0 (at most once), 1 (at least once), or 2 "
+                                "(exactly once). By default it is set to {}.",
+                                DEFAULT_PUB_QOS));
+        defaultConfig.addProperty(builder.build());
+    }
+    {
+        auto builder =
+            IntPropertyBuilder(PROPERTY_NAME_PUB_READ_PERIOD, DEFAULT_PUB_READ_PERIOD)
+                .setMinValue(0)
+                .setUnit(Unit("ms"))
+                .setDescription(fmt::format("Polling period in milliseconds, which specifies how often the server collects and publishes "
+                                            "the connected signals’ data to an MQTT broker. By default it is set to {} ms.",
+                                            DEFAULT_PUB_READ_PERIOD));
+        defaultConfig.addProperty(builder.build());
+    }
+    const auto fbType = FunctionBlockType(PUB_FB_NAME,
+                                          PUB_FB_NAME,
+                                          "The Publisher function block allows converting openDAQ signal samples into JSON messages and "
+                                          "publishing them to MQTT topics in different ways.",
+                                          defaultConfig);
     return fbType;
 }
 

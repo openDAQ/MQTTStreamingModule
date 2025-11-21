@@ -528,7 +528,7 @@ TEST_F(MqttPublisherFbTest, DefaultConfig)
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_READ_PERIOD).asPtr<IInteger>(), DEFAULT_PUB_READ_PERIOD);
 }
 
-TEST_F(MqttPublisherFbTest, PropertyVisability)
+TEST_F(MqttPublisherFbTest, PropertyVisibility)
 {
     daq::DictPtr<daq::IString, daq::IFunctionBlockType> fbTypes;
     daq::FunctionBlockTypePtr fbt = MqttPublisherFbImpl::CreateType();
@@ -538,9 +538,19 @@ TEST_F(MqttPublisherFbTest, PropertyVisability)
     defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1); // Set to Multi topic
     ASSERT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_SHARED_TS).getVisible());
 
-    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getVisible());
+    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0); // Set to Single topic
     defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES, True);
     ASSERT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getVisible());
+    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1); // Set to Multi topic
+    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getVisible());
+    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1); // Set to Single topic
+    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES, True);
+    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getVisible());
+
+    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0); // Set to Single topic
+    ASSERT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES).getVisible());
+    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1); // Set to Multi topic
+    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES).getVisible());
 }
 
 TEST_F(MqttPublisherFbTest, Config)

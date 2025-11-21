@@ -20,7 +20,7 @@ static constexpr uint16_t DEFAULT_PORT = 1883;
 static constexpr const char* DEFAULT_USERNAME = "";
 static constexpr const char* DEFAULT_PASSWORD = "";
 static constexpr uint32_t DEFAULT_INIT_TIMEOUT = 3000; // ms
-static constexpr uint32_t DEFAULT_DISCOVERY_TIMEOUT = 3000; // ms
+static constexpr uint32_t DEFAULT_DISCOVERY_TIMEOUT = 1000; // ms
 
 static constexpr uint32_t DEFAULT_PUB_READ_PERIOD = 20; // ms
 static constexpr uint32_t DEFAULT_PUB_QOS = 1;
