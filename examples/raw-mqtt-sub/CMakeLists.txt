@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-set(EXAMPLE_PROJECT_NAME "ref-dev-mqtt-raw-sub")
+set(EXAMPLE_PROJECT_NAME "raw-mqtt-sub")
 
 project(${EXAMPLE_PROJECT_NAME} LANGUAGES CXX)
 
