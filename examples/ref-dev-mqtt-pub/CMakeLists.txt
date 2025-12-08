@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-set(EXAMPLE_PROJECT_NAME "ref-dev-mqtt-fb-pub")
+set(EXAMPLE_PROJECT_NAME "ref-dev-mqtt-pub")
 
 project(${EXAMPLE_PROJECT_NAME} LANGUAGES CXX)
 
