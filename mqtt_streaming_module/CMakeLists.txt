@@ -8,6 +8,6 @@ message(STATUS "${MQTT_MODULE_PRJ_NAME} version: ${MQTT_MODULE_VERSION}")
 project(${MQTT_MODULE_PRJ_NAME} VERSION ${MQTT_MODULE_VERSION} LANGUAGES C CXX)
 
 add_subdirectory(src)
-#if (OPENDAQ_MQTT_ENABLE_TESTS)
+if (OPENDAQ_MQTT_ENABLE_TESTS)
     add_subdirectory(tests)
-#endif()
+endif()

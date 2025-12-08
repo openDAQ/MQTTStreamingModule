@@ -8,6 +8,7 @@
 #include <mqtt_streaming_module/constants.h>
 #include <opendaq/reader_factory.h>
 #include <testutils/testutils.h>
+#include <iomanip>
 
 using namespace daq;
 using namespace daq::modules::mqtt_streaming_module;
