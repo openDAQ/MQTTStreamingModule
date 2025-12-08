@@ -62,7 +62,7 @@ endif()
 
 add_subdirectory(external)
 add_subdirectory(mqtt_streaming_protocol)
-add_subdirectory(mqtt_streaming_client_module)
+add_subdirectory(mqtt_streaming_module)
 
 if(OPENDAQ_DEVICE_EXAMPLE_ENABLE_EXAMPLE_APPS)
     message(STATUS "Example applications have been enabled")
