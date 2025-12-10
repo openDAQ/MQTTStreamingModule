@@ -27,21 +27,14 @@ class MqttStreamingModule final : public Module
 public:
     MqttStreamingModule(ContextPtr context);
 
-    ListPtr<IDeviceInfo> onGetAvailableDevices() override;
-    DictPtr<IString, IDeviceType> onGetAvailableDeviceTypes() override;
-    DevicePtr onCreateDevice(const StringPtr& connectionString,
-                             const ComponentPtr& parent,
-                             const PropertyObjectPtr& config) override;
-    bool acceptsConnectionParameters(const StringPtr& connectionString, const PropertyObjectPtr& config);
-    Bool onCompleteServerCapability(const ServerCapabilityPtr& source, const ServerCapabilityConfigPtr& target) override;  // ???
+    DictPtr<IString, IFunctionBlockType> onGetAvailableFunctionBlockTypes() override;
+    FunctionBlockPtr onCreateFunctionBlock(const StringPtr& id,
+                                           const ComponentPtr& parent,
+                                           const StringPtr& localId,
+                                           const PropertyObjectPtr& config) override;
 
 private:
-    void extractConnectionParams(const StringPtr& connectionString, const PropertyObjectPtr& config, std::string& hostType);
-    static DeviceTypePtr createDeviceType();
-    static PropertyObjectPtr createDefaultConfig();
-    static PropertyObjectPtr populateDefaultConfig(const PropertyObjectPtr& config);
-
-    std::mutex sync;
+    static FunctionBlockTypePtr createFbType();
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

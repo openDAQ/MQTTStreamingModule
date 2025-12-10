@@ -3,16 +3,18 @@
 #include <mqtt_streaming_module/constants.h>
 #include <opendaq/instance_factory.h>
 
+using namespace daq::modules::mqtt_streaming_module;
+
 class DaqTestHelper
 {
 public:
     daq::InstancePtr daqInstance;
-    daq::DevicePtr device;
+    daq::FunctionBlockPtr rootMqttFb;
 
-    void StartUp(std::string connectionStr = "daq.mqtt://127.0.0.1", int discoveryTimeoutMs = 0)
+    void StartUp(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
     {
         DaqInstanceInit();
-        DaqMqttDeviceInit(connectionStr, discoveryTimeoutMs);
+        DaqMqttFbInit(url, port);
     }
 
     daq::InstancePtr DaqInstanceInit()
@@ -22,38 +24,24 @@ public:
         return daqInstance;
     }
 
-    daq::GenericDevicePtr<daq::IDevice> DaqMqttDeviceInit(std::string connectionStr, int discoveryTimeoutMs = -1)
+    daq::FunctionBlockPtr DaqMqttFbInit(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
     {
-        if (!device.assigned())
+        if (!rootMqttFb.assigned())
         {
-            if (discoveryTimeoutMs >= 0)
-            {
-                daq::ModulePtr module;
-                createModule(&module, daq::NullContext());
-
-                auto config = module.getAvailableDeviceTypes().get(daq::modules::mqtt_streaming_module::DaqMqttDeviceTypeId).createDefaultConfig();
-                config.setPropertyValue(daq::modules::mqtt_streaming_module::PROPERTY_NAME_DISCOVERY_TIMEOUT, 0);
-                device = daqInstance.addDevice(connectionStr, config);
-            }
-            else
-            {
-                device = daqInstance.addDevice(connectionStr);
-            }
+            auto config = DaqMqttFbConfig(url, port);
+            rootMqttFb = daqInstance.addFunctionBlock(ROOT_FB_NAME, config);
         }
-        return device;
+        return rootMqttFb;
     }
 
-    daq::PropertyObjectPtr DaqMqttDeviceConfig(int discoveryTimeoutMs = -1)
+    daq::PropertyObjectPtr DaqMqttFbConfig(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
     {
         daq::ModulePtr module;
         createModule(&module, daq::NullContext());
 
-        auto config = module.getAvailableDeviceTypes().get(daq::modules::mqtt_streaming_module::DaqMqttDeviceTypeId).createDefaultConfig();
-        if (discoveryTimeoutMs >= 0)
-        {
-            config.setPropertyValue(daq::modules::mqtt_streaming_module::PROPERTY_NAME_DISCOVERY_TIMEOUT, 0);
-        }
-
+        auto config = module.getAvailableFunctionBlockTypes().get(daq::modules::mqtt_streaming_module::ROOT_FB_NAME).createDefaultConfig();
+        config.setPropertyValue(PROPERTY_NAME_MQTT_BROKER_ADDRESS, url);
+        config.setPropertyValue(PROPERTY_NAME_MQTT_BROKER_PORT, port);
         return config;
     }
 

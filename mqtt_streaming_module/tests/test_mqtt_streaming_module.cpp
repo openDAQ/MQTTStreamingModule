@@ -1,5 +1,4 @@
 #include "test_daq_test_helper.h"
-#include <coretypes/common.h>
 #include <mqtt_streaming_module/constants.h>
 #include <mqtt_streaming_module/module_dll.h>
 #include <mqtt_streaming_module/version.h>
@@ -15,11 +14,6 @@ namespace daq::modules::mqtt_streaming_module
 {
 class MqttStreamingClientModuleTest : public testing::Test, public DaqTestHelper
 {
-public:
-    static PropertyObjectPtr createDefaultConfig()
-    {
-        return MqttStreamingModule::createDefaultConfig();
-    }
 };
 } // namespace daq::modules::mqtt_streaming_module
 
@@ -55,20 +49,13 @@ TEST_F(MqttStreamingClientModuleTest, VersionCorrect)
     ASSERT_EQ(version.getPatch(), MQTT_STREAM_MODULE_PATCH_VERSION);
 }
 
-TEST_F(MqttStreamingClientModuleTest, EnumerateDevices)
+TEST_F(MqttStreamingClientModuleTest, MqttFbAvailable)
 {
     auto module = CreateModule();
 
-    ListPtr<IDeviceInfo> deviceInfo;
-    ASSERT_NO_THROW(deviceInfo = module.getAvailableDevices());
-}
-
-TEST_F(MqttStreamingClientModuleTest, CreateDeviceConnectionStringNull)
-{
-    auto module = CreateModule();
-
-    DevicePtr device;
-    ASSERT_THROW(device = module.createDevice(nullptr, nullptr), ArgumentNullException);
+    DictPtr<daq::IString, daq::IFunctionBlockType> fbt;
+    ASSERT_NO_THROW(fbt = module.getAvailableFunctionBlockTypes());
+    ASSERT_EQ(fbt.getCount(), 1u);
 }
 
 TEST_F(MqttStreamingClientModuleTest, GetAvailableComponentTypes)
@@ -77,13 +64,14 @@ TEST_F(MqttStreamingClientModuleTest, GetAvailableComponentTypes)
 
     DictPtr<IString, IFunctionBlockType> functionBlockTypes;
     ASSERT_NO_THROW(functionBlockTypes = module.getAvailableFunctionBlockTypes());
-    ASSERT_EQ(functionBlockTypes.getCount(), 0u);
+    ASSERT_EQ(functionBlockTypes.getCount(), 1u);
+    ASSERT_TRUE(functionBlockTypes.hasKey(ROOT_FB_NAME));
+    ASSERT_EQ(functionBlockTypes.get(ROOT_FB_NAME).getId(), ROOT_FB_NAME);
 
     DictPtr<IString, IDeviceType> deviceTypes;
     ASSERT_NO_THROW(deviceTypes = module.getAvailableDeviceTypes());
-    ASSERT_EQ(deviceTypes.getCount(), 1u);
-    ASSERT_TRUE(deviceTypes.hasKey(DaqMqttDeviceTypeId));
-    ASSERT_EQ(deviceTypes.get(DaqMqttDeviceTypeId).getId(), DaqMqttDeviceTypeId);
+    ASSERT_EQ(deviceTypes.getCount(), 0u);
+
 
     DictPtr<IString, IServerType> serverTypes;
     ASSERT_NO_THROW(serverTypes = module.getAvailableServerTypes());
@@ -104,42 +92,20 @@ TEST_F(MqttStreamingClientModuleTest, GetAvailableComponentTypes)
     ASSERT_EQ(versionInfoModule.getMinor(), MQTT_STREAM_MODULE_MINOR_VERSION);
     ASSERT_EQ(versionInfoModule.getPatch(), MQTT_STREAM_MODULE_PATCH_VERSION);
 
-    // Check module and version info for device types
-    for (const auto& deviceType : deviceTypes)
+    // Check module and version info for fb types
+    for (const auto& fbt : functionBlockTypes)
     {
-        ModuleInfoPtr moduleInfoDeviceType;
-        ASSERT_NO_THROW(moduleInfoDeviceType = deviceType.second.getModuleInfo());
-        ASSERT_NE(moduleInfoDeviceType, nullptr);
-        ASSERT_EQ(moduleInfoDeviceType.getName(), MODULE_NAME);
-        ASSERT_EQ(moduleInfoDeviceType.getId(), MODULE_ID);
+        ModuleInfoPtr moduleInfo;
+        ASSERT_NO_THROW(moduleInfo = fbt.second.getModuleInfo());
+        ASSERT_NE(moduleInfo, nullptr);
+        ASSERT_EQ(moduleInfo.getName(), MODULE_NAME);
+        ASSERT_EQ(moduleInfo.getId(), MODULE_ID);
 
-        VersionInfoPtr versionInfoDeviceType;
-        ASSERT_NO_THROW(versionInfoDeviceType = moduleInfoDeviceType.getVersionInfo());
-        ASSERT_NE(versionInfoDeviceType, nullptr);
-        ASSERT_EQ(versionInfoDeviceType.getMajor(), MQTT_STREAM_MODULE_MAJOR_VERSION);
-        ASSERT_EQ(versionInfoDeviceType.getMinor(), MQTT_STREAM_MODULE_MINOR_VERSION);
-        ASSERT_EQ(versionInfoDeviceType.getPatch(), MQTT_STREAM_MODULE_PATCH_VERSION);
-    }
-}
-
-TEST_F(MqttStreamingClientModuleTest, ConfigFilling)
-{
-    const auto defConfig = createDefaultConfig();
-    auto customConfig = PropertyObject();
-    customConfig.addProperty(StringProperty(PROPERTY_NAME_MQTT_BROKER_ADDRESS, "testBrokerAddress.com"));
-    customConfig.addProperty(IntProperty(PROPERTY_NAME_CONNECT_TIMEOUT, 123456));
-    auto newConfig = ::daq::modules::mqtt_streaming_module::populateDefaultConfig(defConfig, customConfig);
-
-    ASSERT_EQ(defConfig.getAllProperties().getCount(), newConfig.getAllProperties().getCount());
-    for (const auto& prop : defConfig.getAllProperties())
-    {
-        if (customConfig.hasProperty(prop.getName()))
-        {
-            EXPECT_EQ(newConfig.getPropertyValue(prop.getName()), customConfig.getPropertyValue(prop.getName()));
-        }
-        else
-        {
-            EXPECT_EQ(newConfig.getPropertyValue(prop.getName()), prop.getValue());
-        }
+        VersionInfoPtr versionInfo;
+        ASSERT_NO_THROW(versionInfo = moduleInfo.getVersionInfo());
+        ASSERT_NE(versionInfo, nullptr);
+        ASSERT_EQ(versionInfo.getMajor(), MQTT_STREAM_MODULE_MAJOR_VERSION);
+        ASSERT_EQ(versionInfo.getMinor(), MQTT_STREAM_MODULE_MINOR_VERSION);
+        ASSERT_EQ(versionInfo.getPatch(), MQTT_STREAM_MODULE_PATCH_VERSION);
     }
 }

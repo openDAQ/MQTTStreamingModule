@@ -7,11 +7,8 @@
 #include <cmath>
 #include <coreobjects/property_factory.h>
 #include <coreobjects/property_object_factory.h>
-#include <coretypes/common.h>
 #include <mqtt_streaming_module/constants.h>
-#include <opendaq/event_packet_utils.h>
 #include <opendaq/reader_factory.h>
-#include <sstream>
 #include <testutils/testutils.h>
 
 using namespace daq;
@@ -315,35 +312,35 @@ public:
 
     struct Result
     {
-        bool deviceProblem = false;
+        bool mqttFbProblem = false;
         bool publishingProblem = false;
         data_set_t dataReceived;
     };
 
-    Result processTransfer(const InstancePtr& instance, const std::string& url, const std::string& topic_postfix, const data_set_t& dataSet)
+    Result processTransfer(const InstancePtr& instance, const std::string& url, const uint16_t port, const std::string& topic_postfix, const data_set_t& dataSet)
     {
         Result result;
         const std::string topic = buildTopicName() + topic_postfix;
         const auto jsonConfig = replacePlaceholder(VALID_JSON_CONFIG_0, "<placeholder_topic>", topic);
-        DevicePtr device;
+        FunctionBlockPtr rootMqttFb;
         try
         {
-            device = instance.addDevice("daq.mqtt://" + url, DaqMqttDeviceConfig(100));
+            rootMqttFb = instance.addFunctionBlock(ROOT_FB_NAME, DaqMqttFbConfig(url, port));
         }
         catch (...)
         {
-            result.deviceProblem = true;
+            result.mqttFbProblem = true;
             return result;
         }
 
-        auto config = device.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
+        auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, jsonConfig);
-        auto singal = device.addFunctionBlock(JSON_FB_NAME, config).getSignals()[0];
+        auto singal = rootMqttFb.addFunctionBlock(JSON_FB_NAME, config).getSignals()[0];
         auto reader = daq::PacketReader(singal);
 
         MqttAsyncClientWrapper publisher(buildClientId());
-        result.deviceProblem = !publisher.connect(url);
-        if (result.deviceProblem)
+        result.mqttFbProblem = !publisher.connect(url + ':' + std::to_string(port));
+        if (result.mqttFbProblem)
             return result;
 
         for (const auto& [value, ts] : dataSet)
@@ -401,7 +398,7 @@ TEST_F(MqttJsonFbTest, DefaultConfig)
     daq::DictPtr<daq::IString, daq::IFunctionBlockType> fbTypes;
     daq::FunctionBlockTypePtr fbt;
     daq::PropertyObjectPtr defaultConfig;
-    ASSERT_NO_THROW(fbTypes = device.getAvailableFunctionBlockTypes());
+    ASSERT_NO_THROW(fbTypes = rootMqttFb.getAvailableFunctionBlockTypes());
     ASSERT_NO_THROW(fbt = fbTypes.get(JSON_FB_NAME));
     ASSERT_NO_THROW(defaultConfig = fbt.createDefaultConfig());
 
@@ -418,11 +415,11 @@ TEST_F(MqttJsonFbTest, DefaultConfig)
 TEST_F(MqttJsonFbTest, Config)
 {
     StartUp();
-    auto config = device.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
 
     config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, VALID_JSON_0);
     daq::FunctionBlockPtr jsonFb;
-    ASSERT_NO_THROW(jsonFb = device.addFunctionBlock(JSON_FB_NAME, config));
+    ASSERT_NO_THROW(jsonFb = rootMqttFb.addFunctionBlock(JSON_FB_NAME, config));
 
     const auto allProperties = jsonFb.getAllProperties();
     ASSERT_EQ(allProperties.getCount(), config.getAllProperties().getCount());
@@ -439,11 +436,11 @@ TEST_F(MqttJsonFbTest, Creation)
 {
     StartUp();
     daq::FunctionBlockPtr jsonFb;
-    ASSERT_NO_THROW(jsonFb = device.addFunctionBlock(JSON_FB_NAME));
+    ASSERT_NO_THROW(jsonFb = rootMqttFb.addFunctionBlock(JSON_FB_NAME));
     ASSERT_EQ(jsonFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
     ASSERT_EQ(jsonFb.getName(), JSON_FB_NAME);
-    auto fbs = device.getFunctionBlocks();
+    auto fbs = rootMqttFb.getFunctionBlocks();
     bool contain = false;
     daq::GenericFunctionBlockPtr<daq::IFunctionBlock> fbFromList;
     for (const auto& fb : fbs)
@@ -465,7 +462,7 @@ TEST_F(MqttJsonFbTest, CreationWithDefaultConfig)
 {
     StartUp();
     daq::FunctionBlockPtr jsonFb;
-    ASSERT_NO_THROW(jsonFb = device.addFunctionBlock(JSON_FB_NAME));
+    ASSERT_NO_THROW(jsonFb = rootMqttFb.addFunctionBlock(JSON_FB_NAME));
     auto signals = jsonFb.getSignals();
     ASSERT_EQ(signals.getCount(), 0u);
     ASSERT_EQ(jsonFb.getStatusContainer().getStatus("ComponentStatus"),
@@ -479,7 +476,7 @@ TEST_F(MqttJsonFbTest, CreationWithPartialConfig)
     daq::FunctionBlockPtr jsonFb;
     auto config = PropertyObject();
     config.addProperty(StringProperty(PROPERTY_NAME_SIGNAL_LIST, String(VALID_JSON_0)));
-    ASSERT_NO_THROW(jsonFb = device.addFunctionBlock(JSON_FB_NAME, config));
+    ASSERT_NO_THROW(jsonFb = rootMqttFb.addFunctionBlock(JSON_FB_NAME, config));
     ASSERT_EQ(jsonFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
 }
@@ -489,9 +486,9 @@ TEST_F(MqttJsonFbTest, CreationWithCustomConfig)
     // If FB has only one property, partial config is equivalent to custom config
     StartUp();
     daq::FunctionBlockPtr jsonFb;
-    auto config = device.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
     config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, String(VALID_JSON_0));
-    ASSERT_NO_THROW(jsonFb = device.addFunctionBlock(JSON_FB_NAME, config));
+    ASSERT_NO_THROW(jsonFb = rootMqttFb.addFunctionBlock(JSON_FB_NAME, config));
     ASSERT_EQ(jsonFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
 }
@@ -503,11 +500,11 @@ TEST_P(MqttJsonFbRightJsonConfigPTest, CheckNumberOfSignal)
 
     auto configString = String(configStr);
 
-    auto config = device.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
 
     config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, configString);
     daq::FunctionBlockPtr jsonFb;
-    ASSERT_NO_THROW(jsonFb = device.addFunctionBlock(JSON_FB_NAME, config));
+    ASSERT_NO_THROW(jsonFb = rootMqttFb.addFunctionBlock(JSON_FB_NAME, config));
     auto signals = jsonFb.getSignals();
     ASSERT_EQ(signals.getCount(), signalCnt);
     ASSERT_EQ(jsonFb.getStatusContainer().getStatus("ComponentStatus"),
@@ -526,11 +523,11 @@ TEST_F(MqttJsonFbTest, SignalListWithWildcard)
 
     auto configString = String(WILDCARD_JSON_0);
 
-    auto config = device.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
 
     config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, configString);
     daq::FunctionBlockPtr jsonFb;
-    ASSERT_NO_THROW(jsonFb = device.addFunctionBlock(JSON_FB_NAME, config));
+    ASSERT_NO_THROW(jsonFb = rootMqttFb.addFunctionBlock(JSON_FB_NAME, config));
     auto signals = jsonFb.getSignals();
     ASSERT_EQ(signals.getCount(), 1u);
     // TODO : check status to Warning when wildcard is used
@@ -545,11 +542,11 @@ TEST_P(MqttJsonFbWrongJsonConfigPTest, WrongJsonConfig)
 
     auto configString = String(configStr);
 
-    auto config = device.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
 
     config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, configString);
     daq::FunctionBlockPtr jsonFb;
-    ASSERT_NO_THROW(jsonFb = device.addFunctionBlock(JSON_FB_NAME, config));
+    ASSERT_NO_THROW(jsonFb = rootMqttFb.addFunctionBlock(JSON_FB_NAME, config));
     auto signals = jsonFb.getSignals();
     ASSERT_EQ(signals.getCount(), 0u);
     // TODO : check status to Error when config is invalid
@@ -737,26 +734,26 @@ TEST_F(MqttJsonFbTest, DataTransferMissingFieldSeveralSignals)
 TEST_F(MqttJsonFbCommunicationTest, FullDataTransfer)
 {
     const auto instance = Instance();
-    const auto result = processTransfer(instance, "127.0.0.1", "", DATA_DOUBLE_INT_0);
+    const auto result = processTransfer(instance, "127.0.0.1", DEFAULT_PORT, "", DATA_DOUBLE_INT_0);
 
-    ASSERT_FALSE(result.deviceProblem);
+    ASSERT_FALSE(result.mqttFbProblem);
     ASSERT_FALSE(result.publishingProblem);
     EXPECT_EQ(DATA_DOUBLE_INT_0.size(), result.dataReceived.size());
     ASSERT_TRUE(compareData(DATA_DOUBLE_INT_0, result.dataReceived));
 }
 
-TEST_F(MqttJsonFbCommunicationTest, FullDataTransferFor2Devices)
+TEST_F(MqttJsonFbCommunicationTest, FullDataTransferFor2MqttFbs)
 {
     const auto instance = Instance();
-    const auto result0 = processTransfer(instance, "127.0.0.1:1883", "0", DATA_DOUBLE_INT_0);
-    const auto result1 = processTransfer(instance, "127.0.0.1:1884", "1", DATA_DOUBLE_INT_1);
+    const auto result0 = processTransfer(instance, "127.0.0.1", 1883, "0", DATA_DOUBLE_INT_0);
+    const auto result1 = processTransfer(instance, "127.0.0.1", 1884, "1", DATA_DOUBLE_INT_1);
 
-    ASSERT_FALSE(result0.deviceProblem);
+    ASSERT_FALSE(result0.mqttFbProblem);
     ASSERT_FALSE(result0.publishingProblem);
     EXPECT_EQ(DATA_DOUBLE_INT_0.size(), result0.dataReceived.size());
     EXPECT_TRUE(compareData(DATA_DOUBLE_INT_0, result0.dataReceived));
 
-    ASSERT_FALSE(result1.deviceProblem);
+    ASSERT_FALSE(result1.mqttFbProblem);
     ASSERT_FALSE(result1.publishingProblem);
     EXPECT_EQ(DATA_DOUBLE_INT_1.size(), result1.dataReceived.size());
     EXPECT_TRUE(compareData(DATA_DOUBLE_INT_1, result1.dataReceived));

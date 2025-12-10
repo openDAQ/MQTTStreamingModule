@@ -4,7 +4,6 @@
 #include "test_daq_test_helper.h"
 #include <coreobjects/property_factory.h>
 #include <coreobjects/property_object_factory.h>
-#include <coretypes/common.h>
 #include <mqtt_streaming_module/constants.h>
 #include <opendaq/reader_factory.h>
 #include <testutils/testutils.h>
@@ -205,15 +204,15 @@ public:
 
     void CreatePublisherFB()
     {
-        auto config = device.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_QOS, 2);
-        fb = device.addFunctionBlock(PUB_FB_NAME, config);
+        fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME, config);
     }
 
     void CreatePublisherFB(
         bool multiTopic, bool sharedTs, bool groupV, bool useSignalNames, uint valuePackSize = 0, uint qos = 2, uint readPeriod = 20)
     {
-        auto config = device.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, multiTopic ? 1 : 0);
         config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, sharedTs ? True : False);
         config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES, groupV ? True : False);
@@ -221,7 +220,7 @@ public:
         config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, valuePackSize);
         config.setPropertyValue(PROPERTY_NAME_PUB_QOS, qos);
         config.setPropertyValue(PROPERTY_NAME_PUB_READ_PERIOD, readPeriod);
-        fb = device.addFunctionBlock(PUB_FB_NAME, config);
+        fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME, config);
     }
 
     bool CreateSubscriber()
@@ -490,7 +489,7 @@ TEST_F(MqttPublisherFbTest, DefaultConfig)
     daq::DictPtr<daq::IString, daq::IFunctionBlockType> fbTypes;
     daq::FunctionBlockTypePtr fbt;
     daq::PropertyObjectPtr defaultConfig;
-    ASSERT_NO_THROW(fbTypes = device.getAvailableFunctionBlockTypes());
+    ASSERT_NO_THROW(fbTypes = rootMqttFb.getAvailableFunctionBlockTypes());
     ASSERT_NO_THROW(fbt = fbTypes.get(PUB_FB_NAME));
     ASSERT_NO_THROW(defaultConfig = fbt.createDefaultConfig());
 
@@ -557,7 +556,7 @@ TEST_F(MqttPublisherFbTest, PropertyVisibility)
 TEST_F(MqttPublisherFbTest, Config)
 {
     StartUp();
-    auto config = device.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
 
     config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
     config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, True);
@@ -567,7 +566,7 @@ TEST_F(MqttPublisherFbTest, Config)
     config.setPropertyValue(PROPERTY_NAME_PUB_QOS, 2);
     config.setPropertyValue(PROPERTY_NAME_PUB_READ_PERIOD, 100);
     daq::FunctionBlockPtr fb;
-    ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME, config));
+    ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME, config));
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
     const auto allProperties = fb.getAllProperties();
@@ -594,7 +593,7 @@ TEST_F(MqttPublisherFbTest, Creation)
 {
     StartUp();
     daq::FunctionBlockPtr fb;
-    ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME));
+    ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME));
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
 }
@@ -604,17 +603,17 @@ TEST_F(MqttPublisherFbTest, TwoFbCreation)
     StartUp();
     {
         daq::FunctionBlockPtr fb;
-        ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME));
+        ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME));
         ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
                   Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
     }
     {
         daq::FunctionBlockPtr fb;
-        ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME));
+        ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME));
         ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
                   Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
     }
-    auto fbs = device.getFunctionBlocks();
+    auto fbs = rootMqttFb.getFunctionBlocks();
     ASSERT_EQ(fbs.getCount(), 2u);
 }
 
@@ -622,7 +621,7 @@ TEST_F(MqttPublisherFbTest, CreationWithDefaultConfig)
 {
     StartUp();
     daq::FunctionBlockPtr fb;
-    ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME));
+    ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME));
     auto signals = fb.getSignals();
     ASSERT_EQ(signals.getCount(), 0u);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
@@ -635,7 +634,7 @@ TEST_F(MqttPublisherFbTest, CreationWithPartialConfig)
     daq::FunctionBlockPtr fb;
     auto config = PropertyObject();
     config.addProperty(BoolProperty(PROPERTY_NAME_PUB_USE_SIGNAL_NAMES, True));
-    ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME, config));
+    ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME, config));
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
 }
@@ -646,7 +645,7 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
 
     {
         daq::FunctionBlockPtr fb;
-        ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME));
+        ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME));
         auto help = SignalHelper<double>();
 
         ASSERT_EQ(fb.getInputPorts().getCount(), 1u);
@@ -677,9 +676,9 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
 
     {
         daq::FunctionBlockPtr fb;
-        auto config = device.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, True);
-        ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME, config));
+        ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME, config));
         auto help = SignalHelper<double>();
 
         auto signal0 = help.createSignal(DataDescriptorBuilder().setRule(LinearDataRule(2, 3)).setTickResolution(Ratio(1, 1000)));
@@ -693,9 +692,9 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
 
     {
         daq::FunctionBlockPtr fb;
-        auto config = device.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, True);
-        ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME, config));
+        ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME, config));
         auto help = SignalHelper<double>();
 
         auto signal0 = help.createSignal(DataDescriptorBuilder().setRule(LinearDataRule(1, 3)).setTickResolution(Ratio(1, 1000)));
@@ -712,9 +711,9 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
 
     {
         daq::FunctionBlockPtr fb;
-        auto config = device.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, True);
-        ASSERT_NO_THROW(fb = device.addFunctionBlock(PUB_FB_NAME, config));
+        ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME, config));
         auto help = SignalHelper<double>();
 
         auto signal0 = help.createSignal(DataDescriptorBuilder().setRule(LinearDataRule(2, 3)).setTickResolution(Ratio(1, 1000)));

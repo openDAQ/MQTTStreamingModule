@@ -53,16 +53,19 @@ int main(int argc, char* argv[])
         return appConfig.error;
     }
 
-    // Create OpenDAQ instance and add MQTT broker device
+    // Create OpenDAQ instance and add MQTT broker FB
     const InstancePtr instance = InstanceBuilder().addModulePath(MODULE_PATH).build();
-    auto brokerDevice = instance.addDevice("daq.mqtt://" + appConfig.brokerAddress);
-    auto availableDeviceNodes = brokerDevice.getAvailableFunctionBlockTypes();
+    const std::string rootFbName = "@rootMqttFb";
+    auto rootFbConfig = instance.getAvailableFunctionBlockTypes().get(rootFbName).createDefaultConfig();
+    rootFbConfig.setPropertyValue("MqttBrokerAddress", appConfig.brokerAddress);
+    auto brokerFB = instance.addFunctionBlock(rootFbName, rootFbConfig);
+    auto availableFbs = brokerFB.getAvailableFunctionBlockTypes();
 
     const std::string fbName = "@rawMqttFb";
     std::cout << "Try to add the " << fbName << std::endl;
 
     // Create RAW function block configuration
-    auto config = availableDeviceNodes.get(fbName).createDefaultConfig();
+    auto config = availableFbs.get(fbName).createDefaultConfig();
     auto topicList = List<IString>();
     for (auto& topic : appConfig.topics)
     {
@@ -70,8 +73,8 @@ int main(int argc, char* argv[])
     }
     config.setPropertyValue("SignalList", topicList);
 
-    // Add the RAW function block to the broker device
-    daq::FunctionBlockPtr rawFb = brokerDevice.addFunctionBlock(fbName, config);
+    // Add the RAW function block to the broker FB
+    daq::FunctionBlockPtr rawFb = brokerFB.addFunctionBlock(fbName, config);
 
     // Create packet readers for all signals
     const auto signals = rawFb.getSignals();
