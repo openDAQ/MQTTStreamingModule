@@ -24,7 +24,8 @@ set(PAHO_BUILD_SHARED OFF CACHE BOOL "Build dynamic paho library" FORCE)
 set(CMAKE_POSITION_INDEPENDENT_CODE ${PAHO_BUILD_STATIC} CACHE BOOL "" FORCE)
 set(PAHO_ENABLE_TESTING ON CACHE BOOL "" FORCE)
 
-# Now add the project
+set(CMAKE_FOLDER "${CMAKE_FOLDER}/mqtt")
+
 add_subdirectory(${paho_mqtt_c_SOURCE_DIR} ${paho_mqtt_c_BINARY_DIR})
 
 # Apply WIN32_LEAN_AND_MEAN to the Paho MQTT C library as well
