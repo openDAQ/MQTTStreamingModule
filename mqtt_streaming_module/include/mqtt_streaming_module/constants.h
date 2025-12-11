@@ -41,4 +41,7 @@ static constexpr const char* ROOT_FB_NAME = "@rootMqttFb";
 static const char* MQTT_LOCAL_ROOT_FB_ID_PREFIX = "rootMqttFb";
 static const char* MQTT_LOCAL_PUB_FB_ID_PREFIX = "publisherMqttFb";
 
+
+static const char* MQTT_ROOT_FB_CON_STATUS_TYPE = "BrokerConnectionStatusType";
+
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

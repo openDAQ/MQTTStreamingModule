@@ -28,6 +28,13 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
 class MqttRootFbImpl : public FunctionBlock
 {
+    enum class ConnectionStatus : EnumType
+    {
+        Connected = 0,
+        Reconnecting,
+        Disconnected
+    };
+
 public:
     explicit MqttRootFbImpl(const ContextPtr& ctx,
                                        const ComponentPtr& parent,
@@ -38,6 +45,7 @@ public:
 protected:
     static std::atomic<int> localIndex;
     static std::string getLocalId();
+    static std::vector<std::pair<MqttRootFbImpl::ConnectionStatus, std::string>> connectionStatusMap;
 
     void removed() override;
 
@@ -46,7 +54,9 @@ protected:
 
     void initBaseFunctionalBlocks();
     void initMqttSubscriber();
+    void initConnectionStatus();
     bool waitForConnection(const int timeoutMs);
+    void setConnectionStatus(const ConnectionStatus status, std::string message = "");
 
     DictObjectPtr<IDict, IString, IFunctionBlockType> baseFbTypes;
 
