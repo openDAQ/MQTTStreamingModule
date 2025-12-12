@@ -1,8 +1,15 @@
+#include "mqtt_streaming_module/constants.h"
 #include <mqtt_streaming_module/mqtt_base_fb.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
 constexpr int MQTT_FB_UNSUBSCRIBE_TOUT = 3000;
+
+std::vector<std::pair<MqttBaseFb::SubscriptionStatus, std::string>> MqttBaseFb::subscriptionStatusMap =
+    {{SubscriptionStatus::InvalidTopicName, "InvalidTopicName"},
+     {SubscriptionStatus::SubscribingError, "SubscribingError"},
+     {SubscriptionStatus::WaitingForData, "WaitingForData"},
+     {SubscriptionStatus::HasData, "HasData"}};
 
 MqttBaseFb::MqttBaseFb(const ContextPtr& ctx,
                                        const ComponentPtr& parent,
@@ -14,13 +21,15 @@ MqttBaseFb::MqttBaseFb(const ContextPtr& ctx,
     , subscriber(subscriber)
 {
     initComponentStatus();
+    initSubscriptionStatus();
 }
-
 
 void MqttBaseFb::removed()
 {
     FunctionBlock::removed();
     unsubscribeFromTopic();
+    setSubscriptionStatus(SubscriptionStatus::InvalidTopicName, "Function block removed");
+    setComponentStatusWithMessage(ComponentStatus::Error, "Function block removed");
 }
 
 void MqttBaseFb::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg)
@@ -60,17 +69,21 @@ void MqttBaseFb::subscribeToTopic()
             {
                 LOG_W("Failed to subscribe to the topic: {}; reason: {}", topic, result.msg);
                 setComponentStatusWithMessage(ComponentStatus::Warning, "Some topics failed to subscribe!");
+                setSubscriptionStatus(SubscriptionStatus::SubscribingError, "The reason: " + result.msg);
             }
             else
             {
                 // subscriber->subscribe(...) is asynchronous. It puts command in queue and returns immediately.
                 LOG_D("Trying to subscribe to the topic: {}", topic);
+                setComponentStatus(ComponentStatus::Ok);
+                setSubscriptionStatus(SubscriptionStatus::WaitingForData, "Topic: " + topic);
             }
         }
     }
     else
     {
         setComponentStatusWithMessage(ComponentStatus::Error, "MQTT subscriber client is not set!");
+        setSubscriptionStatus(SubscriptionStatus::SubscribingError, "MQTT subscriber client is not set!" );
     }
 }
 
@@ -96,8 +109,37 @@ void MqttBaseFb::unsubscribeFromTopic()
     }
     else
     {
-        LOG_W("Failed to unsubscribe from the topic \'{}\'; reason: {}", topic, result.msg);
+        const auto msg = fmt::format("Failed to unsubscribe from the topic \'{}\'; reason: {}", topic, result.msg);
+        LOG_W("{}", msg);
+        setComponentStatus(ComponentStatus::Warning);
+        setSubscriptionStatus(SubscriptionStatus::SubscribingError, msg);
     }
+}
+
+void MqttBaseFb::initSubscriptionStatus()
+{
+    if (!context.getTypeManager().hasType(MQTT_RAW_FB_SUB_STATUS_TYPE))
+    {
+        auto list = List<IString>();
+        for (const auto& [_, st] : subscriptionStatusMap)
+            list.pushBack(st);
+
+        context.getTypeManager().addType(EnumerationType(MQTT_RAW_FB_SUB_STATUS_TYPE, list));
+    }
+
+    subscriptionStatus = EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+                                                 static_cast<Int>(SubscriptionStatus::InvalidTopicName),
+                                                 this->context.getTypeManager());
+    statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).addStatus("SubscriptionStatus",
+                                                                                     subscriptionStatus);
+}
+
+void MqttBaseFb::setSubscriptionStatus(const SubscriptionStatus status, std::string message)
+{
+    subscriptionStatus = EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE, static_cast<Int>(status), this->context.getTypeManager());
+    statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).setStatusWithMessage("SubscriptionStatus",
+                                                                                                subscriptionStatus,
+                                                                                                message);
 }
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

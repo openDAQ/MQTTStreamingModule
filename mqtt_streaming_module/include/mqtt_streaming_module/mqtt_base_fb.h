@@ -34,7 +34,18 @@ public:
     ~MqttBaseFb() = default;
 
 protected:
+    enum class SubscriptionStatus : EnumType
+    {
+        InvalidTopicName = 0,
+        SubscribingError,
+        WaitingForData,
+        HasData
+    };
+
+    static std::vector<std::pair<SubscriptionStatus, std::string>> subscriptionStatusMap;
+
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
+    EnumerationPtr subscriptionStatus;
 
     virtual void createSignals() = 0;
     virtual void processMessage(const mqtt::MqttMessage& msg) = 0;
@@ -50,6 +61,9 @@ protected:
     virtual  void unsubscribeFromTopic();
 
     void removed() override;
+
+    void initSubscriptionStatus();
+    void setSubscriptionStatus(const SubscriptionStatus status, std::string message = "");
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

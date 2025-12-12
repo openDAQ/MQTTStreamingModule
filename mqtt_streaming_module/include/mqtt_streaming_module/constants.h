@@ -44,5 +44,6 @@ static const char* MQTT_LOCAL_PUB_FB_ID_PREFIX = "publisherMqttFb";
 
 
 static const char* MQTT_ROOT_FB_CON_STATUS_TYPE = "BrokerConnectionStatusType";
+static const char* MQTT_RAW_FB_SUB_STATUS_TYPE = "MqttSubscriptionStatusType";
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
