@@ -31,6 +31,20 @@ MqttRawReceiverFbImpl::~MqttRawReceiverFbImpl()
     unsubscribeFromTopics();
 }
 
+FunctionBlockTypePtr MqttRawReceiverFbImpl::CreateType()
+{
+    auto defaultConfig = PropertyObject();
+    auto builder = ListPropertyBuilder(PROPERTY_NAME_SIGNAL_LIST, List<IString>())
+                       .setDescription("List of MQTT topics to subscribe to for receiving raw binary data.");
+    defaultConfig.addProperty(builder.build());
+    const auto fbType = FunctionBlockType(RAW_FB_NAME,
+                                          RAW_FB_NAME,
+                                          "The raw MQTT function block allows subscribing to MQTT topics and converting MQTT payloads into "
+                                          "openDAQ signal binary data samples.",
+                                          defaultConfig);
+    return fbType;
+}
+
 void MqttRawReceiverFbImpl::readProperties()
 {
     auto lock = std::scoped_lock(sync);

@@ -5,6 +5,7 @@ set(TEST_SOURCES test_mqtt_streaming_client_module.cpp
                  test_mqtt_device.cpp
                  test_mqtt_raw_fb.cpp
                  test_mqtt_json_fb.cpp
+                 test_mqtt_publisher_fb.cpp
                  test_daq_test_helper.h
                  test_app.cpp
                  test_data.h

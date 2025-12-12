@@ -237,12 +237,51 @@ PropertyObjectPtr MqttStreamingClientModule::createDefaultConfig()
 {
     auto config = PropertyObject();
 
-    config.addProperty(StringProperty(PROPERTY_NAME_MQTT_BROKER_ADDRESS, DEFAULT_BROKER_ADDRESS));
-    config.addProperty(StringProperty(PROPERTY_NAME_MQTT_USERNAME, DEFAULT_USERNAME));
-    config.addProperty(StringProperty(PROPERTY_NAME_MQTT_PASSWORD, DEFAULT_PASSWORD));
-    config.addProperty(IntProperty(PROPERTY_NAME_MQTT_BROKER_PORT, DEFAULT_PORT));
-    config.addProperty(IntProperty(PROPERTY_NAME_CONNECT_TIMEOUT, DEFAULT_INIT_TIMEOUT));
-    config.addProperty(IntProperty(PROPERTY_NAME_DISCOVERY_TIMEOUT, DEFAULT_DISCOVERY_TIMEOUT));
+    {
+        auto builder =
+            StringPropertyBuilder(PROPERTY_NAME_MQTT_BROKER_ADDRESS, DEFAULT_BROKER_ADDRESS)
+                .setDescription(fmt::format("MQTT broker address. It can be an IP address or a hostname. By default it is set to \"{}\".",
+                                            DEFAULT_BROKER_ADDRESS));
+        config.addProperty(builder.build());
+    }
+    {
+        auto builder =
+            StringPropertyBuilder(PROPERTY_NAME_MQTT_USERNAME, DEFAULT_USERNAME)
+                .setDescription(fmt::format("Username for MQTT broker authentication. By default it is set to \"{}\".", DEFAULT_USERNAME));
+        config.addProperty(builder.build());
+    }
+    {
+        auto builder =
+            StringPropertyBuilder(PROPERTY_NAME_MQTT_PASSWORD, DEFAULT_PASSWORD)
+                .setDescription(fmt::format("Password for MQTT broker authentication. By default it is set to \"{}\".", DEFAULT_PASSWORD));
+        config.addProperty(builder.build());
+    }
+    {
+        auto builder =
+            IntPropertyBuilder(PROPERTY_NAME_MQTT_BROKER_PORT, DEFAULT_PORT)
+                .setMinValue(1)
+                .setMaxValue(65535)
+                .setDescription(fmt::format("Port number for MQTT broker connection. By default it is set to {}.", DEFAULT_PORT));
+        config.addProperty(builder.build());
+    }
+    {
+        auto builder = IntPropertyBuilder(PROPERTY_NAME_CONNECT_TIMEOUT, DEFAULT_INIT_TIMEOUT)
+                           .setMinValue(0)
+                           .setUnit(Unit("ms"))
+                           .setDescription(fmt::format("Timeout in milliseconds for the initial connection to the MQTT broker. If the "
+                                                       "connection fails, an exception is thrown. By default it is set to {} ms.",
+                                                       DEFAULT_INIT_TIMEOUT));
+        config.addProperty(builder.build());
+    }
+    {
+        auto builder = IntPropertyBuilder(PROPERTY_NAME_DISCOVERY_TIMEOUT, DEFAULT_DISCOVERY_TIMEOUT)
+                           .setMinValue(0)
+                           .setUnit(Unit("ms"))
+                           .setDescription(fmt::format("Timeout in milliseconds for discovering MQTT topics. If it is set to 0, discovery "
+                                                       "is disabled. By default it is set to {} ms.",
+                                                       DEFAULT_DISCOVERY_TIMEOUT));
+        config.addProperty(builder.build());
+    }
 
     return config;
 }

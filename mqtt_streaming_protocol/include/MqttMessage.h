@@ -91,6 +91,11 @@ public:
         return this->retained;
     }
 
+    std::string toString() const
+    {
+        return std::string(getData().cbegin(), getData().cend());
+    }
+
 private:
     int qos = 0;
     std::string topic;

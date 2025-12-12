@@ -36,6 +36,8 @@ public:
                                 const PropertyObjectPtr& config = nullptr);
     ~MqttJsonReceiverFbImpl() override;
 
+    static FunctionBlockTypePtr CreateType();
+
 private:
     mutable std::mutex sync;
     mqtt::MqttDataWrapper jsonDataWorker;

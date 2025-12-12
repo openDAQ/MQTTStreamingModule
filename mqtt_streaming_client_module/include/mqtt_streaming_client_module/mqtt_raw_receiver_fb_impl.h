@@ -35,6 +35,7 @@ public:
                                    const PropertyObjectPtr& config = nullptr);
     ~MqttRawReceiverFbImpl() override;
 
+    static FunctionBlockTypePtr CreateType();
 private:
     std::mutex sync;
     std::unordered_map<std::string, SignalConfigPtr> outputSignals;

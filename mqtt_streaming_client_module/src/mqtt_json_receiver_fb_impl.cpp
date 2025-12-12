@@ -31,6 +31,22 @@ MqttJsonReceiverFbImpl::~MqttJsonReceiverFbImpl()
     unsubscribeFromTopics();
 }
 
+FunctionBlockTypePtr MqttJsonReceiverFbImpl::CreateType()
+{
+    auto defaultConfig = PropertyObject();
+    auto builder =
+        StringPropertyBuilder(PROPERTY_NAME_SIGNAL_LIST, String(""))
+            .setDescription("JSON configuration string that defines the list of MQTT topics and corresponding signals to subscribe to.");
+    defaultConfig.addProperty(builder.build());
+
+    const auto fbType = FunctionBlockType(JSON_FB_NAME,
+                                          JSON_FB_NAME,
+                                          "The JSON MQTT function block allows subscribing to MQTT topics, extracting values and "
+                                          "timestamps from MQTT JSON messages, and converting them into openDAQ signal data samples.",
+                                          defaultConfig);
+    return fbType;
+}
+
 void MqttJsonReceiverFbImpl::readProperties()
 {
     auto lock = std::scoped_lock(sync);

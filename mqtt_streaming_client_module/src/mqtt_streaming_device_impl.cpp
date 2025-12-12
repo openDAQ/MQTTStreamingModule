@@ -1,5 +1,6 @@
 #include "mqtt_streaming_client_module/constants.h"
 #include "mqtt_streaming_client_module/mqtt_json_receiver_fb_impl.h"
+#include "mqtt_streaming_client_module/mqtt_publisher_fb_impl.h"
 #include "mqtt_streaming_client_module/mqtt_raw_receiver_fb_impl.h"
 #include <mqtt_streaming_client_module/mqtt_streaming_device_impl.h>
 
@@ -81,24 +82,18 @@ void MqttStreamingDeviceImpl::initBaseFunctionalBlocks()
     baseFbTypes = Dict<IString, IFunctionBlockType>();
     // Add a function block type for manual JSON configuration
     {
-        auto defaultConfig = PropertyObject();
-        defaultConfig.addProperty(StringProperty(PROPERTY_NAME_SIGNAL_LIST, String("")));
-
-        const auto fbType = FunctionBlockType(JSON_FB_NAME,
-                                              JSON_FB_NAME,
-                                              "",
-                                              defaultConfig);
-
+        const auto fbType = MqttJsonReceiverFbImpl::CreateType();
         baseFbTypes.set(fbType.getId(), fbType);
     }
     // Add a function block type for raw MQTT messages
     {
-        auto defaultConfig = PropertyObject();
-        defaultConfig.addProperty(ListProperty(PROPERTY_NAME_SIGNAL_LIST, List<IString>()));
-        const auto fbType = FunctionBlockType(RAW_FB_NAME,
-                                              RAW_FB_NAME,
-                                              "",
-                                              defaultConfig);
+        const auto fbType = MqttRawReceiverFbImpl::CreateType();
+        baseFbTypes.set(fbType.getId(), fbType);
+    }
+
+    // Add a function block type for MQTT publisher
+    {
+        const auto fbType = MqttPublisherFbImpl::CreateType();
         baseFbTypes.set(fbType.getId(), fbType);
     }
 }
@@ -213,11 +208,22 @@ FunctionBlockPtr MqttStreamingDeviceImpl::onAddFunctionBlock(const StringPtr& ty
             {
                 nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttRawReceiverFbImpl>(context, functionBlocks, fbTypePtr, typeId, subscriber, config);
             }
-            else
+            else if (fbTypePtr.getName() == JSON_FB_NAME)
             {
                 nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttJsonReceiverFbImpl>(context, functionBlocks, fbTypePtr, typeId, subscriber, config);
             }
-
+            else if (fbTypePtr.getName() == PUB_FB_NAME)
+            {
+                nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttPublisherFbImpl>(context, functionBlocks, fbTypePtr, subscriber, config);
+            }
+            else
+            {
+                setComponentStatusWithMessage(ComponentStatus::Error, "Function block type is not available: " + typeId.toStdString());
+                return nestedFunctionBlock;
+            }
+        }
+        if (nestedFunctionBlock.assigned())
+        {
             addNestedFunctionBlock(nestedFunctionBlock);
             setComponentStatus(ComponentStatus::Ok);
         }
