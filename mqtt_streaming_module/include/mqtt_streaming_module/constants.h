@@ -24,6 +24,7 @@ static constexpr const char* PROPERTY_NAME_MQTT_USERNAME = "MqttUsername";
 static constexpr const char* PROPERTY_NAME_MQTT_PASSWORD = "MqttPassword";
 static constexpr const char* PROPERTY_NAME_CONNECT_TIMEOUT = "ConnectTimeout";
 static constexpr const char* PROPERTY_NAME_SIGNAL_LIST = "SignalList";
+static constexpr const char* PROPERTY_NAME_TOPIC = "Topic";
 
 static constexpr const char* PROPERTY_NAME_PUB_TOPIC_MODE = "TopicMode";
 static constexpr const char* PROPERTY_NAME_PUB_SHARED_TS = "SharedTimestamp";

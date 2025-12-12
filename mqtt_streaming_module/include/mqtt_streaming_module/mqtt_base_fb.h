@@ -44,10 +44,10 @@ protected:
 
     void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg);
 
-    virtual std::vector<std::string> getSubscribedTopics() const = 0;
-    virtual void clearSubscribedTopics() = 0;
-    virtual  void subscribeToTopics();
-    virtual  void unsubscribeFromTopics();
+    virtual std::string getSubscribedTopic() const = 0;
+    virtual void clearSubscribedTopic() = 0;
+    virtual  void subscribeToTopic();
+    virtual  void unsubscribeFromTopic();
 
     void removed() override;
 };

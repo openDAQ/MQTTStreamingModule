@@ -42,12 +42,13 @@ private:
     mutable std::mutex sync;
     mqtt::MqttDataWrapper jsonDataWorker;
     std::unordered_map<mqtt::SignalId, SignalConfigPtr> outputSignals;
-    std::vector<mqtt::SignalId> signalIdList;
-    std::unordered_map<mqtt::SignalId, DataDescriptorPtr> subscribedSignals;
+    std::vector<std::string> signalNameList;
+    std::unordered_map<std::string, DataDescriptorPtr> subscribedSignals;
+    std::string topicForSubscribing;
 
     void createSignals() override;
-    void clearSubscribedTopics() override;
-    std::vector<std::string> getSubscribedTopics() const override;
+    void clearSubscribedTopic() override;
+    std::string getSubscribedTopic() const override;
     void processMessage(const mqtt::MqttMessage& msg) override;
     void readProperties() override;
 

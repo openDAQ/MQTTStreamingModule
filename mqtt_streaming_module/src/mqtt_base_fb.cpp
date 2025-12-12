@@ -20,7 +20,7 @@ MqttBaseFb::MqttBaseFb(const ContextPtr& ctx,
 void MqttBaseFb::removed()
 {
     FunctionBlock::removed();
-    unsubscribeFromTopics();
+    unsubscribeFromTopic();
 }
 
 void MqttBaseFb::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg)
@@ -45,24 +45,21 @@ void MqttBaseFb::initProperties(const PropertyObjectPtr& config)
     readProperties();
 }
 
-void MqttBaseFb::subscribeToTopics()
+void MqttBaseFb::subscribeToTopic()
 {
     if (subscriber)
     {
-        bool success = true;
         auto lambda = [this](const mqtt::MqttAsyncClient &client, mqtt::MqttMessage &msg){this->onSignalsMessage(client, msg);};
-        if (!getSubscribedTopics().empty())
+        const auto topic = getSubscribedTopic();
+        if (!topic.empty())
         {
-            LOG_I("Trying to subscribe to the topics");
-        }
-        for (const auto& topic : getSubscribedTopics())
-        {
+            LOG_I("Trying to subscribe to the topic : {}", topic);
             subscriber->setMessageArrivedCb(topic, lambda);
             auto result = subscriber->subscribe(topic, 1);
-            success &= result.success;
             if (!result.success)
             {
                 LOG_W("Failed to subscribe to the topic: {}; reason: {}", topic, result.msg);
+                setComponentStatusWithMessage(ComponentStatus::Warning, "Some topics failed to subscribe!");
             }
             else
             {
@@ -70,8 +67,6 @@ void MqttBaseFb::subscribeToTopics()
                 LOG_D("Trying to subscribe to the topic: {}", topic);
             }
         }
-        if (!success)
-            setComponentStatusWithMessage(ComponentStatus::Warning, "Some topics failed to subscribe!");
     }
     else
     {
@@ -79,29 +74,29 @@ void MqttBaseFb::subscribeToTopics()
     }
 }
 
-void MqttBaseFb::unsubscribeFromTopics()
+void MqttBaseFb::unsubscribeFromTopic()
 {
     if (!subscriber)
     {
         LOG_E("The subscriber is null");
         return;
     }
-    const auto topics = getSubscribedTopics();
-    if (topics.empty())
+    const auto topic = getSubscribedTopic();
+    if (topic.empty())
         return;
-    subscriber->setMessageArrivedCb(topics, nullptr);
-    auto result = subscriber->unsubscribe(topics);
+    subscriber->setMessageArrivedCb(topic, nullptr);
+    auto result = subscriber->unsubscribe(topic);
     if (result.success)
         result = subscriber->waitForCompletion(result.token, MQTT_FB_UNSUBSCRIBE_TOUT);
 
     if (result.success)
     {
-        clearSubscribedTopics();
-        LOG_I("All topics have been unsubscribed successfully");
+        clearSubscribedTopic();
+        LOG_I("The topic \'{}\' has been unsubscribed successfully", topic);
     }
     else
     {
-        LOG_W("Failed to unsubscribe from all topics; reason: {}", result.msg);
+        LOG_W("Failed to unsubscribe from the topic \'{}\'; reason: {}", topic, result.msg);
     }
 }
 

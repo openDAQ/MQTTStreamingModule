@@ -2,7 +2,6 @@
 #include <boost/algorithm/string.hpp>
 #include <mqtt_streaming_module/helper.h>
 #include <mqtt_streaming_module/mqtt_json_receiver_fb_impl.h>
-#include <set>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -23,12 +22,12 @@ MqttJsonReceiverFbImpl::MqttJsonReceiverFbImpl(const ContextPtr& ctx,
         initProperties(type.createDefaultConfig());
 
     createSignals();
-    subscribeToTopics();
+    subscribeToTopic();
 }
 
 MqttJsonReceiverFbImpl::~MqttJsonReceiverFbImpl()
 {
-    unsubscribeFromTopics();
+    unsubscribeFromTopic();
 }
 
 FunctionBlockTypePtr MqttJsonReceiverFbImpl::CreateType()
@@ -49,24 +48,40 @@ FunctionBlockTypePtr MqttJsonReceiverFbImpl::CreateType()
 
 void MqttJsonReceiverFbImpl::readProperties()
 {
-    auto lock = std::scoped_lock(sync);
+    auto lock = std::lock_guard<std::mutex>(sync);
     subscribedSignals.clear();
-    signalIdList.clear();
+    signalNameList.clear();
+    topicForSubscribing.clear();
     bool isPresent = false;
     if (objPtr.hasProperty(PROPERTY_NAME_SIGNAL_LIST))
     {
-        auto signalConfig = objPtr.getPropertyValue(PROPERTY_NAME_SIGNAL_LIST).asPtrOrNull<IString>();
+        const auto signalConfig = objPtr.getPropertyValue(PROPERTY_NAME_SIGNAL_LIST).asPtrOrNull<IString>();
         if (signalConfig.assigned())
         {
             isPresent = true;
             jsonDataWorker.setConfig(signalConfig.toStdString());
-            auto listSubscribedSignals = jsonDataWorker.extractDescription();
-            LOG_I("Signal in the list (topic | signal name):");
-            for (const auto& [signalId, descriptor] : listSubscribedSignals)
+            const auto listSubscribedSignals = jsonDataWorker.extractDescription();
+            if (!listSubscribedSignals.empty())
             {
-                subscribedSignals.emplace(signalId, descriptor);
-                signalIdList.push_back(signalId);
-                LOG_I("\t\"{}\" | \"{}\"", signalId.topic, signalId.signalName);
+                bool isOneTopic =
+                    std::all_of(listSubscribedSignals.cbegin(),
+                                listSubscribedSignals.cend(),
+                                [&listSubscribedSignals](const auto& s) { return s.first.topic == listSubscribedSignals.front().first.topic; });
+                if (!isOneTopic)
+                {
+                    LOG_E("The JSON config has wrong format (more then one topic found)");
+                }
+                else
+                {
+                    topicForSubscribing = listSubscribedSignals.front().first.topic;
+                    LOG_I("Signal in the list for the topic \"{}\":", topicForSubscribing);
+                    for (const auto& [signalId, descriptor] : listSubscribedSignals)
+                    {
+                        subscribedSignals.emplace(signalId.signalName, descriptor);
+                        signalNameList.push_back(signalId.signalName);
+                        LOG_I("\t\"{}\"", signalId.signalName);
+                    }
+                }
             }
         }
     }
@@ -82,7 +97,7 @@ void MqttJsonReceiverFbImpl::readProperties()
 
 void MqttJsonReceiverFbImpl::createDataPacket(const std::string& topic, const std::string& json)
 {
-    auto lock = std::scoped_lock(sync);
+    auto lock = std::lock_guard<std::mutex>(sync);
     jsonDataWorker.createAndSendDataPacket(topic, json);
 }
 
@@ -95,29 +110,26 @@ void MqttJsonReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
 
 void MqttJsonReceiverFbImpl::createSignals()
 {
-    auto lock = std::scoped_lock(sync);
+    auto lock = std::lock_guard<std::mutex>(sync);
     if (!subscribedSignals.empty())
-    {
         LOG_I("Creating signals...");
-    }
 
-    for (const auto& signalId : signalIdList)
+    for (const auto& signalName : signalNameList)
     {
-        auto iter = subscribedSignals.find(signalId);
+        auto iter = subscribedSignals.find(signalName);
         if (iter == subscribedSignals.end())
         {
-            LOG_W("\tSignal \"{}\" on topic \"{}\" is not in the subscribed signal list!", signalId.signalName, signalId.topic);
+            LOG_W("\tSignal \"{}\" is not in the subscribed signal list!", signalName);
             continue;
         }
-        LOG_D("\tfor the topic \"{}\"", signalId.signalName, signalId.topic);
-        const std::string& topic = signalId.topic;
+        LOG_D("\tfor the signal \"{}\"", signalName);
 
         auto signalDsc = iter->second;
-
-        auto refS =
-            outputSignals
-                .emplace(std::make_pair(signalId, createAndAddSignal(buildSignalNameFromTopic(topic, signalId.signalName), signalDsc)))
-                .first;
+        const mqtt::SignalId signalId{topicForSubscribing, signalName};
+        auto refS = outputSignals
+                        .emplace(std::make_pair(signalId,
+                                                createAndAddSignal(buildSignalNameFromTopic(topicForSubscribing, signalName), signalDsc)))
+                        .first;
         if (jsonDataWorker.hasDomainSignal(signalId))
         {
             LOG_D("\tThe signal has a domain signal");
@@ -137,7 +149,7 @@ void MqttJsonReceiverFbImpl::createSignals()
                                              .setName("Time")
                                              .build();
             refS->second->setDomainSignal(
-                createAndAddSignal(buildDomainSignalNameFromTopic(topic, signalId.signalName), domainSignalDsc, false));
+                createAndAddSignal(buildDomainSignalNameFromTopic(topicForSubscribing, signalName), domainSignalDsc, false));
         }
         else
         {
@@ -147,22 +159,18 @@ void MqttJsonReceiverFbImpl::createSignals()
     jsonDataWorker.setOutputSignals(&outputSignals);
 }
 
-std::vector<std::string> MqttJsonReceiverFbImpl::getSubscribedTopics() const
+std::string MqttJsonReceiverFbImpl::getSubscribedTopic() const
 {
-    auto lock = std::scoped_lock(sync);
-    std::set<std::string> topicsSet;
-    for (const auto& [signalId, _] : subscribedSignals)
-    {
-        topicsSet.emplace(signalId.topic);
-    }
-    return std::vector<std::string>(topicsSet.cbegin(), topicsSet.cend());
+    auto lock = std::lock_guard<std::mutex>(sync);
+    return topicForSubscribing;
 }
 
-void MqttJsonReceiverFbImpl::clearSubscribedTopics()
+void MqttJsonReceiverFbImpl::clearSubscribedTopic()
 {
-    auto lock = std::scoped_lock(sync);
+    auto lock = std::lock_guard<std::mutex>(sync);
     subscribedSignals.clear();
-    signalIdList.clear();
+    signalNameList.clear();
+    topicForSubscribing.clear();
 }
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

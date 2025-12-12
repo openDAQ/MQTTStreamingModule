@@ -417,7 +417,7 @@ TEST_F(MqttJsonFbTest, Config)
     StartUp();
     auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
 
-    config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, VALID_JSON_0);
+    config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, VALID_JSON_1_TOPIC_1);
     daq::FunctionBlockPtr jsonFb;
     ASSERT_NO_THROW(jsonFb = rootMqttFb.addFunctionBlock(JSON_FB_NAME, config));
 
@@ -475,7 +475,7 @@ TEST_F(MqttJsonFbTest, CreationWithPartialConfig)
     StartUp();
     daq::FunctionBlockPtr jsonFb;
     auto config = PropertyObject();
-    config.addProperty(StringProperty(PROPERTY_NAME_SIGNAL_LIST, String(VALID_JSON_0)));
+    config.addProperty(StringProperty(PROPERTY_NAME_SIGNAL_LIST, String(VALID_JSON_1_TOPIC_1)));
     ASSERT_NO_THROW(jsonFb = rootMqttFb.addFunctionBlock(JSON_FB_NAME, config));
     ASSERT_EQ(jsonFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
@@ -487,7 +487,7 @@ TEST_F(MqttJsonFbTest, CreationWithCustomConfig)
     StartUp();
     daq::FunctionBlockPtr jsonFb;
     auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
-    config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, String(VALID_JSON_0));
+    config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, String(VALID_JSON_1_TOPIC_1));
     ASSERT_NO_THROW(jsonFb = rootMqttFb.addFunctionBlock(JSON_FB_NAME, config));
     ASSERT_EQ(jsonFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
@@ -513,9 +513,10 @@ TEST_P(MqttJsonFbRightJsonConfigPTest, CheckNumberOfSignal)
 
 INSTANTIATE_TEST_SUITE_P(SignalNumbersTest,
                          MqttJsonFbRightJsonConfigPTest,
-                         ::testing::Values(std::make_pair(VALID_JSON_0, 4),
-                                           std::make_pair(VALID_JSON_1, 3),
-                                           std::make_pair(VALID_JSON_2, 6)));
+                         ::testing::Values(std::make_pair(VALID_JSON_4_TOPIC_0, 0),
+                                           std::make_pair(VALID_JSON_1_TOPIC_1, 3),
+                                           std::make_pair(VALID_JSON_3_TOPIC_2, 0),
+                                           std::make_pair(VALID_JSON_1_TOPIC_3, 1)));
 
 TEST_F(MqttJsonFbTest, SignalListWithWildcard)
 {
