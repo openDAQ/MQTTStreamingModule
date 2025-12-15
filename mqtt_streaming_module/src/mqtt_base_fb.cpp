@@ -56,8 +56,9 @@ void MqttBaseFb::initProperties(const PropertyObjectPtr& config)
     readProperties();
 }
 
-void MqttBaseFb::subscribeToTopic()
+MqttBaseFb::CmdResult MqttBaseFb::subscribeToTopic()
 {
+    MqttBaseFb::CmdResult result{false};
     if (subscriber)
     {
         auto lambda = [this](const mqtt::MqttAsyncClient &client, mqtt::MqttMessage &msg){this->onSignalsMessage(client, msg);};
@@ -66,12 +67,12 @@ void MqttBaseFb::subscribeToTopic()
         {
             LOG_I("Trying to subscribe to the topic : {}", topic);
             subscriber->setMessageArrivedCb(topic, lambda);
-            auto result = subscriber->subscribe(topic, 1);
-            if (!result.success)
+            if (auto subRes = subscriber->subscribe(topic, 1); subRes.success == false)
             {
-                LOG_W("Failed to subscribe to the topic: {}; reason: {}", topic, result.msg);
+                LOG_W("Failed to subscribe to the topic: \"{}\"; reason: {}", topic, subRes.msg);
                 setComponentStatusWithMessage(ComponentStatus::Warning, "Some topics failed to subscribe!");
-                setSubscriptionStatus(SubscriptionStatus::SubscribingError, "The reason: " + result.msg);
+                setSubscriptionStatus(SubscriptionStatus::SubscribingError, "The reason: " + subRes.msg);
+                result = {false, "Failed to subscribe to the topic: \"" + topic + "\"; reason: " + subRes.msg};
             }
             else
             {
@@ -79,43 +80,61 @@ void MqttBaseFb::subscribeToTopic()
                 LOG_D("Trying to subscribe to the topic: {}", topic);
                 setComponentStatus(ComponentStatus::Ok);
                 setSubscriptionStatus(SubscriptionStatus::WaitingForData, "Topic: " + topic);
+                result = {true, "", result.token};
+            }
+        }
+        else
+        {
+            result = {false, "Couldn't subscribe to an empty topic"};
+        }
+    }
+    else
+    {
+        const std::string msg = "MQTT subscriber client is not set!";
+        setComponentStatusWithMessage(ComponentStatus::Error, msg);
+        setSubscriptionStatus(SubscriptionStatus::SubscribingError, msg);
+        result = {false, msg};
+    }
+    return result;
+}
+
+MqttBaseFb::CmdResult MqttBaseFb::unsubscribeFromTopic()
+{
+    MqttBaseFb::CmdResult result{true};
+    if (subscriber)
+    {
+        const auto topic = getSubscribedTopic();
+        if (!topic.empty())
+        {
+            subscriber->setMessageArrivedCb(topic, nullptr);
+            mqtt::CmdResult unsubRes = subscriber->unsubscribe(topic);
+            if (unsubRes.success)
+                unsubRes = subscriber->waitForCompletion(unsubRes.token, MQTT_FB_UNSUBSCRIBE_TOUT);
+
+            if (unsubRes.success)
+            {
+                clearSubscribedTopic();
+                LOG_I("The topic \'{}\' has been unsubscribed successfully", topic);
+                result = {true};
+            }
+            else
+            {
+                const auto msg = fmt::format("Failed to unsubscribe from the topic \'{}\'; reason: {}", topic, unsubRes.msg);
+                LOG_W("{}", msg);
+                setComponentStatus(ComponentStatus::Warning);
+                setSubscriptionStatus(SubscriptionStatus::SubscribingError, msg);
+                result = {false, msg};
             }
         }
     }
     else
     {
-        setComponentStatusWithMessage(ComponentStatus::Error, "MQTT subscriber client is not set!");
-        setSubscriptionStatus(SubscriptionStatus::SubscribingError, "MQTT subscriber client is not set!" );
-    }
-}
-
-void MqttBaseFb::unsubscribeFromTopic()
-{
-    if (!subscriber)
-    {
-        LOG_E("The subscriber is null");
-        return;
-    }
-    const auto topic = getSubscribedTopic();
-    if (topic.empty())
-        return;
-    subscriber->setMessageArrivedCb(topic, nullptr);
-    auto result = subscriber->unsubscribe(topic);
-    if (result.success)
-        result = subscriber->waitForCompletion(result.token, MQTT_FB_UNSUBSCRIBE_TOUT);
-
-    if (result.success)
-    {
-        clearSubscribedTopic();
-        LOG_I("The topic \'{}\' has been unsubscribed successfully", topic);
-    }
-    else
-    {
-        const auto msg = fmt::format("Failed to unsubscribe from the topic \'{}\'; reason: {}", topic, result.msg);
-        LOG_W("{}", msg);
-        setComponentStatus(ComponentStatus::Warning);
+        const std::string msg = "MQTT subscriber client is not set!";
+        setComponentStatusWithMessage(ComponentStatus::Error, msg);
         setSubscriptionStatus(SubscriptionStatus::SubscribingError, msg);
+        result = {false, msg};
     }
+    return result;
 }
 
 void MqttBaseFb::initSubscriptionStatus()

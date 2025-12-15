@@ -33,6 +33,21 @@ public:
         HasData
     };
 
+    struct CmdResult
+    {
+        bool success = false;
+        std::string msg;
+        int token = 0;
+
+        CmdResult(bool success = false, const std::string& msg = "", int token = 0)
+            : success(success),
+              msg(msg),
+              token(token)
+        {
+        }
+    };
+
+
     explicit MqttBaseFb(const ContextPtr& ctx,
                                 const ComponentPtr& parent,
                                 const FunctionBlockTypePtr& type,
@@ -57,8 +72,8 @@ protected:
 
     virtual std::string getSubscribedTopic() const = 0;
     virtual void clearSubscribedTopic() = 0;
-    virtual  void subscribeToTopic();
-    virtual  void unsubscribeFromTopic();
+    virtual  CmdResult subscribeToTopic();
+    virtual  CmdResult unsubscribeFromTopic();
 
     virtual void propertyChanged() = 0;
 

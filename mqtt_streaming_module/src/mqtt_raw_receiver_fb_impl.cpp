@@ -91,9 +91,14 @@ void MqttRawReceiverFbImpl::readProperties()
 
 void MqttRawReceiverFbImpl::propertyChanged()
 {
-    unsubscribeFromTopic();
+    auto result = unsubscribeFromTopic();
+    if (result.success == false)
+    {
+        LOG_W("Failed to unsubscribe from the previous topic before subscribing to a new one; reason: {}", result.msg);
+        return;
+    }
     readProperties();
-    subscribeToTopic();
+    result = subscribeToTopic();
 }
 
 void MqttRawReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
