@@ -31,7 +31,6 @@ public:
     explicit MqttJsonReceiverFbImpl(const ContextPtr& ctx,
                                 const ComponentPtr& parent,
                                 const FunctionBlockTypePtr& type,
-                                const StringPtr& localId,
                                 std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                 const PropertyObjectPtr& config = nullptr);
     ~MqttJsonReceiverFbImpl() override;
@@ -45,6 +44,9 @@ private:
     std::vector<std::string> signalNameList;
     std::unordered_map<std::string, DataDescriptorPtr> subscribedSignals;
     std::string topicForSubscribing;
+    static std::atomic<int> localIndex;
+
+    static std::string getLocalId();
 
     void createSignals() override;
     void clearSubscribedTopic() override;

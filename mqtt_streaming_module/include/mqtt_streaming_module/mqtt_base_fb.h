@@ -25,6 +25,14 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 class MqttBaseFb : public FunctionBlock
 {
 public:
+    enum class SubscriptionStatus : EnumType
+    {
+        InvalidTopicName = 0,
+        SubscribingError,
+        WaitingForData,
+        HasData
+    };
+
     explicit MqttBaseFb(const ContextPtr& ctx,
                                 const ComponentPtr& parent,
                                 const FunctionBlockTypePtr& type,
@@ -34,14 +42,6 @@ public:
     ~MqttBaseFb() = default;
 
 protected:
-    enum class SubscriptionStatus : EnumType
-    {
-        InvalidTopicName = 0,
-        SubscribingError,
-        WaitingForData,
-        HasData
-    };
-
     static std::vector<std::pair<SubscriptionStatus, std::string>> subscriptionStatusMap;
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;

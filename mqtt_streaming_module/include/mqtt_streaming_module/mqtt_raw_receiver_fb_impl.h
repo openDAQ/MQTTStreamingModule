@@ -30,7 +30,6 @@ public:
     explicit MqttRawReceiverFbImpl(const ContextPtr& ctx,
                                    const ComponentPtr& parent,
                                    const FunctionBlockTypePtr& type,
-                                   const StringPtr& localId,
                                    std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                    const PropertyObjectPtr& config = nullptr);
     ~MqttRawReceiverFbImpl() override;
@@ -40,6 +39,9 @@ private:
     std::mutex sync;
     SignalConfigPtr outputSignal;
     std::string topicForSubscribing;
+    static std::atomic<int> localIndex;
+
+    static std::string getLocalId();
 
     void createSignals() override;
     void clearSubscribedTopic() override;

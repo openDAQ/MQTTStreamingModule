@@ -9,13 +9,14 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
 constexpr int MQTT_RAW_FB_UNSUBSCRIBE_TOUT = 3000;
 
+std::atomic<int> MqttRawReceiverFbImpl::localIndex = 0;
+
 MqttRawReceiverFbImpl::MqttRawReceiverFbImpl(const ContextPtr& ctx,
                                              const ComponentPtr& parent,
                                              const FunctionBlockTypePtr& type,
-                                             const StringPtr& localId,
                                              std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                              const PropertyObjectPtr& config)
-    : MqttBaseFb(ctx, parent, type, localId, subscriber, config)
+    : MqttBaseFb(ctx, parent, type, getLocalId(), subscriber, config)
 {
     if (config.assigned())
         initProperties(populateDefaultConfig(type.createDefaultConfig(), config));
@@ -43,6 +44,11 @@ FunctionBlockTypePtr MqttRawReceiverFbImpl::CreateType()
                                           "openDAQ signal binary data samples.",
                                           defaultConfig);
     return fbType;
+}
+
+std::string MqttRawReceiverFbImpl::getLocalId()
+{
+    return std::string(MQTT_LOCAL_RAW_FB_ID_PREFIX + std::to_string(localIndex++));
 }
 
 void MqttRawReceiverFbImpl::readProperties()

@@ -217,11 +217,11 @@ FunctionBlockPtr MqttRootFbImpl::onAddFunctionBlock(const StringPtr& typeId, con
             auto fbTypePtr = baseFbTypes.getOrDefault(typeId);
             if (fbTypePtr.getName() == RAW_FB_NAME)
             {
-                nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttRawReceiverFbImpl>(context, functionBlocks, fbTypePtr, typeId, subscriber, config);
+                nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttRawReceiverFbImpl>(context, functionBlocks, fbTypePtr, subscriber, config);
             }
             else if (fbTypePtr.getName() == JSON_FB_NAME)
             {
-                nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttJsonReceiverFbImpl>(context, functionBlocks, fbTypePtr, typeId, subscriber, config);
+                nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttJsonReceiverFbImpl>(context, functionBlocks, fbTypePtr, subscriber, config);
             }
             else if (fbTypePtr.getName() == PUB_FB_NAME)
             {

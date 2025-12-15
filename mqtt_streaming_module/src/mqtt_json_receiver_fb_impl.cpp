@@ -7,13 +7,14 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
 constexpr int MQTT_JSON_FB_UNSUBSCRIBE_TOUT = 3000;
 
+std::atomic<int> MqttJsonReceiverFbImpl::localIndex = 0;
+
 MqttJsonReceiverFbImpl::MqttJsonReceiverFbImpl(const ContextPtr& ctx,
                                        const ComponentPtr& parent,
                                        const FunctionBlockTypePtr& type,
-                                       const StringPtr& localId,
                                        std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                        const PropertyObjectPtr& config)
-    : MqttBaseFb(ctx, parent, type, localId, subscriber, config),
+    : MqttBaseFb(ctx, parent, type, getLocalId(), subscriber, config),
       jsonDataWorker(loggerComponent)
 {
     if (config.assigned())
@@ -44,6 +45,11 @@ FunctionBlockTypePtr MqttJsonReceiverFbImpl::CreateType()
                                           "timestamps from MQTT JSON messages, and converting them into openDAQ signal data samples.",
                                           defaultConfig);
     return fbType;
+}
+
+std::string MqttJsonReceiverFbImpl::getLocalId()
+{
+    return std::string(MQTT_LOCAL_JSON_FB_ID_PREFIX + std::to_string(localIndex++));
 }
 
 void MqttJsonReceiverFbImpl::readProperties()

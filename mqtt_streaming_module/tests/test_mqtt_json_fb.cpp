@@ -51,7 +51,7 @@ public:
         config.addProperty(StringProperty(PROPERTY_NAME_SIGNAL_LIST, String("")));
         const auto fbType = FunctionBlockType(JSON_FB_NAME, JSON_FB_NAME, "", config);
         config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, jsonConfig);
-        obj = std::make_unique<MqttJsonReceiverFbImpl>(NullContext(), nullptr, fbType, "localId", nullptr, config);
+        obj = std::make_unique<MqttJsonReceiverFbImpl>(NullContext(), nullptr, fbType, nullptr, config);
     }
 
     auto getSignals()
@@ -439,13 +439,14 @@ TEST_F(MqttJsonFbTest, Creation)
     ASSERT_NO_THROW(jsonFb = rootMqttFb.addFunctionBlock(JSON_FB_NAME));
     ASSERT_EQ(jsonFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    ASSERT_EQ(jsonFb.getName(), JSON_FB_NAME);
+    const auto name = std::string(MQTT_LOCAL_JSON_FB_ID_PREFIX) + "0";
+    ASSERT_EQ(jsonFb.getName(), name);
     auto fbs = rootMqttFb.getFunctionBlocks();
     bool contain = false;
     daq::GenericFunctionBlockPtr<daq::IFunctionBlock> fbFromList;
     for (const auto& fb : fbs)
     {
-        contain = (fb.getName() == JSON_FB_NAME);
+        contain = (fb.getName() == name);
         if (contain)
         {
             fbFromList = fb;
