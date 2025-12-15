@@ -83,6 +83,13 @@ void MqttRawReceiverFbImpl::readProperties()
     }
 }
 
+void MqttRawReceiverFbImpl::propertyChanged()
+{
+    unsubscribeFromTopic();
+    readProperties();
+    subscribeToTopic();
+}
+
 void MqttRawReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
 {
     const std::string topic(msg.getTopic());

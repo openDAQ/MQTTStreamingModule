@@ -95,6 +95,10 @@ void MqttJsonReceiverFbImpl::readProperties()
     }
 }
 
+void MqttJsonReceiverFbImpl::propertyChanged()
+{
+}
+
 void MqttJsonReceiverFbImpl::createDataPacket(const std::string& topic, const std::string& json)
 {
     auto lock = std::lock_guard<std::mutex>(sync);

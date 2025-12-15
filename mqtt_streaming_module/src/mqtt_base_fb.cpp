@@ -47,6 +47,8 @@ void MqttBaseFb::initProperties(const PropertyObjectPtr& config)
             if (const auto internalProp = prop.asPtrOrNull<IPropertyInternal>(true); internalProp.assigned())
             {
                 objPtr.addProperty(internalProp.clone());
+                objPtr.getOnPropertyValueWrite(prop.getName()) +=
+                    [this](PropertyObjectPtr& obj, PropertyValueEventArgsPtr& args) { propertyChanged(); };
             }
         }
         objPtr.setPropertyValue(propName, prop.getValue());

@@ -46,6 +46,7 @@ private:
     std::string getSubscribedTopic() const override;
     void processMessage(const mqtt::MqttMessage& msg) override;
     void readProperties() override;
+    void propertyChanged() override;
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

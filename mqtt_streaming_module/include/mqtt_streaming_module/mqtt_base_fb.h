@@ -60,6 +60,8 @@ protected:
     virtual  void subscribeToTopic();
     virtual  void unsubscribeFromTopic();
 
+    virtual void propertyChanged() = 0;
+
     void removed() override;
 
     void initSubscriptionStatus();

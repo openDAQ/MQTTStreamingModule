@@ -51,6 +51,7 @@ private:
     std::string getSubscribedTopic() const override;
     void processMessage(const mqtt::MqttMessage& msg) override;
     void readProperties() override;
+    void propertyChanged() override;
 
     void createDataPacket(const std::string& topic, const std::string& json);
 };
