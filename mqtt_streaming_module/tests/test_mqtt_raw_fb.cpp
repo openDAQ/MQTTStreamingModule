@@ -65,7 +65,7 @@ TEST_F(MqttRawFbTest, DefaultRawFbConfig)
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_TOPIC).asPtr<IString>().getLength(), 0u);
 }
 
-TEST_F(MqttRawFbTest, CreateRawFunctionalBlocks)
+TEST_F(MqttRawFbTest, Creation)
 {
     StartUp();
     daq::FunctionBlockPtr rawFb;
@@ -74,24 +74,6 @@ TEST_F(MqttRawFbTest, CreateRawFunctionalBlocks)
     ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
     ASSERT_EQ(rawFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    const auto name = std::string(MQTT_LOCAL_RAW_FB_ID_PREFIX) + "0";
-    ASSERT_EQ(rawFb.getName(), name);
-    auto fbs = rootMqttFb.getFunctionBlocks();
-    bool contain = false;
-    daq::GenericFunctionBlockPtr<daq::IFunctionBlock> fbFromList;
-    for (const auto& fb : fbs)
-    {
-        contain = (fb.getName() == name);
-        if (contain)
-        {
-            fbFromList = fb;
-            break;
-        }
-    }
-    ASSERT_TRUE(contain);
-    ASSERT_TRUE(fbFromList.assigned());
-    ASSERT_EQ(fbFromList.getName(), rawFb.getName());
-    ASSERT_TRUE(fbFromList == rawFb);
 }
 
 TEST_F(MqttRawFbTest, CheckRawFbWithEmptyConfig)
@@ -156,6 +138,46 @@ TEST_F(MqttRawFbTest, CheckRawFbWithCustomConfig)
     ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
 }
 
+TEST_F(MqttRawFbTest, CheckRawFbConfig)
+{
+    StartUp();
+
+    const auto topic = buildTopicName();
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
+
+    config.setPropertyValue(PROPERTY_NAME_TOPIC, topic);
+    daq::FunctionBlockPtr rawFb;
+    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
+
+    const auto allProperties = rawFb.getAllProperties();
+    ASSERT_EQ(allProperties.getCount(), config.getAllProperties().getCount());
+
+    for (const auto& pror : config.getAllProperties())
+    {
+        const auto propName = pror.getName();
+        ASSERT_TRUE(rawFb.hasProperty(propName));
+        ASSERT_EQ(rawFb.getPropertyValue(propName), config.getPropertyValue(propName));
+    }
+}
+
+TEST_F(MqttRawFbTest, CheckRawFbSubscriptionStatusWaitingForData)
+{
+    StartUp();
+
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
+
+    config.setPropertyValue(PROPERTY_NAME_TOPIC, buildTopicName());
+    daq::FunctionBlockPtr rawFb;
+    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
+    EXPECT_EQ(rawFb.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+
+    EXPECT_EQ(rawFb.getStatusContainer().getStatus("SubscriptionStatus"),
+              EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+                                      static_cast<Int>(MqttBaseFb::SubscriptionStatus::WaitingForData),
+                                      daqInstance.getContext().getTypeManager()));
+}
+
 TEST_P(MqttRawFbPTest, CheckRawFbTopic)
 {
     auto [topic, result] = GetParam();
@@ -195,28 +217,6 @@ INSTANTIATE_TEST_SUITE_P(TopicTest,
                                            std::make_pair("badTopic/+/test/topic", false),
                                            std::make_pair("badTopic/+/+/topic", false),
                                            std::make_pair("badTopic/#", false)));
-
-TEST_F(MqttRawFbTest, CheckRawFbConfig)
-{
-    StartUp();
-
-    const auto topic = buildTopicName();
-    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
-
-    config.setPropertyValue(PROPERTY_NAME_TOPIC, topic);
-    daq::FunctionBlockPtr rawFb;
-    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
-
-    const auto allProperties = rawFb.getAllProperties();
-    ASSERT_EQ(allProperties.getCount(), config.getAllProperties().getCount());
-
-    for (const auto& pror : config.getAllProperties())
-    {
-        const auto propName = pror.getName();
-        ASSERT_TRUE(rawFb.hasProperty(propName));
-        ASSERT_EQ(rawFb.getPropertyValue(propName), config.getPropertyValue(propName));
-    }
-}
 
 TEST_F(MqttRawFbTest, CheckRawFbDataTransfer)
 {

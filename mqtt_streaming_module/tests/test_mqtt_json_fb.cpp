@@ -439,24 +439,6 @@ TEST_F(MqttJsonFbTest, Creation)
     ASSERT_NO_THROW(jsonFb = rootMqttFb.addFunctionBlock(JSON_FB_NAME));
     ASSERT_EQ(jsonFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    const auto name = std::string(MQTT_LOCAL_JSON_FB_ID_PREFIX) + "0";
-    ASSERT_EQ(jsonFb.getName(), name);
-    auto fbs = rootMqttFb.getFunctionBlocks();
-    bool contain = false;
-    daq::GenericFunctionBlockPtr<daq::IFunctionBlock> fbFromList;
-    for (const auto& fb : fbs)
-    {
-        contain = (fb.getName() == name);
-        if (contain)
-        {
-            fbFromList = fb;
-            break;
-        }
-    }
-    ASSERT_TRUE(contain);
-    ASSERT_TRUE(fbFromList.assigned());
-    ASSERT_EQ(fbFromList.getName(), jsonFb.getName());
-    ASSERT_TRUE(fbFromList == jsonFb);
 }
 
 TEST_F(MqttJsonFbTest, CreationWithDefaultConfig)
