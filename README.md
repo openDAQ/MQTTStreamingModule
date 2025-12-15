@@ -168,17 +168,17 @@ There are 3 example C++ application:
   ```bash
  ./custom-mqtt-sub --address broker.emqx.io examples/custom-mqtt-sub/public-example0.json
  ```  
- - **ref-dev-mqtt-raw-sub**  - demonstrates how to work with the raw MQTT FB. The application creates an MQTT device and a raw MQTT FB to receive MQTT messages and create openDAQ signals to send the data as binary packets. The application also creates packet readers for all FB signals and prints the binary packets as strings to standard output. The SignalList property of the raw MQTT FB is filled from the application arguments. Usage:
+ - **raw-mqtt-sub**  - demonstrates how to work with the raw MQTT FB. The application creates an MQTT device and a raw MQTT FB to receive MQTT messages and create openDAQ signals to send the data as binary packets. The application also creates packet readers for all FB signals and prints the binary packets as strings to standard output. The SignalList property of the raw MQTT FB is filled from the application arguments. Usage:
  ```bash
- ./ref-dev-mqtt-raw-sub --address broker.emqx.io /agvstate /mirip/UNet3AC2/sensor/data
+ ./raw-mqtt-sub --address broker.emqx.io /agvstate /mirip/UNet3AC2/sensor/data
  ```
- - **ref-dev-mqtt-fb-pub** - demonstrates how to work with the *publisher MQTT FB*. The application creates an *openDAQ ref-device* with four channels, an *MQTT device*, and a *publisher MQTT FB* to publish JSON MQTT messages with the channels’ data. The properties of the *publisher MQTT FB* are set according to the selected mode, which can be specified via the *--mode* option. Posible values are:
+ - **ref-dev-mqtt-pub** - demonstrates how to work with the *publisher MQTT FB*. The application creates an *openDAQ ref-device* with four channels, an *MQTT device*, and a *publisher MQTT FB* to publish JSON MQTT messages with the channels’ data. The properties of the *publisher MQTT FB* are set according to the selected mode, which can be specified via the *--mode* option. Posible values are:
     - 0 - One MQTT message per signal / one message per sample / one topic per signal / one timestamp for each sample;
     - 1 - One MQTT message per signal / one message containing several samples / one topic per signal / one timestamp per sample (array of samples);
     - 2 - One MQTT message for several signals (from 1 to N) / one message per sample for each signal / one topic for all signals / separate timestamps for each signal;
     - 3 - One MQTT message for all signals / one message per sample containing all signals / one topic for all signals / one shared timestamp for all signals.
 ```bash
- ./ref-dev-mqtt-fb-pub --address broker.emqx.io --mode 1
+ ./ref-dev-mqtt-pub --address broker.emqx.io --mode 1
  ```
 Published messages can be observed using third-party tools (see the **External MQTT tools** section).
 For all applications, by default, the IP address *127.0.0.1* is used for the broker connection. It can be set via the *--address* option, for example:
@@ -189,7 +189,7 @@ For all applications, by default, the IP address *127.0.0.1* is used for the bro
 They are located in the **examples/** directory.
 > ***Note:*** *Using the applications involves using a third-party broker. It must be started before example applications. See a **External MQTT tools** section for more details*
 
-> ***Note:*** *The **ref-dev-mqtt-fb-pub** application depends on [**RefDeviceModule**](https://github.com/openDAQ/openDAQ/tree/main/examples/modules/ref_device_module).*
+> ***Note:*** *The **ref-dev-mqtt-pub** application depends on [**RefDeviceModule**](https://github.com/openDAQ/openDAQ/tree/main/examples/modules/ref_device_module).*
 
 
 ## External MQTT tools
