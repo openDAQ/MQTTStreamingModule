@@ -304,3 +304,68 @@ TEST_F(MqttRawFbTest, CheckRawFbFullDataTransfer)
     ASSERT_EQ(dataToSend.size(), dataToReceive.size());
     ASSERT_EQ(dataToSend, dataToReceive);
 }
+
+TEST_F(MqttRawFbTest, CheckRawFbFullDataTransferWithReconfiguring)
+{
+    const std::string topic0 = buildTopicName("0");
+    const std::string topic1 = buildTopicName("1");
+    const auto dataToSend = std::vector<std::vector<uint8_t>>{std::vector<uint8_t>{0x01, 0x02, 0x03, 0x04, 0x05},
+                                                              std::vector<uint8_t>{0x11, 0x12, 0x13, 0x14}};
+    std::vector<std::vector<uint8_t>> dataToReceive;
+
+    StartUp();
+
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
+    config.setPropertyValue(PROPERTY_NAME_TOPIC, topic0);
+    auto rawFB = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config);
+    auto singal = rawFB.getSignals()[0];
+    auto reader = daq::PacketReader(singal);
+
+    MqttAsyncClientWrapper publisher("testPublisherId");
+    ASSERT_TRUE(publisher.connect("127.0.0.1"));
+
+    mqtt::MqttMessage msg = {topic0, dataToSend[0], 2, 0};
+    ASSERT_TRUE(publisher.publishMsg(msg));
+
+    auto readerLambda = [&reader, &dataToReceive]()
+    {
+        while (!reader.getEmpty())
+        {
+            auto packet = reader.read();
+            if (const auto eventPacket = packet.asPtrOrNull<IEventPacket>(); eventPacket.assigned())
+            {
+                continue;
+            }
+            if (const auto dataPacket = packet.asPtrOrNull<IDataPacket>(); dataPacket.assigned())
+            {
+                std::vector<uint8_t> readData(dataPacket.getDataSize());
+                memcpy(readData.data(), dataPacket.getData(), dataPacket.getDataSize());
+                dataToReceive.push_back(std::move(readData));
+            }
+        }
+    };
+
+    readerLambda();
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    ASSERT_EQ(dataToSend[0], dataToReceive[0]);
+
+    dataToReceive.clear();
+
+    ASSERT_NO_THROW(rawFB.setPropertyValue(PROPERTY_NAME_TOPIC, topic1));
+    EXPECT_EQ(rawFB.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+    EXPECT_EQ(rawFB.getStatusContainer().getStatus("SubscriptionStatus"),
+              EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+                                      static_cast<Int>(MqttBaseFb::SubscriptionStatus::WaitingForData),
+                                      daqInstance.getContext().getTypeManager()));
+    msg = {topic1, dataToSend[1], 2, 0};
+    ASSERT_TRUE(publisher.publishMsg(msg));
+    EXPECT_EQ(rawFB.getStatusContainer().getStatus("SubscriptionStatus"),
+              EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+                                      static_cast<Int>(MqttBaseFb::SubscriptionStatus::HasData),
+                                      daqInstance.getContext().getTypeManager()));
+
+    readerLambda();
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    ASSERT_EQ(dataToSend[1], dataToReceive[0]);
+}
