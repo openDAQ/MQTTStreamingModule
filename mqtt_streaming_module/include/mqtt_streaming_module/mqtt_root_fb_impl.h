@@ -55,6 +55,8 @@ protected:
     void initBaseFunctionalBlocks();
     void initMqttSubscriber();
     void initConnectionStatus();
+    void initProperties(const PropertyObjectPtr& config);
+    void readProperties();
     bool waitForConnection(const int timeoutMs);
     void setConnectionStatus(const ConnectionStatus status, std::string message = "");
 
@@ -64,6 +66,7 @@ protected:
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
     Mqtt::Utils::Settings::MqttConnectionSettings connectionSettings;
+    int connectTimeout;
 
     std::promise<bool> connectedPromise;
     std::future<bool> connectedFuture;

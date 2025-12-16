@@ -18,18 +18,12 @@ std::vector<std::pair<MqttRootFbImpl::ConnectionStatus, std::string>> MqttRootFb
 
 MqttRootFbImpl::MqttRootFbImpl(const ContextPtr& ctx, const ComponentPtr& parent, const PropertyObjectPtr& config)
     : FunctionBlock(CreateType(), ctx, parent, getLocalId()),
-      subscriber(std::make_shared<mqtt::MqttAsyncClient>())
+      subscriber(std::make_shared<mqtt::MqttAsyncClient>()),
+      connectTimeout(0)
 {
-    connectionSettings.mqttUrl = config.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_ADDRESS).asPtr<IString>().toStdString();
-    connectionSettings.port = config.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_PORT);
-    connectionSettings.username = config.getPropertyValue(PROPERTY_NAME_MQTT_USERNAME).asPtr<IString>().toStdString();
-    connectionSettings.password = config.getPropertyValue(PROPERTY_NAME_MQTT_PASSWORD).asPtr<IString>().toStdString();
-    connectionSettings.clientId = globalId.toStdString();
-
-    int connectTimeout = config.getPropertyValue(PROPERTY_NAME_CONNECT_TIMEOUT);
-
     initComponentStatus();
     initConnectionStatus();
+    initProperties(config);
     initBaseFunctionalBlocks();
     initMqttSubscriber();
 
@@ -139,6 +133,54 @@ void MqttRootFbImpl::initConnectionStatus()
         {
             setConnectionStatus(ConnectionStatus::Reconnecting, msg);
         });
+}
+
+void MqttRootFbImpl::initProperties(const PropertyObjectPtr& config)
+{
+    for (const auto& prop : config.getAllProperties())
+    {
+        const auto propName = prop.getName();
+        if (!objPtr.hasProperty(propName))
+        {
+            auto propClone = PropertyBuilder(prop.getName())
+                            .setValueType(prop.getValueType())
+                            .setDescription(prop.getDescription())
+                            .setUnit(prop.getUnit())
+                            .setMinValue(prop.getMinValue())
+                            .setMaxValue(prop.getMaxValue())
+                            .setDefaultValue(prop.getValue())
+                            .setVisible(prop.getVisible())
+                            .setReadOnly(true)
+                            .setSelectionValues(prop.getSelectionValues())
+                            .setSuggestedValues(prop.getSuggestedValues())
+                            .setReferencedProperty(prop.getReferencedProperty())
+                            .setCoercer(prop.getCoercer())
+                            .setValidator(prop.getValidator())
+                            .setCallableInfo(prop.getCallableInfo())
+                            .setOnPropertyValueRead(prop.getOnPropertyValueRead())
+                            .setOnPropertyValueWrite(prop.getOnPropertyValueWrite())
+                            .setOnSelectionValuesRead(prop.getOnSelectionValuesRead())
+                            .setOnSuggestedValuesRead(prop.getOnSuggestedValuesRead())
+                            .build();
+            objPtr.addProperty(propClone);
+        }
+        else if (objPtr.getProperty(propName).getReadOnly() == false)
+        {
+            objPtr.setPropertyValue(propName, prop.getValue());
+        }
+    }
+    readProperties();
+}
+
+void MqttRootFbImpl::readProperties()
+{
+    connectionSettings.mqttUrl = objPtr.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_ADDRESS).asPtr<IString>().toStdString();
+    connectionSettings.port = objPtr.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_PORT);
+    connectionSettings.username = objPtr.getPropertyValue(PROPERTY_NAME_MQTT_USERNAME).asPtr<IString>().toStdString();
+    connectionSettings.password = objPtr.getPropertyValue(PROPERTY_NAME_MQTT_PASSWORD).asPtr<IString>().toStdString();
+    connectionSettings.clientId = globalId.toStdString();
+
+    connectTimeout = objPtr.getPropertyValue(PROPERTY_NAME_CONNECT_TIMEOUT);
 }
 
 bool MqttRootFbImpl::waitForConnection(const int timeoutMs)
