@@ -9,6 +9,11 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
 std::atomic<int> MqttPublisherFbImpl::localIndex = 0;
 
+const std::vector<std::pair<MqttPublisherFbImpl::SignalStatus, std::string>> MqttPublisherFbImpl::signalStatusMap =
+    {{SignalStatus::NotConnected, "NotConnected"},
+     {SignalStatus::Invalid, "Invalid"},
+     {SignalStatus::Valid, "Valid"}};
+
 MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
                                          const ComponentPtr& parent,
                                          const FunctionBlockTypePtr& type,
@@ -22,6 +27,7 @@ MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
       hasError(false)
 {
     initComponentStatus();
+    initSignalStatus();
     if (config.assigned())
         initProperties(populateDefaultConfig(type.createDefaultConfig(), config));
     else
@@ -165,20 +171,31 @@ void MqttPublisherFbImpl::updateInputPorts()
 
 void MqttPublisherFbImpl::validateInputPorts()
 {
-    const auto status = handler->validateSignalContexts(signalContexts);
-    hasError = !status.success;
-    if (!status.success)
+    if (signalContexts.size() == 1)     // no one input port is connected
     {
-        setComponentStatusWithMessage(ComponentStatus::Error, "Some connected signals were invalidated!");
-        for (const auto& msg : status.messages)
-        {
-            LOG_E("{}", msg);
-        }
+        setSignalStatus(SignalStatus::NotConnected);
     }
     else
     {
-        setComponentStatus(ComponentStatus::Ok);
-        handler->signalListChanged(signalContexts);
+        const auto status = handler->validateSignalContexts(signalContexts);
+        hasError = !status.success;
+        if (!status.success)
+        {
+            setComponentStatusWithMessage(ComponentStatus::Error, "Some connected signals were invalidated!");
+            std::string allMessages;
+            for (const auto& msg : status.messages)
+            {
+                LOG_E("{}", msg);
+                allMessages += msg + "; ";
+            }
+            setSignalStatus(SignalStatus::Invalid, allMessages);
+        }
+        else
+        {
+            setComponentStatus(ComponentStatus::Ok);
+            setSignalStatus(SignalStatus::Valid);
+            handler->signalListChanged(signalContexts);
+        }
     }
 }
 
@@ -282,5 +299,37 @@ void MqttPublisherFbImpl::sendMessages(const MqttData& data)
 std::string MqttPublisherFbImpl::getLocalId()
 {
     return std::string(MQTT_LOCAL_PUB_FB_ID_PREFIX + std::to_string(localIndex++));
+}
+
+void MqttPublisherFbImpl::initSignalStatus()
+{
+
+    addTypeToTypeManager(context.getTypeManager());
+
+    signalStatus = EnumerationWithIntValue(MQTT_PUB_FB_SIG_STATUS_TYPE,
+                                                 static_cast<Int>(SignalStatus::NotConnected),
+                                                 this->context.getTypeManager());
+    statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).addStatus("SignalStatus",
+                                                                                     signalStatus);
+}
+
+void MqttPublisherFbImpl::setSignalStatus(const SignalStatus status, std::string message)
+{
+    signalStatus = EnumerationWithIntValue(MQTT_PUB_FB_SIG_STATUS_TYPE, static_cast<Int>(status), this->context.getTypeManager());
+    statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).setStatusWithMessage("SignalStatus",
+                                                                                                signalStatus,
+                                                                                                message);
+}
+
+void MqttPublisherFbImpl::addTypeToTypeManager(daq::TypeManagerPtr manager)
+{
+    if (!manager.hasType(MQTT_PUB_FB_SIG_STATUS_TYPE))
+    {
+        auto list = List<IString>();
+        for (const auto& [_, st] : signalStatusMap)
+            list.pushBack(st);
+
+        manager.addType(EnumerationType(MQTT_PUB_FB_SIG_STATUS_TYPE, list));
+    }
 }
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

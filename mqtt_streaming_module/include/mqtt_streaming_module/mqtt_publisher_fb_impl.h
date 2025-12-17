@@ -27,6 +27,13 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 class MqttPublisherFbImpl final : public FunctionBlock
 {
 public:
+    enum class SignalStatus : EnumType
+    {
+        NotConnected = 0,
+        Invalid,
+        Valid
+    };
+
     explicit MqttPublisherFbImpl(const ContextPtr& ctx,
                                  const ComponentPtr& parent,
                                  const FunctionBlockTypePtr& type,
@@ -40,7 +47,11 @@ public:
     void onConnected(const InputPortPtr& port) override;
     void onDisconnected(const InputPortPtr& port) override;
 
+    static void addTypeToTypeManager(daq::TypeManagerPtr manager);
+
 private:
+    static const std::vector<std::pair<SignalStatus, std::string>> signalStatusMap;
+
     static std::atomic<int> localIndex;
     std::shared_ptr<mqtt::MqttAsyncClient> mqttClient;
     mqtt::MqttDataWrapper jsonDataWorker;
@@ -51,8 +62,11 @@ private:
     std::atomic<bool> running;
     std::atomic<bool> hasError;
     std::unique_ptr<HandlerBase> handler;
+    EnumerationPtr signalStatus;
 
     static std::string getLocalId();
+    void initSignalStatus();
+    void setSignalStatus(const SignalStatus status, std::string message = "");
     void initProperties(const PropertyObjectPtr& config);
     void readProperties();
     void propertyChanged();

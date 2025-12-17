@@ -665,36 +665,53 @@ TEST_F(MqttPublisherFbTest, CreationWithPartialConfig)
 TEST_F(MqttPublisherFbTest, ConnectToPort)
 {
     StartUp();
+    MqttPublisherFbImpl::addTypeToTypeManager(rootMqttFb.getContext().getTypeManager());
+    const auto sigStValid = EnumerationWithIntValue(MQTT_PUB_FB_SIG_STATUS_TYPE,
+                                                    static_cast<Int>(MqttPublisherFbImpl::SignalStatus::Valid),
+                                                    daqInstance.getContext().getTypeManager());
+    const auto sigStInvalid = EnumerationWithIntValue(MQTT_PUB_FB_SIG_STATUS_TYPE,
+                                                      static_cast<Int>(MqttPublisherFbImpl::SignalStatus::Invalid),
+                                                      daqInstance.getContext().getTypeManager());
+    const auto sigStNotConnected = EnumerationWithIntValue(MQTT_PUB_FB_SIG_STATUS_TYPE,
+                                                           static_cast<Int>(MqttPublisherFbImpl::SignalStatus::NotConnected),
+                                                           daqInstance.getContext().getTypeManager());
+    const auto comStOk = Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager());
+    const auto comStError = Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager());
 
     {
         daq::FunctionBlockPtr fb;
         ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("SignalStatus"), sigStNotConnected);
         auto help = SignalHelper<double>();
 
         ASSERT_EQ(fb.getInputPorts().getCount(), 1u);
         fb.getInputPorts()[0].connect(help.signal0);
         ASSERT_EQ(fb.getInputPorts().getCount(), 2u);
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus("SignalStatus"), sigStValid);
+
         fb.getInputPorts()[1].connect(help.signal0);
         ASSERT_EQ(fb.getInputPorts().getCount(), 3u);
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus("SignalStatus"), sigStValid);
         // disconnection
         fb.getInputPorts()[1].disconnect();
         ASSERT_EQ(fb.getInputPorts().getCount(), 2u);
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus("SignalStatus"), sigStValid);
         // connection without a domain signal
         fb.getInputPorts()[1].connect(help.signalWithoutDomain);
         ASSERT_EQ(fb.getInputPorts().getCount(), 3u);
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus("SignalStatus"), sigStValid);
         // disconnection
         fb.getInputPorts()[1].disconnect();
         ASSERT_EQ(fb.getInputPorts().getCount(), 2u);
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus("SignalStatus"), sigStValid);
+        fb.getInputPorts()[0].disconnect();
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus("SignalStatus"), sigStNotConnected);
     }
 
     {
@@ -709,8 +726,8 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
 
         fb.getInputPorts()[0].connect(signal0);
         fb.getInputPorts()[1].connect(signal1);
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus("SignalStatus"), sigStValid);
     }
 
     {
@@ -725,11 +742,11 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
 
         fb.getInputPorts()[0].connect(signal0);
         fb.getInputPorts()[1].connect(signal1);
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStError);
+        ASSERT_EQ(fb.getStatusContainer().getStatus("SignalStatus"), sigStInvalid);
         fb.getInputPorts()[1].disconnect();
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus("SignalStatus"), sigStValid);
     }
 
     {
@@ -744,11 +761,11 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
 
         fb.getInputPorts()[0].connect(signal0);
         fb.getInputPorts()[1].connect(signal1);
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStError);
+        ASSERT_EQ(fb.getStatusContainer().getStatus("SignalStatus"), sigStInvalid);
         fb.getInputPorts()[1].disconnect();
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus("SignalStatus"), sigStValid);
     }
 }
 
