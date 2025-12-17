@@ -52,9 +52,11 @@ FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
         defaultConfig.addProperty(builder.build());
     }
     {
-        auto builder = StringPropertyBuilder(PROPERTY_NAME_PUB_TOPIC_NAME, "")
-                           .setDescription("")
-                           .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 1"));
+        auto builder =
+            StringPropertyBuilder(PROPERTY_NAME_PUB_TOPIC_NAME, "")
+                .setDescription(
+                    "Topic name for publishing in multiple-topic mode. If left empty, the Publisher's Global ID is used as the topic name.")
+                .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 1"));
         defaultConfig.addProperty(builder.build());
     }
     {
@@ -190,6 +192,8 @@ void MqttPublisherFbImpl::initProperties(const PropertyObjectPtr& config)
             if (const auto internalProp = prop.asPtrOrNull<IPropertyInternal>(true); internalProp.assigned())
             {
                 objPtr.addProperty(internalProp.clone());
+                objPtr.getOnPropertyValueWrite(prop.getName()) +=
+                    [this](PropertyObjectPtr& obj, PropertyValueEventArgsPtr& args) { propertyChanged(); };
             }
         }
         objPtr.setPropertyValue(propName, prop.getValue());
@@ -200,7 +204,7 @@ void MqttPublisherFbImpl::initProperties(const PropertyObjectPtr& config)
 void MqttPublisherFbImpl::readProperties()
 {
     auto lock = this->getRecursiveConfigLock();
-    int tmpTopicMode = readProperty<int, IInteger>(PROPERTY_NAME_PUB_TOPIC_MODE, false);
+    int tmpTopicMode = readProperty<int, IInteger>(PROPERTY_NAME_PUB_TOPIC_MODE, 0);
     if (tmpTopicMode < static_cast<int>(TopicMode::_count) && tmpTopicMode >= 0)
         config.topicMode = static_cast<TopicMode>(tmpTopicMode);
     else
@@ -216,6 +220,14 @@ void MqttPublisherFbImpl::readProperties()
     if (config.periodMs < 0)
         config.periodMs = DEFAULT_PUB_READ_PERIOD;
     config.topicName = readProperty<std::string, IString>(PROPERTY_NAME_PUB_TOPIC_NAME, DEFAULT_PUB_TOPIC_NAME);
+}
+
+void MqttPublisherFbImpl::propertyChanged()
+{
+    auto lock = this->getRecursiveConfigLock();
+    readProperties();
+    handler = HandlerFactory::create(this->config, globalId.toStdString());
+    validateInputPorts();
 }
 
 template <typename retT, typename intfT>

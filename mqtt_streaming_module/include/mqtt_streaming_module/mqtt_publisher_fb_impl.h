@@ -55,6 +55,7 @@ private:
     static std::string getLocalId();
     void initProperties(const PropertyObjectPtr& config);
     void readProperties();
+    void propertyChanged();
     void updateInputPorts();
     void validateInputPorts();
     template <typename retT, typename intfT>
