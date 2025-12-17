@@ -17,6 +17,7 @@ static constexpr uint32_t DEFAULT_INIT_TIMEOUT = 3000; // ms
 static constexpr uint32_t DEFAULT_PUB_READ_PERIOD = 20; // ms
 static constexpr uint32_t DEFAULT_PUB_QOS = 1;
 static constexpr uint32_t DEFAULT_PUB_PACK_SIZE = 1;
+static constexpr const char* DEFAULT_PUB_TOPIC_NAME = "";
 
 static constexpr const char* PROPERTY_NAME_MQTT_BROKER_ADDRESS = "MqttBrokerAddress";
 static constexpr const char* PROPERTY_NAME_MQTT_BROKER_PORT = "MqttBrokerPort";
@@ -27,6 +28,7 @@ static constexpr const char* PROPERTY_NAME_SIGNAL_LIST = "SignalList";
 static constexpr const char* PROPERTY_NAME_TOPIC = "Topic";
 
 static constexpr const char* PROPERTY_NAME_PUB_TOPIC_MODE = "TopicMode";
+static constexpr const char* PROPERTY_NAME_PUB_TOPIC_NAME = "Topic";
 static constexpr const char* PROPERTY_NAME_PUB_SHARED_TS = "SharedTimestamp";
 static constexpr const char* PROPERTY_NAME_PUB_GROUP_VALUES = "GroupValues";
 static constexpr const char* PROPERTY_NAME_PUB_USE_SIGNAL_NAMES = "UseSignalNames";

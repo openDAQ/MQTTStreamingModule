@@ -52,6 +52,12 @@ FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
         defaultConfig.addProperty(builder.build());
     }
     {
+        auto builder = StringPropertyBuilder(PROPERTY_NAME_PUB_TOPIC_NAME, "")
+                           .setDescription("")
+                           .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 1"));
+        defaultConfig.addProperty(builder.build());
+    }
+    {
         auto builder = BoolPropertyBuilder(PROPERTY_NAME_PUB_SHARED_TS, False)
                            .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 1"))
                            .setDescription("Enables the use of a shared timestamp for all signals when publishing in multiple-topic mode. "
@@ -209,6 +215,7 @@ void MqttPublisherFbImpl::readProperties()
     config.periodMs = readProperty<int, IInteger>(PROPERTY_NAME_PUB_READ_PERIOD, DEFAULT_PUB_READ_PERIOD);
     if (config.periodMs < 0)
         config.periodMs = DEFAULT_PUB_READ_PERIOD;
+    config.topicName = readProperty<std::string, IString>(PROPERTY_NAME_PUB_TOPIC_NAME, DEFAULT_PUB_TOPIC_NAME);
 }
 
 template <typename retT, typename intfT>
