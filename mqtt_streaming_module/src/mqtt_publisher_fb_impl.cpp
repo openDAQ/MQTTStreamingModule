@@ -259,7 +259,7 @@ void MqttPublisherFbImpl::sendMessages(const MqttData& data)
 {
     for (const auto& [topic, msg] : data)
     {
-        auto status = mqttClient->publish(topic, (void*)msg.c_str(), msg.length(), 1);
+        auto status = mqttClient->publish(topic, (void*)msg.c_str(), msg.length(), config.qos);
         if (!status.success)
         {
             LOG_W("Failed to publish data to {}; reason - {}", topic, status.msg);
