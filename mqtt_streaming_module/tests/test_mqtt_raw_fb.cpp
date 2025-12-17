@@ -7,6 +7,7 @@
 #include <opendaq/data_packet_ptr.h>
 #include <opendaq/reader_factory.h>
 #include <testutils/testutils.h>
+#include <mqtt_streaming_helper/timer.h>
 
 using namespace daq;
 using namespace daq::modules::mqtt_streaming_module;
@@ -321,8 +322,17 @@ TEST_F(MqttRawFbTest, CheckRawFbFullDataTransferWithReconfiguring)
     auto singal = rawFB.getSignals()[0];
     auto reader = daq::PacketReader(singal);
 
+    const auto stHasData = EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+                                                   static_cast<Int>(MqttBaseFb::SubscriptionStatus::HasData),
+                                                   daqInstance.getContext().getTypeManager());
+
+    const auto stWaitData = EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+                                                    static_cast<Int>(MqttBaseFb::SubscriptionStatus::WaitingForData),
+                                                    daqInstance.getContext().getTypeManager());
+
     MqttAsyncClientWrapper publisher("testPublisherId");
     ASSERT_TRUE(publisher.connect("127.0.0.1"));
+    EXPECT_EQ(rawFB.getStatusContainer().getStatus("SubscriptionStatus"), stWaitData);
 
     mqtt::MqttMessage msg = {topic0, dataToSend[0], 2, 0};
     ASSERT_TRUE(publisher.publishMsg(msg));
@@ -344,6 +354,13 @@ TEST_F(MqttRawFbTest, CheckRawFbFullDataTransferWithReconfiguring)
             }
         }
     };
+    helper::utils::Timer tmr(1000, true);
+
+    bool hasData = false;
+    while (tmr.expired() == false && hasData == false)
+        hasData = rawFB.getStatusContainer().getStatus("SubscriptionStatus") == stHasData;
+
+    EXPECT_TRUE(hasData);
 
     readerLambda();
     ASSERT_EQ(dataToReceive.size(), 1u);
@@ -354,16 +371,17 @@ TEST_F(MqttRawFbTest, CheckRawFbFullDataTransferWithReconfiguring)
     ASSERT_NO_THROW(rawFB.setPropertyValue(PROPERTY_NAME_TOPIC, topic1));
     EXPECT_EQ(rawFB.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    EXPECT_EQ(rawFB.getStatusContainer().getStatus("SubscriptionStatus"),
-              EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
-                                      static_cast<Int>(MqttBaseFb::SubscriptionStatus::WaitingForData),
-                                      daqInstance.getContext().getTypeManager()));
+    EXPECT_EQ(rawFB.getStatusContainer().getStatus("SubscriptionStatus"), stWaitData);
+
     msg = {topic1, dataToSend[1], 2, 0};
     ASSERT_TRUE(publisher.publishMsg(msg));
-    EXPECT_EQ(rawFB.getStatusContainer().getStatus("SubscriptionStatus"),
-              EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
-                                      static_cast<Int>(MqttBaseFb::SubscriptionStatus::HasData),
-                                      daqInstance.getContext().getTypeManager()));
+    tmr.restart();
+
+    hasData = false;
+    while (tmr.expired() == false && hasData == false)
+        hasData = rawFB.getStatusContainer().getStatus("SubscriptionStatus") == stHasData;
+
+    EXPECT_TRUE(hasData);
 
     readerLambda();
     ASSERT_EQ(dataToReceive.size(), 1u);
