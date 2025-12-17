@@ -1,6 +1,6 @@
 #include "MqttAsyncClient.h"
 #include "MqttAsyncClientWrapper.h"
-#include "Timer.h"
+#include "mqtt_streaming_helper/timer.h"
 #include "timestampConverter.h"
 #include <future>
 #include <gmock/gmock.h>
@@ -9,6 +9,7 @@
 
 using namespace mqtt;
 using namespace std::chrono;
+using namespace helper::utils;
 
 class MqttStreamingProtocolTest : public ::testing::Test,  public MqttAsyncClientWrapper {
 protected:

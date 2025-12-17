@@ -86,6 +86,7 @@ endif()
 
 target_link_libraries(${LIB_NAME} PUBLIC  daq::opendaq
                                           mqtt_streaming_protocol
+                                          mqtt_streaming_helper
                                   PRIVATE $<BUILD_INTERFACE:Boost::algorithm>
 )
 

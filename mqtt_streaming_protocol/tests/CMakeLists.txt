@@ -6,18 +6,23 @@ set(TEST_SOURCES test_mqtt_streaming_protocol.cpp
                  test_app.cpp
 )
 
+set(WRP_SOURCES MqttAsyncClientWrapper.h
+                MqttAsyncClientWrapper.cpp
+)
+
+source_group("mqtt_client_sync_wrapper" FILES ${WRP_SOURCES})
+
 add_executable(${TEST_APP} ${TEST_SOURCES}
 )
 
-add_library(${TEST_LIB} STATIC MqttAsyncClientWrapper.h
-                               MqttAsyncClientWrapper.cpp
-                               Timer.h
+add_library(${TEST_LIB} STATIC ${WRP_SOURCES}
 )
 
 target_include_directories(${TEST_LIB} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 target_link_libraries(${TEST_LIB} PRIVATE ${MODULE_NAME}
+                                  PUBLIC mqtt_streaming_helper
 )
 
 target_link_libraries(${TEST_APP} PRIVATE daq::test_utils

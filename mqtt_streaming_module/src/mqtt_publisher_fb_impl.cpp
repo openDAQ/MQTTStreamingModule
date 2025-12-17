@@ -14,6 +14,10 @@ const std::vector<std::pair<MqttPublisherFbImpl::SignalStatus, std::string>> Mqt
      {SignalStatus::Invalid, "Invalid"},
      {SignalStatus::Valid, "Valid"}};
 
+const std::vector<std::pair<MqttPublisherFbImpl::PublishingStatus, std::string>> MqttPublisherFbImpl::publishingStatusMap =
+    {{PublishingStatus::Ok, "Ok"},
+     {PublishingStatus::SampleSkipped, "SampleSkipped"}};
+
 MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
                                          const ComponentPtr& parent,
                                          const FunctionBlockTypePtr& type,
@@ -24,10 +28,14 @@ MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
       jsonDataWorker(loggerComponent),
       inputPortCount(0),
       running(true),
-      hasError(false)
+      hasError(false),
+      skippedMsgCnt(0),
+      publishingStatusTimer(helper::utils::Timer(1000, false))
 {
     initComponentStatus();
-    initSignalStatus();
+    addTypesToTypeManager(context.getTypeManager());
+    setSignalStatus(SignalStatus::NotConnected, "", true);
+    setPublishingStatus(PublishingStatus::Ok, "", true);
     if (config.assigned())
         initProperties(populateDefaultConfig(type.createDefaultConfig(), config));
     else
@@ -171,8 +179,12 @@ void MqttPublisherFbImpl::updateInputPorts()
 
 void MqttPublisherFbImpl::validateInputPorts()
 {
+    skippedMsgCnt = 0;
+    publishedMsgCnt = 0;
+    setPublishingStatus(PublishingStatus::Ok);
     if (signalContexts.size() == 1)     // no one input port is connected
     {
+        setComponentStatus(ComponentStatus::Ok);
         setSignalStatus(SignalStatus::NotConnected);
     }
     else
@@ -280,6 +292,7 @@ void MqttPublisherFbImpl::readerLoop()
             msgs = handler->processSignalContexts(signalContexts);
         }
         sendMessages(msgs);
+        updatePublishingStatus();
         std::this_thread::sleep_for(std::chrono::milliseconds(config.periodMs));
     }
 }
@@ -291,7 +304,13 @@ void MqttPublisherFbImpl::sendMessages(const MqttData& data)
         auto status = mqttClient->publish(topic, (void*)msg.c_str(), msg.length(), config.qos);
         if (!status.success)
         {
-            LOG_W("Failed to publish data to {}; reason - {}", topic, status.msg);
+            ++skippedMsgCnt;
+            lastSkippedReason = std::move(status.msg);
+            LOG_W("Failed to publish data to {}; reason - {}", topic, lastSkippedReason);
+        }
+        else
+        {
+            ++publishedMsgCnt;
         }
     }
 }
@@ -301,27 +320,55 @@ std::string MqttPublisherFbImpl::getLocalId()
     return std::string(MQTT_LOCAL_PUB_FB_ID_PREFIX + std::to_string(localIndex++));
 }
 
-void MqttPublisherFbImpl::initSignalStatus()
+void MqttPublisherFbImpl::setSignalStatus(const SignalStatus status, std::string message, bool init)
 {
-
-    addTypeToTypeManager(context.getTypeManager());
-
-    signalStatus = EnumerationWithIntValue(MQTT_PUB_FB_SIG_STATUS_TYPE,
-                                                 static_cast<Int>(SignalStatus::NotConnected),
-                                                 this->context.getTypeManager());
-    statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).addStatus("SignalStatus",
-                                                                                     signalStatus);
+    signalStatus = EnumerationWithIntValue(MQTT_PUB_FB_SIG_STATUS_TYPE, static_cast<Int>(status), context.getTypeManager());
+    if (init)
+        statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).addStatusWithMessage(MQTT_PUB_FB_SIG_STATUS_NAME,
+                                                                                                    signalStatus,
+                                                                                                    message);
+    else
+        statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).setStatusWithMessage(MQTT_PUB_FB_SIG_STATUS_NAME,
+                                                                                                    signalStatus,
+                                                                                                    message);
 }
 
-void MqttPublisherFbImpl::setSignalStatus(const SignalStatus status, std::string message)
+void MqttPublisherFbImpl::updatePublishingStatus()
 {
-    signalStatus = EnumerationWithIntValue(MQTT_PUB_FB_SIG_STATUS_TYPE, static_cast<Int>(status), this->context.getTypeManager());
-    statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).setStatusWithMessage("SignalStatus",
-                                                                                                signalStatus,
-                                                                                                message);
+    if (publishingStatusTimer.expired())
+    {
+        publishingStatusTimer.restart();
+        if (skippedMsgCnt != 0)
+        {
+            if (statusContainer.getStatus("ComponentStatus") == ComponentStatus::Ok)
+                setComponentStatusWithMessage(ComponentStatus::Warning, "Some messages were not published!");
+            setPublishingStatus(PublishingStatus::SampleSkipped,
+                                fmt::format("Published: {}; Skipped: {}; last reason - {}",
+                                            publishedMsgCnt,
+                                            skippedMsgCnt,
+                                            lastSkippedReason));
+        }
+        else
+        {
+            setPublishingStatus(PublishingStatus::Ok, fmt::format("Published: {};", publishedMsgCnt));
+        }
+    }
 }
 
-void MqttPublisherFbImpl::addTypeToTypeManager(daq::TypeManagerPtr manager)
+void MqttPublisherFbImpl::setPublishingStatus(const PublishingStatus status, std::string message, bool init)
+{
+    publishingStatus = EnumerationWithIntValue(MQTT_PUB_FB_PUB_STATUS_TYPE, static_cast<Int>(status), context.getTypeManager());
+    if (init)
+        statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).addStatusWithMessage(MQTT_PUB_FB_PUB_STATUS_NAME,
+                                                                                                    publishingStatus,
+                                                                                                    message);
+    else
+        statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).setStatusWithMessage(MQTT_PUB_FB_PUB_STATUS_NAME,
+                                                                                                    publishingStatus,
+                                                                                                    message);
+}
+
+void MqttPublisherFbImpl::addTypesToTypeManager(daq::TypeManagerPtr manager)
 {
     if (!manager.hasType(MQTT_PUB_FB_SIG_STATUS_TYPE))
     {
@@ -330,6 +377,15 @@ void MqttPublisherFbImpl::addTypeToTypeManager(daq::TypeManagerPtr manager)
             list.pushBack(st);
 
         manager.addType(EnumerationType(MQTT_PUB_FB_SIG_STATUS_TYPE, list));
+    }
+
+    if (!manager.hasType(MQTT_PUB_FB_PUB_STATUS_TYPE))
+    {
+        auto list = List<IString>();
+        for (const auto& [_, st] : publishingStatusMap)
+            list.pushBack(st);
+
+        manager.addType(EnumerationType(MQTT_PUB_FB_PUB_STATUS_TYPE, list));
     }
 }
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

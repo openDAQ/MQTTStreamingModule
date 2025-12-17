@@ -1,5 +1,5 @@
 #include "MqttAsyncClientWrapper.h"
-#include "Timer.h"
+#include "mqtt_streaming_helper/timer.h"
 #include "mqtt_streaming_module/mqtt_json_receiver_fb_impl.h"
 #include "test_daq_test_helper.h"
 #include "test_data.h"
@@ -236,7 +236,7 @@ public:
     {
         std::vector<T> result;
 
-        auto timer = Timer(timeoutMs);
+        auto timer = helper::utils::Timer(timeoutMs);
         while (!reader.getEmpty() || !timer.expired())
         {
             if (reader.getEmpty())
