@@ -34,6 +34,7 @@ MqttAsyncClient::MqttAsyncClient(std::string serverUrl, std::string clientId, bo
     disconnOpts.context = this;
 
     createOpts = MQTTAsync_createOptions_initializer;
+    createOpts.maxBufferedMessages = 1000;
 }
 
 MqttAsyncClient::~MqttAsyncClient()
