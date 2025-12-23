@@ -7,6 +7,7 @@ cmake_minimum_required(VERSION 3.25)
 set(SDK_TARGET_NAMESPACE daq)
 set(REPO_NAME mqtt_module)
 set(REPO_OPTION_PREFIX MQTT_MODULE)
+set(CMAKE_FOLDER "${CMAKE_FOLDER}/${REPO_NAME}")
 
 project (${REPO_NAME} CXX)
 

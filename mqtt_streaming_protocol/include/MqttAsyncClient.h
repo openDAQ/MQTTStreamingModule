@@ -82,6 +82,7 @@ public:
     void setMessageArrivedCb(std::vector<std::string> topics, std::function<MsgArrivedCb_type> cb);
     void setMessageArrivedCb(std::function<MsgArrivedCb_type> cb);
     void setDisconnectCb(std::function<void(bool)> cb);
+    void setConnectionLostCb(std::function<void(std::string)> cb);
     void setSentCb(std::function<void(int, bool)> cb);
     void setUnsubscribeCb(std::function<void(int, bool)> cb);
     void setDeliveryCompletedCb(std::function<void(int)> cb);
@@ -112,6 +113,7 @@ private:
     std::function<void(int, bool)> onUnsubscribeCb;
     std::function<void(bool)> onDisconnectCb;
     std::function<void(bool)> onInternalDisconnectCb;
+    std::function<void(std::string)> onConnectionLostCb;
     std::function<void(int)> onDeliveryCompletedCb;
     std::function<MsgArrivedCb_type> onMsgArrivedCmnCb;
     std::unordered_map<std::string, std::function<MsgArrivedCb_type>> onMsgArrivedCbs;

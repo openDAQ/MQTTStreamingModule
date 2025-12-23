@@ -89,12 +89,15 @@ int main(int argc, char* argv[])
     channels[3].setPropertyValue("Frequency", 20);
 
     // Create and configure MQTT server
-    auto brokerDevice = instance.addDevice("daq.mqtt://" + appConfig.brokerAddress);
-    auto availableDeviceNodes = brokerDevice.getAvailableFunctionBlockTypes();
+    const std::string rootFbName = "@rootMqttFb";
+    auto rootFbConfig = instance.getAvailableFunctionBlockTypes().get(rootFbName).createDefaultConfig();
+    rootFbConfig.setPropertyValue("MqttBrokerAddress", appConfig.brokerAddress);
+    auto brokerFB = instance.addFunctionBlock(rootFbName, rootFbConfig);
+    auto availableFbs = brokerFB.getAvailableFunctionBlockTypes();
     const std::string fbName = "@publisherMqttFb";
     std::cout << "Try to add the " << fbName << std::endl;
 
-    auto config = availableDeviceNodes.get(fbName).createDefaultConfig();
+    auto config = availableFbs.get(fbName).createDefaultConfig();
     config.setPropertyValue("MqttQoS", 1);
     config.setPropertyValue("ReaderPeriod", 20);
     config.setPropertyValue("UseSignalNames", True);
@@ -126,7 +129,7 @@ int main(int argc, char* argv[])
 
 
     // Add the publisher function block to the broker device
-    daq::FunctionBlockPtr fb = brokerDevice.addFunctionBlock(fbName, config);
+    daq::FunctionBlockPtr fb = brokerFB.addFunctionBlock(fbName, config);
     const auto signals = refDevice.getSignals(search::Recursive(search::Any()));
     for (const auto& s : signals)
     {

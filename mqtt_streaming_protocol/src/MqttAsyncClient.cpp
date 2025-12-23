@@ -277,12 +277,15 @@ void MqttAsyncClient::onConnected(void* context, char* cause)
 
 void MqttAsyncClient::onConnectionLost(void* context, char* cause)
 {
-    (void)cause;
+    std::string msg((cause) ? cause : "");
     // Reconnect procedure here!
     if (context != nullptr)
     {
         auto clienttInst = (MqttAsyncClient*)context;
         clienttInst->pendingConnect = false;
+        auto lock = clienttInst->getCbLock();
+        if (clienttInst->onConnectionLostCb)
+            clienttInst->onConnectionLostCb(msg);
     }
 }
 
@@ -451,6 +454,12 @@ void MqttAsyncClient::setDisconnectCb(std::function<void(bool)> cb)
 {
     auto lock = getCbLock();
     onDisconnectCb = cb;
+}
+
+void MqttAsyncClient::setConnectionLostCb(std::function<void(std::string)> cb)
+{
+    auto lock = getCbLock();
+    onConnectionLostCb = cb;
 }
 
 void MqttAsyncClient::setSentCb(std::function<void(int, bool)> cb)

@@ -12,9 +12,9 @@ MQTT module for the [OpenDAQ SDK](https://github.com/openDAQ/openDAQ). The modul
 - A set of examples and *gtests* for verifying functionality.
 
 ### Key components
-1) **MQTT device**:
-   - **Where**: *mqtt_streaming_client_module/src/mqtt_streaming_device_impl.cpp, include/mqtt_streaming_client_module/...*
-   - **Purpose**: Represents the MQTT broker as an openDAQ device - the connection point through which function blocks are created.
+1) **MQTT root Function Block (@rootMqttFb)**:
+   - **Where**: *mqtt_streaming_module/src/mqtt_root_fb_impl.cpp, include/mqtt_streaming_module/...*
+   - **Purpose**: Represents the MQTT broker as an openDAQ function block - the connection point through which function blocks are created.
    - **Main properties:**
       - *MqttBrokerAddress* (string) - MQTT broker address. It can be an IP address or a hostname. By default, it is set to *"127.0.0.1"*.
       - *MqttBrokerPort* (integer) - Port number for the MQTT broker connection. By default, it is set to *1883*.
@@ -22,7 +22,7 @@ MQTT module for the [OpenDAQ SDK](https://github.com/openDAQ/openDAQ). The modul
       - *MqttPassword* (string) — Password for MQTT broker authentication. By default, it is empty.
       - *ConnectTimeout* (integer) — Timeout in milliseconds for the initial connection to the MQTT broker. If the connection fails, an exception is thrown. By default, it is set to *3000 ms*.
 2) **Publisher MQTT Function Block (@publisherMqttFb)**:
-   - **Where**: *include/mqtt_streaming_client_module/mqtt_publisher_fb_impl.h, src/mqtt_publisher_fb_impl.cpp*
+   - **Where**: *include/mqtt_streaming_module/mqtt_publisher_fb_impl.h, src/mqtt_publisher_fb_impl.cpp*
    - **Purpose**: Publishes openDAQ signal data to MQTT topics. There are **four** general data publishing schemes:
       1) One MQTT message per signal / one message per sample / one topic per signal / one timestamp for each sample. Example: *{"AI0": 1.1, "timestamp": 1763716736100000}*
 
@@ -52,13 +52,13 @@ MQTT module for the [OpenDAQ SDK](https://github.com/openDAQ/openDAQ). The modul
 
 3) **Raw MQTT Function Block (@rawMqttFb)**:
 
-   - **Where**: *include/mqtt_streaming_client_module/mqtt_raw_receiver_fb_impl.h, src/mqtt_raw_receiver_fb_impl.cpp*
+   - **Where**: *include/mqtt_streaming_module/mqtt_raw_receiver_fb_impl.h, src/mqtt_raw_receiver_fb_impl.cpp*
    - **Purpose**: Subscribes to raw MQTT messages and converts them into openDAQ signals (binary data) without any parsing — suitable for binary/unstructured messages or simple numeric values.
    - **Main properties**:
       - *SignalList* (list of strings) — List of MQTT topics to subscribe to for receiving raw binary data.
 
 4) **JSON MQTT Function Block (@jsonMqttFb)**:
-   - **Where**: *include/mqtt_streaming_client_module/mqtt_json_receiver_fb_impl.h, src/mqtt_json_receiver_fb_impl.cpp*
+   - **Where**: *include/mqtt_streaming_module/mqtt_json_receiver_fb_impl.h, src/mqtt_json_receiver_fb_impl.cpp*
    - **Purpose**: Subscribes to MQTT topics, extracts values and timestamps from MQTT JSON messages, and converts them into openDAQ signal data samples.
    - **Main properties**:
       - *SignalList* (string) — **JSON configuration string** that defines the list of MQTT topics and the corresponding signals to subscribe to. A typical string structure:
@@ -164,15 +164,15 @@ cmake --build .
 ## Examples   
 
 There are 3 example C++ application:
- - **custom-mqtt-sub** - demonstrates how to work with the *JSON MQTT FB*. The application creates an *MQTT device* and a *JSON MQTT FB* to receive JSON MQTT messages, parse them, and create openDAQ signals to send the parsed data. The application also creates *packet readers* for all FB signals and prints the samples to standard output. The *SignalList* property of the JSON MQTT FB is set to the value read from a file whose path is provided as a command-line argument when the application starts (see the **Key components** section). Usage:
+ - **custom-mqtt-sub** - demonstrates how to work with the *JSON MQTT FB*. The application creates an *MQTT root FB* and a *JSON MQTT FB* to receive JSON MQTT messages, parse them, and create openDAQ signals to send the parsed data. The application also creates *packet readers* for all FB signals and prints the samples to standard output. The *SignalList* property of the JSON MQTT FB is set to the value read from a file whose path is provided as a command-line argument when the application starts (see the **Key components** section). Usage:
   ```bash
  ./custom-mqtt-sub --address broker.emqx.io examples/custom-mqtt-sub/public-example0.json
  ```  
- - **raw-mqtt-sub**  - demonstrates how to work with the raw MQTT FB. The application creates an MQTT device and a raw MQTT FB to receive MQTT messages and create openDAQ signals to send the data as binary packets. The application also creates packet readers for all FB signals and prints the binary packets as strings to standard output. The SignalList property of the raw MQTT FB is filled from the application arguments. Usage:
+ - **raw-mqtt-sub**  - demonstrates how to work with the *raw MQTT FB*. The application creates an *MQTT root FB* and a *raw MQTT FB* to receive MQTT messages and create openDAQ signals to send the data as binary packets. The application also creates packet readers for all FB signals and prints the binary packets as strings to standard output. The *SignalList* property of the raw MQTT FB is filled from the application arguments. Usage:
  ```bash
  ./raw-mqtt-sub --address broker.emqx.io /agvstate /mirip/UNet3AC2/sensor/data
  ```
- - **ref-dev-mqtt-pub** - demonstrates how to work with the *publisher MQTT FB*. The application creates an *openDAQ ref-device* with four channels, an *MQTT device*, and a *publisher MQTT FB* to publish JSON MQTT messages with the channels’ data. The properties of the *publisher MQTT FB* are set according to the selected mode, which can be specified via the *--mode* option. Posible values are:
+ - **ref-dev-mqtt-pub** - demonstrates how to work with the *publisher MQTT FB*. The application creates an *openDAQ ref-device* with four channels, an *MQTT root FB*, and a *publisher MQTT FB* to publish JSON MQTT messages with the channels’ data. The properties of the *publisher MQTT FB* are set according to the selected mode, which can be specified via the *--mode* option. Posible values are:
     - 0 - One MQTT message per signal / one message per sample / one topic per signal / one timestamp for each sample;
     - 1 - One MQTT message per signal / one message containing several samples / one topic per signal / one timestamp per sample (array of samples);
     - 2 - One MQTT message for several signals (from 1 to N) / one message per sample for each signal / one topic for all signals / separate timestamps for each signal;

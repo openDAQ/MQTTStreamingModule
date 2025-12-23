@@ -3,7 +3,6 @@
 #include "test_daq_test_helper.h"
 #include <coreobjects/property_factory.h>
 #include <coreobjects/property_object_factory.h>
-#include <coretypes/common.h>
 #include <mqtt_streaming_module/constants.h>
 #include <opendaq/data_packet_ptr.h>
 #include <opendaq/reader_factory.h>
@@ -52,7 +51,7 @@ TEST_F(MqttRawFbTest, DefaultRawFbConfig)
     daq::DictPtr<daq::IString, daq::IFunctionBlockType> fbTypes;
     daq::FunctionBlockTypePtr fbt;
     daq::PropertyObjectPtr defaultConfig;
-    ASSERT_NO_THROW(fbTypes = device.getAvailableFunctionBlockTypes());
+    ASSERT_NO_THROW(fbTypes = rootMqttFb.getAvailableFunctionBlockTypes());
     ASSERT_NO_THROW(fbt = fbTypes.get(RAW_FB_NAME));
     ASSERT_NO_THROW(defaultConfig = fbt.createDefaultConfig());
 
@@ -70,11 +69,11 @@ TEST_F(MqttRawFbTest, CreateRawFunctionalBlocks)
 {
     StartUp();
     daq::FunctionBlockPtr rawFb;
-    ASSERT_NO_THROW(rawFb = device.addFunctionBlock(RAW_FB_NAME));
+    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME));
     ASSERT_EQ(rawFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
     ASSERT_EQ(rawFb.getName(), RAW_FB_NAME);
-    auto fbs = device.getFunctionBlocks();
+    auto fbs = rootMqttFb.getFunctionBlocks();
     bool contain = false;
     daq::GenericFunctionBlockPtr<daq::IFunctionBlock> fbFromList;
     for (const auto& fb : fbs)
@@ -97,7 +96,7 @@ TEST_F(MqttRawFbTest, CheckRawFbWithEmptyConfig)
     StartUp();
     daq::FunctionBlockPtr rawFb;
     auto config = PropertyObject();
-    ASSERT_NO_THROW(rawFb = device.addFunctionBlock(RAW_FB_NAME, config));
+    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
     auto signals = rawFb.getSignals();
     ASSERT_EQ(signals.getCount(), 0u);
 }
@@ -106,7 +105,7 @@ TEST_F(MqttRawFbTest, CheckRawFbWithDefaultConfig)
 {
     StartUp();
     daq::FunctionBlockPtr rawFb;
-    ASSERT_NO_THROW(rawFb = device.addFunctionBlock(RAW_FB_NAME));
+    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME));
     auto signals = rawFb.getSignals();
     ASSERT_EQ(signals.getCount(), 0u);
 }
@@ -118,7 +117,7 @@ TEST_F(MqttRawFbTest, CheckRawFbWithPartialConfig)
     daq::FunctionBlockPtr rawFb;
     auto config = PropertyObject();
     config.addProperty(ListProperty(PROPERTY_NAME_SIGNAL_LIST, List<IString>()));
-    ASSERT_NO_THROW(rawFb = device.addFunctionBlock(RAW_FB_NAME, config));
+    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
 }
 
 TEST_F(MqttRawFbTest, CheckRawFbWithCustomConfig)
@@ -126,9 +125,9 @@ TEST_F(MqttRawFbTest, CheckRawFbWithCustomConfig)
     // If FB has only one property, partial config is equivalent to custom config
     StartUp();
     daq::FunctionBlockPtr rawFb;
-    auto config = device.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
     config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, List<IString>(buildTopicName()));
-    ASSERT_NO_THROW(rawFb = device.addFunctionBlock(RAW_FB_NAME, config));
+    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
 }
 
 TEST_F(MqttRawFbTest, CheckRawFbSignalList)
@@ -142,11 +141,11 @@ TEST_F(MqttRawFbTest, CheckRawFbSignalList)
     {
         addToList(topicList, fmt::format("{}_{}", topic, i));
     }
-    auto config = device.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
 
     config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, topicList);
     daq::FunctionBlockPtr rawFb;
-    ASSERT_NO_THROW(rawFb = device.addFunctionBlock(RAW_FB_NAME, config));
+    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
     auto signals = rawFb.getSignals();
     ASSERT_EQ(signals.getCount(), NUM_TOPICS);
 }
@@ -163,11 +162,11 @@ TEST_F(MqttRawFbTest, CheckRawFbSignalListWithWildcard)
     addToList(topicList, "badTopic/#");
     addToList(topicList, "goodTopic/test/newTopic");
 
-    auto config = device.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
 
     config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, topicList);
     daq::FunctionBlockPtr rawFb;
-    ASSERT_NO_THROW(rawFb = device.addFunctionBlock(RAW_FB_NAME, config));
+    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
     auto signals = rawFb.getSignals();
     ASSERT_EQ(signals.getCount(), 2u);
 }
@@ -183,11 +182,11 @@ TEST_F(MqttRawFbTest, CheckRawFbConfig)
     {
         addToList(topicList, fmt::format("{}_{}", topic, i));
     }
-    auto config = device.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
 
     config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, topicList);
     daq::FunctionBlockPtr rawFb;
-    ASSERT_NO_THROW(rawFb = device.addFunctionBlock(RAW_FB_NAME, config));
+    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
 
     const auto allProperties = rawFb.getAllProperties();
     ASSERT_EQ(allProperties.getCount(), config.getAllProperties().getCount());
@@ -248,10 +247,10 @@ TEST_F(MqttRawFbTest, CheckRawFbFullDataTransfer)
 
     auto topicList = List<IString>();
     addToList(topicList, topic);
-    auto config = device.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
 
     config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, topicList);
-    auto singal = device.addFunctionBlock(RAW_FB_NAME, config).getSignals()[0];
+    auto singal = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config).getSignals()[0];
     auto reader = daq::PacketReader(singal);
 
     MqttAsyncClientWrapper publisher("testPublisherId");

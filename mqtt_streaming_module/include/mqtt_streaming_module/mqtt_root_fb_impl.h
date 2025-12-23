@@ -19,49 +19,54 @@
 #include "MqttSettings.h"
 #include <future>
 #include <mqtt_streaming_module/common.h>
-#include <opendaq/device_impl.h>
+#include <opendaq/function_block_impl.h>
 #include <opendaq/streaming_ptr.h>
 #include "MqttDataWrapper.h"
 
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-class MqttStreamingDeviceImpl : public Device
+class MqttRootFbImpl : public FunctionBlock
 {
+    enum class ConnectionStatus : EnumType
+    {
+        Connected = 0,
+        Reconnecting,
+        Disconnected
+    };
+
 public:
-    explicit MqttStreamingDeviceImpl(const ContextPtr& ctx,
+    explicit MqttRootFbImpl(const ContextPtr& ctx,
                                        const ComponentPtr& parent,
                                        const PropertyObjectPtr& config);
+
+    static FunctionBlockTypePtr CreateType();
 
 protected:
     static std::atomic<int> localIndex;
     static std::string getLocalId();
+    static std::vector<std::pair<MqttRootFbImpl::ConnectionStatus, std::string>> connectionStatusMap;
 
     void removed() override;
-    DeviceInfoPtr onGetInfo() override;
 
-    bool allowAddFunctionBlocksFromModules() override
-    {
-        return true;
-    };
     DictPtr<IString, IFunctionBlockType> onGetAvailableFunctionBlockTypes() override;
     FunctionBlockPtr onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config) override;
 
     void initBaseFunctionalBlocks();
     void initMqttSubscriber();
-    void buildFunctionBlockTypes();
+    void initConnectionStatus();
+    void initProperties(const PropertyObjectPtr& config);
+    void readProperties();
     bool waitForConnection(const int timeoutMs);
-    void receiveSignalTopics(const int timeoutMs);
-    void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, mqtt::MqttMessage& msg);
+    void setConnectionStatus(const ConnectionStatus status, std::string message = "");
 
-    DictObjectPtr<IDict, IString, IFunctionBlockType> fbTypes;
     DictObjectPtr<IDict, IString, IFunctionBlockType> baseFbTypes;
 
-    StringPtr connectionString;
     EnumerationPtr connectionStatus;
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
     Mqtt::Utils::Settings::MqttConnectionSettings connectionSettings;
+    int connectTimeout;
 
     std::promise<bool> connectedPromise;
     std::future<bool> connectedFuture;
