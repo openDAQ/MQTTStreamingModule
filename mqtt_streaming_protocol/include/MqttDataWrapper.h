@@ -39,7 +39,6 @@ struct DataPackets
 
 struct MqttMsgDescriptor
 {
-    std::string signalName;
     std::string valueFieldName; // Value
     std::string tsFieldName;    // Timestamp
 };
@@ -66,38 +65,30 @@ public:
 
     MqttDataWrapper(daq::LoggerComponentPtr loggerComponent);
 
-    static std::string extractDeviceName(const std::string& topic);
-
-    static std::string serializeSampleData(const SampleData& data);
-    static std::string serializeSignalDescriptors(daq::ListPtr<daq::ISignal> signals);
-
-    static std::string buildTopicFromId(const std::string& globalId);
-    static std::string buildSignalsTopic(const std::string& deviceId);
     static CmdResult validateTopic(const daq::StringPtr topic, const daq::LoggerComponentPtr loggerComponent = nullptr);
 
     void setConfig(const std::string& config);
     std::vector<std::pair<mqtt::SignalId, daq::DataDescriptorPtr>> extractDescription();
-    void setOutputSignals(std::unordered_map<SignalId, daq::SignalConfigPtr>* const outputSignals);
-    void createAndSendDataPacket(const std::string& topic, const std::string& json);
-    bool hasDomainSignal(const SignalId& signalId) const;
+    void setOutputSignal(daq::SignalConfigPtr outputSignal);
+    void createAndSendDataPacket(const std::string& json);
+    //bool hasDomainSignal(const SignalId& signalId) const;
+    void setValueFieldName(std::string valueFieldName);
+    void setTimestampFieldName(std::string tsFieldName);
 
 private:
     std::string config;
 
     daq::LoggerComponentPtr loggerComponent;
-    // {topic, signalName} : daq::signal
-    std::unordered_map<SignalId, daq::SignalConfigPtr>* outputSignals = nullptr;
-    // topic : MqttMsgDescriptor; used for description how to extract data from sample json\
-    // each topic message can contain multiple signals
-    std::unordered_map<std::string, std::vector<MqttMsgDescriptor>> topicDescriptors;
+    daq::SignalConfigPtr outputSignal;
+    // used for description how to extract data from sample json
+    MqttMsgDescriptor msgDescriptor;
 
-    std::vector<std::pair<SignalId, DataPackets>> extractDataSamples(
-        const std::string& topic, const MqttMsgDescriptor& msgDescriptor, const std::string& json);
-    void sendDataSamples(const SignalId& signalId, const DataPackets& dataPackets);
+    std::vector<DataPackets> extractDataSamples(const MqttMsgDescriptor& msgDescriptor, const std::string& json);
+    void sendDataSamples(const DataPackets& dataPackets);
     template <typename T>
-    DataPackets buildDataPackets(const SignalId& signalId, T value, uint64_t timestamp);
+    DataPackets buildDataPackets(T value, uint64_t timestamp);
     template <typename T>
-    DataPackets buildDataPackets(const SignalId& signalId, T value);
+    DataPackets buildDataPackets(T value);
     daq::DataPacketPtr buildDomainDataPacket(daq::GenericSignalConfigPtr<> signalConfig, uint64_t timestamp);
     template<typename T>
     daq::DataPacketPtr buildDataPacket(daq::GenericSignalConfigPtr<> signalConfig,

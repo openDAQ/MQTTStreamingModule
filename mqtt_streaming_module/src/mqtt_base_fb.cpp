@@ -47,11 +47,15 @@ void MqttBaseFb::initProperties(const PropertyObjectPtr& config)
             if (const auto internalProp = prop.asPtrOrNull<IPropertyInternal>(true); internalProp.assigned())
             {
                 objPtr.addProperty(internalProp.clone());
+                objPtr.setPropertyValue(propName, prop.getValue());
                 objPtr.getOnPropertyValueWrite(prop.getName()) +=
                     [this](PropertyObjectPtr& obj, PropertyValueEventArgsPtr& args) { propertyChanged(); };
             }
         }
-        objPtr.setPropertyValue(propName, prop.getValue());
+        else
+        {
+            objPtr.setPropertyValue(propName, prop.getValue());
+        }
     }
     readProperties();
 }
@@ -139,16 +143,16 @@ MqttBaseFb::CmdResult MqttBaseFb::unsubscribeFromTopic()
 
 void MqttBaseFb::initSubscriptionStatus()
 {
-    if (!context.getTypeManager().hasType(MQTT_RAW_FB_SUB_STATUS_TYPE))
+    if (!context.getTypeManager().hasType(MQTT_FB_SUB_STATUS_TYPE))
     {
         auto list = List<IString>();
         for (const auto& [_, st] : subscriptionStatusMap)
             list.pushBack(st);
 
-        context.getTypeManager().addType(EnumerationType(MQTT_RAW_FB_SUB_STATUS_TYPE, list));
+        context.getTypeManager().addType(EnumerationType(MQTT_FB_SUB_STATUS_TYPE, list));
     }
 
-    subscriptionStatus = EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+    subscriptionStatus = EnumerationWithIntValue(MQTT_FB_SUB_STATUS_TYPE,
                                                  static_cast<Int>(SubscriptionStatus::InvalidTopicName),
                                                  this->context.getTypeManager());
     statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).addStatus("SubscriptionStatus",
@@ -157,7 +161,7 @@ void MqttBaseFb::initSubscriptionStatus()
 
 void MqttBaseFb::setSubscriptionStatus(const SubscriptionStatus status, std::string message)
 {
-    subscriptionStatus = EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE, static_cast<Int>(status), this->context.getTypeManager());
+    subscriptionStatus = EnumerationWithIntValue(MQTT_FB_SUB_STATUS_TYPE, static_cast<Int>(status), this->context.getTypeManager());
     statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).setStatusWithMessage("SubscriptionStatus",
                                                                                                 subscriptionStatus,
                                                                                                 message);

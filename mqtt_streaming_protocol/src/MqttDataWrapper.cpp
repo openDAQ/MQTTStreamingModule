@@ -18,109 +18,10 @@ namespace mqtt
 {
 
 static const char* TOPIC_ALL_SIGNALS_PREFIX = "openDAQ";
-static const char* DEVICE_SIGNAL_LIST = "$signals";
 
 MqttDataWrapper::MqttDataWrapper(daq::LoggerComponentPtr loggerComponent)
     : loggerComponent(loggerComponent)
 {
-}
-
-std::string MqttDataWrapper::serializeSampleData(const SampleData& data)
-{
-    std::string result;
-
-    rapidjson::Document doc;
-    doc.SetObject();
-    doc.AddMember("value", rapidjson::Value(data.value), doc.GetAllocator());
-    doc.AddMember("timestamp", rapidjson::Value(data.timestamp), doc.GetAllocator());
-
-    // Serialize to string
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    doc.Accept(writer);
-
-    result = buffer.GetString();
-
-    return result;
-}
-
-std::string MqttDataWrapper::serializeSignalDescriptors(daq::ListPtr<daq::ISignal> signals)
-{
-    std::string result;
-    rapidjson::Document doc;
-    doc.SetObject();
-
-    auto& alc = doc.GetAllocator();
-
-    for (const auto& signal : signals)
-    {
-
-        rapidjson::Value signalValueObj(rapidjson::kObjectType);
-        signalValueObj.AddMember("Value", rapidjson::Value("value", alc), alc);
-        signalValueObj.AddMember("Timestamp", rapidjson::Value("timestamp", alc), alc);
-        // unit
-        rapidjson::Value unitArray(rapidjson::kArrayType);
-        {
-            auto unit = signal.getDescriptor().getUnit();
-            if (unit.assigned())
-            {
-                auto addUnitInfo = [&unitArray, &alc](daq::StringPtr unitInfo)
-                {
-                    if (unitInfo.assigned())
-                        unitArray.PushBack(rapidjson::Value(unitInfo.toStdString().c_str(), alc),
-                                           alc);
-                };
-                addUnitInfo(unit.getSymbol());
-                addUnitInfo(unit.getName());
-                addUnitInfo(unit.getQuantity());
-            }
-        }
-        signalValueObj.AddMember("Unit", unitArray, alc);
-
-        rapidjson::Value signalObj(rapidjson::kObjectType);
-        signalObj.AddMember(rapidjson::Value(signal.getName().toStdString().c_str(), alc),
-                            signalValueObj,
-                            alc);
-        rapidjson::Value topicArray(rapidjson::kArrayType);
-        topicArray.PushBack(signalObj, alc);
-
-        doc.AddMember(rapidjson::Value(buildTopicFromId(signal.getGlobalId().toStdString()).c_str(),
-                                       alc),
-                      topicArray,
-                      alc);
-    }
-
-    // Serialize to string
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    doc.Accept(writer);
-
-    result = buffer.GetString();
-    return result;
-}
-
-std::string MqttDataWrapper::extractDeviceName(const std::string& topic)
-{
-
-    std::vector<std::string> list;
-    boost::split(list, topic, boost::is_any_of("/"));
-
-    if (list.size() != 3 || list[0] != TOPIC_ALL_SIGNALS_PREFIX || list[2] != DEVICE_SIGNAL_LIST)
-    {
-        return ""; // not a signal list message
-    }
-
-    return list[1];
-}
-
-std::string MqttDataWrapper::buildTopicFromId(const std::string& globalId)
-{
-    return (TOPIC_ALL_SIGNALS_PREFIX + globalId);
-}
-
-std::string MqttDataWrapper::buildSignalsTopic(const std::string& deviceId)
-{
-    return (TOPIC_ALL_SIGNALS_PREFIX + deviceId + "/" + DEVICE_SIGNAL_LIST);
 }
 
 MqttDataWrapper::CmdResult MqttDataWrapper::validateTopic(const daq::StringPtr topic, const daq::LoggerComponentPtr loggerComponent)
@@ -167,7 +68,7 @@ std::vector<std::pair<mqtt::SignalId, daq::DataDescriptorPtr>> MqttDataWrapper::
 {
     std::vector<std::pair<mqtt::SignalId, daq::DataDescriptorPtr>> result;
     rapidjson::Document doc;
-    topicDescriptors.clear();
+    std::vector<MqttMsgDescriptor> topicDescriptors;    // TODO ! not used
 
     if (config.empty())
     {
@@ -213,9 +114,7 @@ std::vector<std::pair<mqtt::SignalId, daq::DataDescriptorPtr>> MqttDataWrapper::
                 std::string valueFieldName = extractValueFieldName(signalObj);
                 std::string tsFieldName = extractTimestampFieldName(signalObj);
 
-                msgDescriptors.emplace_back(MqttMsgDescriptor{SignalId.signalName,
-                                                              std::move(valueFieldName),
-                                                              std::move(tsFieldName)});
+                msgDescriptors.emplace_back(MqttMsgDescriptor{std::move(valueFieldName), std::move(tsFieldName)});
 
                 auto dataDescBdr =
                     daq::DataDescriptorBuilder().setSampleType(daq::SampleType::Undefined);
@@ -225,56 +124,45 @@ std::vector<std::pair<mqtt::SignalId, daq::DataDescriptorPtr>> MqttDataWrapper::
                 result.emplace_back(std::pair(std::move(SignalId), dataDescBdr.build()));
             }
         }
-        topicDescriptors.emplace(std::pair(topic, std::move(msgDescriptors)));
+        topicDescriptors = std::move(msgDescriptors);
     }
     return result;
 }
 
-void MqttDataWrapper::setOutputSignals(
-    std::unordered_map<SignalId, daq::SignalConfigPtr>* const outputSignals)
+void MqttDataWrapper::setOutputSignal(daq::SignalConfigPtr outputSignal)
 {
-    this->outputSignals = outputSignals;
+    this->outputSignal = outputSignal;
 }
 
-void MqttDataWrapper::createAndSendDataPacket(const std::string& topic, const std::string& json)
+void MqttDataWrapper::createAndSendDataPacket(const std::string& json)
 {
-    auto msgDescriptors = topicDescriptors.find(topic);
-    if (msgDescriptors != topicDescriptors.end())
+    auto packets = extractDataSamples(msgDescriptor, json);
+    for (const auto& data : packets)
     {
-        for (const auto& dsc : msgDescriptors->second)
-        {
-            auto packets = extractDataSamples(topic, dsc, json);
-            for (const auto& [signalId, data] : packets)
-            {
-                sendDataSamples(signalId, data);
-            }
-        }
+        sendDataSamples(data);
     }
 }
 
-bool MqttDataWrapper::hasDomainSignal(const SignalId& signalId) const
-{
-    auto it = topicDescriptors.find(signalId.topic);
-    if (it != topicDescriptors.end())
-    {
+// bool MqttDataWrapper::hasDomainSignal(const SignalId& signalId) const
+// {
+//     return (msgDescriptor.signalName == signalId.signalName) ? !msgDescriptor.tsFieldName.empty() : false;
+// }
 
-        for (const auto& desc : it->second)
-        {
-            if (desc.signalName == signalId.signalName)
-            {
-                return !desc.tsFieldName.empty();
-            }
-        }
-    }
-    return false;
+void MqttDataWrapper::setValueFieldName(std::string valueFieldName)
+{
+    msgDescriptor.valueFieldName = std::move(valueFieldName);
 }
 
-std::vector<std::pair<SignalId, DataPackets>> MqttDataWrapper::extractDataSamples(
-    const std::string& topic, const MqttMsgDescriptor& msgDescriptor, const std::string& json)
+void MqttDataWrapper::setTimestampFieldName(std::string tsFieldName)
+{
+    msgDescriptor.tsFieldName = std::move(tsFieldName);
+}
+
+std::vector<DataPackets> MqttDataWrapper::extractDataSamples(const MqttMsgDescriptor& msgDescriptor, const std::string& json)
 {
     using ValueVariant = std::variant<int64_t, double, std::string>;
     ValueVariant value{};
-    std::vector<std::pair<SignalId, DataPackets>> res;
+    std::vector<DataPackets> res;
     uint64_t ts = 0;
     bool hasTS = false;
     bool hasValue = false;
@@ -352,72 +240,50 @@ std::vector<std::pair<SignalId, DataPackets>> MqttDataWrapper::extractDataSample
     else
     {
         // TODO : value [1, 2, 3, ...] support
-        SignalId signalId{topic, msgDescriptor.signalName};
         DataPackets dataPackets;
         std::visit(
             [&](auto&& val)
             {
                 using T = std::decay_t<decltype(val)>;
                 if (hasTS)
-                    dataPackets = buildDataPackets(signalId, val, ts);
+                    dataPackets = buildDataPackets(val, ts);
                 else
-                    dataPackets = buildDataPackets(signalId, val);
+                    dataPackets = buildDataPackets(val);
             },
             value);
         if (dataPackets.dataPacket.assigned())
-            res.emplace_back(std::move(signalId), std::move(dataPackets));
+            res.push_back(std::move(dataPackets));
     }
     return res;
 }
 
-void MqttDataWrapper::sendDataSamples(const SignalId& signalId, const DataPackets& dataPackets)
+void MqttDataWrapper::sendDataSamples(const DataPackets& dataPackets)
 {
-    const auto signalIter = outputSignals->find(signalId);
-    if (signalIter == outputSignals->end())
-    {
-        return;
-    }
+    auto domainSignal = outputSignal.getDomainSignal();
 
-    auto signal = signalIter->second;
-    auto domainSignal = signal.getDomainSignal();
-
-    signal.sendPacket(dataPackets.dataPacket);
+    outputSignal.sendPacket(dataPackets.dataPacket);
     if (domainSignal.assigned() && dataPackets.domainDataPacket.assigned())
-        signal.getDomainSignal().asPtr<daq::ISignalConfig>().sendPacket(
-            dataPackets.domainDataPacket);
+        domainSignal.asPtr<daq::ISignalConfig>().sendPacket(dataPackets.domainDataPacket);
 }
+
 template <typename T>
 DataPackets
-MqttDataWrapper::buildDataPackets(const SignalId& signalId, T value, uint64_t timestamp)
+MqttDataWrapper::buildDataPackets(T value, uint64_t timestamp)
 {
     DataPackets dataPackets;
-    const auto signalIter = outputSignals->find(signalId);
-    if (signalIter == outputSignals->end())
-    {
-        return dataPackets;
-    }
 
-    auto signal = signalIter->second;
-
-    dataPackets.domainDataPacket = buildDomainDataPacket(signal, timestamp);
-    dataPackets.dataPacket = buildDataPacket(signal, value, dataPackets.domainDataPacket);
+    dataPackets.domainDataPacket = buildDomainDataPacket(outputSignal, timestamp);
+    dataPackets.dataPacket = buildDataPacket(outputSignal, value, dataPackets.domainDataPacket);
 
     return dataPackets;
 }
 
 template <typename T>
 DataPackets
-MqttDataWrapper::buildDataPackets(const SignalId& signalId, T value)
+MqttDataWrapper::buildDataPackets(T value)
 {
     DataPackets dataPackets;
-    const auto signalIter = outputSignals->find(signalId);
-    if (signalIter == outputSignals->end())
-    {
-        return dataPackets;
-    }
-
-    auto signal = signalIter->second;
-    dataPackets.dataPacket = buildDataPacket(signal, value, daq::DataPacketPtr());
+    dataPackets.dataPacket = buildDataPacket(outputSignal, value, daq::DataPacketPtr());
 
     return dataPackets;
 }

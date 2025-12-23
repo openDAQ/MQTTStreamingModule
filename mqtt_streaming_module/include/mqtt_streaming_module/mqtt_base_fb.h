@@ -56,6 +56,8 @@ public:
                                 const PropertyObjectPtr& config = nullptr);
     ~MqttBaseFb() = default;
 
+    virtual std::string getSubscribedTopic() const = 0;
+
 protected:
     static std::vector<std::pair<SubscriptionStatus, std::string>> subscriptionStatusMap;
 
@@ -70,7 +72,6 @@ protected:
 
     void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg);
 
-    virtual std::string getSubscribedTopic() const = 0;
     virtual void clearSubscribedTopic() = 0;
     virtual  CmdResult subscribeToTopic();
     virtual  CmdResult unsubscribeFromTopic();

@@ -2,6 +2,7 @@
 #include <boost/algorithm/string.hpp>
 #include <mqtt_streaming_module/helper.h>
 #include <mqtt_streaming_module/mqtt_json_receiver_fb_impl.h>
+#include <mqtt_streaming_module/mqtt_json_decoder_fb_impl.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -22,6 +23,7 @@ MqttJsonReceiverFbImpl::MqttJsonReceiverFbImpl(const ContextPtr& ctx,
     else
         initProperties(type.createDefaultConfig());
 
+    initBaseFunctionalBlocks();
     createSignals();
     subscribeToTopic();
 }
@@ -34,11 +36,17 @@ MqttJsonReceiverFbImpl::~MqttJsonReceiverFbImpl()
 FunctionBlockTypePtr MqttJsonReceiverFbImpl::CreateType()
 {
     auto defaultConfig = PropertyObject();
-    auto builder =
-        StringPropertyBuilder(PROPERTY_NAME_SIGNAL_LIST, String(""))
-            .setDescription("JSON configuration string that defines the list of MQTT topics and corresponding signals to subscribe to.");
-    defaultConfig.addProperty(builder.build());
-
+    // {
+    //     auto builder = StringPropertyBuilder(PROPERTY_NAME_SIGNAL_LIST, String(""))
+    //                        .setDescription(
+    //                            "JSON configuration string that defines the list of MQTT topics and corresponding signals to subscribe to.");
+    //     defaultConfig.addProperty(builder.build());
+    // }
+    {
+        auto builder =
+            StringPropertyBuilder(PROPERTY_NAME_TOPIC, String("")).setDescription("An MQTT topic to subscribe to for receiving JSON data.");
+        defaultConfig.addProperty(builder.build());
+    }
     const auto fbType = FunctionBlockType(JSON_FB_NAME,
                                           JSON_FB_NAME,
                                           "The JSON MQTT function block allows subscribing to MQTT topics, extracting values and "
@@ -52,121 +60,194 @@ std::string MqttJsonReceiverFbImpl::getLocalId()
     return std::string(MQTT_LOCAL_JSON_FB_ID_PREFIX + std::to_string(localIndex++));
 }
 
+void MqttJsonReceiverFbImpl::initBaseFunctionalBlocks()
+{
+    baseFbTypes = Dict<IString, IFunctionBlockType>();
+    // Add a function block type for manual JSON configuration
+    {
+        const auto fbType = MqttJsonDecoderFbImpl::CreateType();
+        baseFbTypes.set(fbType.getId(), fbType);
+    }
+    if (baseFbTypes.getCount() != 0)
+    {
+        LOG_I("Function block types available:");
+    }
+    else
+    {
+        LOG_I("No function block types available");
+    }
+
+    for (const auto& [fbName, _] : baseFbTypes)
+    {
+        LOG_I("\t{}", fbName.toStdString());
+    }
+}
+
+// void MqttJsonReceiverFbImpl::readProperties()
+// {
+//     auto lock = std::lock_guard<std::mutex>(sync);
+//     subscribedSignals.clear();
+//     signalNameList.clear();
+//     topicForSubscribing.clear();
+//     bool isPresent = false;
+//     if (objPtr.hasProperty(PROPERTY_NAME_SIGNAL_LIST))
+//     {
+//         const auto signalConfig = objPtr.getPropertyValue(PROPERTY_NAME_SIGNAL_LIST).asPtrOrNull<IString>();
+//         if (signalConfig.assigned())
+//         {
+//             isPresent = true;
+//             jsonDataWorker.setConfig(signalConfig.toStdString());
+//             const auto listSubscribedSignals = jsonDataWorker.extractDescription();
+//             if (!listSubscribedSignals.empty())
+//             {
+//                 bool isOneTopic =
+//                     std::all_of(listSubscribedSignals.cbegin(),
+//                                 listSubscribedSignals.cend(),
+//                                 [&listSubscribedSignals](const auto& s) { return s.first.topic == listSubscribedSignals.front().first.topic; });
+//                 if (!isOneTopic)
+//                 {
+//                     LOG_E("The JSON config has wrong format (more then one topic found)");
+//                 }
+//                 else
+//                 {
+//                     topicForSubscribing = listSubscribedSignals.front().first.topic;
+//                     LOG_I("Signal in the list for the topic \"{}\":", topicForSubscribing);
+//                     for (const auto& [signalId, descriptor] : listSubscribedSignals)
+//                     {
+//                         subscribedSignals.emplace(signalId.signalName, descriptor);
+//                         signalNameList.push_back(signalId.signalName);
+//                         LOG_I("\t\"{}\"", signalId.signalName);
+//                     }
+//                 }
+//             }
+//         }
+//     }
+//     if (!isPresent)
+//     {
+//         LOG_W("{} property is missing!", PROPERTY_NAME_SIGNAL_LIST);
+//     }
+//     if (subscribedSignals.empty())
+//     {
+//         LOG_W("No signals in the list!");
+//     }
+// }
+
 void MqttJsonReceiverFbImpl::readProperties()
 {
     auto lock = std::lock_guard<std::mutex>(sync);
-    subscribedSignals.clear();
-    signalNameList.clear();
     topicForSubscribing.clear();
     bool isPresent = false;
-    if (objPtr.hasProperty(PROPERTY_NAME_SIGNAL_LIST))
+    if (objPtr.hasProperty(PROPERTY_NAME_TOPIC))
     {
-        const auto signalConfig = objPtr.getPropertyValue(PROPERTY_NAME_SIGNAL_LIST).asPtrOrNull<IString>();
-        if (signalConfig.assigned())
+        auto topicStr = objPtr.getPropertyValue(PROPERTY_NAME_TOPIC).asPtrOrNull<IString>();
+        if (topicStr.assigned())
         {
             isPresent = true;
-            jsonDataWorker.setConfig(signalConfig.toStdString());
-            const auto listSubscribedSignals = jsonDataWorker.extractDescription();
-            if (!listSubscribedSignals.empty())
+            const auto validationStatus = mqtt::MqttDataWrapper::validateTopic(topicStr, loggerComponent);
+            if (validationStatus.success)
             {
-                bool isOneTopic =
-                    std::all_of(listSubscribedSignals.cbegin(),
-                                listSubscribedSignals.cend(),
-                                [&listSubscribedSignals](const auto& s) { return s.first.topic == listSubscribedSignals.front().first.topic; });
-                if (!isOneTopic)
-                {
-                    LOG_E("The JSON config has wrong format (more then one topic found)");
-                }
-                else
-                {
-                    topicForSubscribing = listSubscribedSignals.front().first.topic;
-                    LOG_I("Signal in the list for the topic \"{}\":", topicForSubscribing);
-                    for (const auto& [signalId, descriptor] : listSubscribedSignals)
-                    {
-                        subscribedSignals.emplace(signalId.signalName, descriptor);
-                        signalNameList.push_back(signalId.signalName);
-                        LOG_I("\t\"{}\"", signalId.signalName);
-                    }
-                }
+                LOG_I("An MQTT topic: {}", topicStr.toStdString());
+                topicForSubscribing = topicStr.toStdString();
+                setComponentStatus(ComponentStatus::Ok);
+                setSubscriptionStatus(SubscriptionStatus::WaitingForData, "Subscribing to topic: " + topicForSubscribing);
+            }
+            else
+            {
+                setComponentStatus(ComponentStatus::Warning);
+                setSubscriptionStatus(SubscriptionStatus::InvalidTopicName, validationStatus.msg);
             }
         }
     }
     if (!isPresent)
     {
-        LOG_W("{} property is missing!", PROPERTY_NAME_SIGNAL_LIST);
+        LOG_W("\'{}\' property is missing!", PROPERTY_NAME_TOPIC);
+        setComponentStatus(ComponentStatus::Warning);
+        setSubscriptionStatus(SubscriptionStatus::InvalidTopicName, "The topic property is not set!");
     }
-    if (subscribedSignals.empty())
+    if (topicForSubscribing.empty())
     {
-        LOG_W("No signals in the list!");
+        LOG_W("No topic to subscribe to!");
     }
 }
 
 void MqttJsonReceiverFbImpl::propertyChanged()
 {
+    auto result = unsubscribeFromTopic();
+    if (result.success == false)
+    {
+        LOG_W("Failed to unsubscribe from the previous topic before subscribing to a new one; reason: {}", result.msg);
+        return;
+    }
+    readProperties();
+    result = subscribeToTopic();
 }
 
-void MqttJsonReceiverFbImpl::createDataPacket(const std::string& topic, const std::string& json)
+DictPtr<IString, IFunctionBlockType> MqttJsonReceiverFbImpl::onGetAvailableFunctionBlockTypes()
+{
+    return baseFbTypes;
+}
+
+FunctionBlockPtr MqttJsonReceiverFbImpl::onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config)
 {
     auto lock = std::lock_guard<std::mutex>(sync);
-    jsonDataWorker.createAndSendDataPacket(topic, json);
+    FunctionBlockPtr nestedFunctionBlock;
+    {
+        if (baseFbTypes.hasKey(typeId))
+        {
+            auto fbTypePtr = baseFbTypes.getOrDefault(typeId);
+            if (fbTypePtr.getName() == JSON_DECODER_FB_NAME)
+            {
+                nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttJsonDecoderFbImpl>(context, functionBlocks, fbTypePtr, config);
+            }
+        }
+        if (nestedFunctionBlock.assigned())
+        {
+            addNestedFunctionBlock(nestedFunctionBlock);
+            setComponentStatus(ComponentStatus::Ok);
+        }
+        else
+        {
+            DAQ_THROW_EXCEPTION(NotFoundException, "Function block type is not available: " + typeId.toStdString());
+        }
+    }
+    nestedFunctionBlocks.push_back(nestedFunctionBlock);
+    return nestedFunctionBlock;
+}
+
+void MqttJsonReceiverFbImpl::onRemoveFunctionBlock(const FunctionBlockPtr& functionBlock)
+{
+    auto lock = std::lock_guard<std::mutex>(sync);
+    auto it = std::find_if(nestedFunctionBlocks.begin(),
+                           nestedFunctionBlocks.end(),
+                           [&functionBlock](const FunctionBlockPtr& fb) { return fb.getObject() == functionBlock.getObject(); });
+
+    if (it != nestedFunctionBlocks.end())
+    {
+        nestedFunctionBlocks.erase(it);
+    }
+    FunctionBlockImpl::onRemoveFunctionBlock(functionBlock);
 }
 
 void MqttJsonReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
 {
-    std::string topic(msg.getTopic());
-    std::string jsonObjStr(msg.getData().begin(), msg.getData().end());
-    createDataPacket(topic, jsonObjStr);
+    auto lock = std::lock_guard<std::mutex>(sync);
+    if (topicForSubscribing == msg.getTopic())
+    {
+        std::string jsonObjStr(msg.getData().begin(), msg.getData().end());
+        for (const auto& fb : nestedFunctionBlocks)
+        {
+            if (fb.assigned())
+            {
+                auto decoderFb = reinterpret_cast<MqttJsonDecoderFbImpl*>(*fb);
+                decoderFb->processMessage(jsonObjStr);
+            }
+        }
+    }
 }
 
 void MqttJsonReceiverFbImpl::createSignals()
 {
-    auto lock = std::lock_guard<std::mutex>(sync);
-    if (!subscribedSignals.empty())
-        LOG_I("Creating signals...");
 
-    for (const auto& signalName : signalNameList)
-    {
-        auto iter = subscribedSignals.find(signalName);
-        if (iter == subscribedSignals.end())
-        {
-            LOG_W("\tSignal \"{}\" is not in the subscribed signal list!", signalName);
-            continue;
-        }
-        LOG_D("\tfor the signal \"{}\"", signalName);
-
-        auto signalDsc = iter->second;
-        const mqtt::SignalId signalId{topicForSubscribing, signalName};
-        auto refS = outputSignals
-                        .emplace(std::make_pair(signalId,
-                                                createAndAddSignal(buildSignalNameFromTopic(topicForSubscribing, signalName), signalDsc)))
-                        .first;
-        if (jsonDataWorker.hasDomainSignal(signalId))
-        {
-            LOG_D("\tThe signal has a domain signal");
-            auto getEpoch = []() -> std::string
-            {
-                const std::time_t epochTime = std::chrono::system_clock::to_time_t(std::chrono::time_point<std::chrono::system_clock>{});
-                char buf[48];
-                strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%SZ", gmtime(&epochTime));
-                return {buf};
-            };
-
-            const auto domainSignalDsc = DataDescriptorBuilder()
-                                             .setSampleType(SampleType::UInt64)
-                                             .setUnit(Unit("s", -1, "seconds", "time"))
-                                             .setTickResolution(Ratio(1, 1'000'000))
-                                             .setOrigin(getEpoch())
-                                             .setName("Time")
-                                             .build();
-            refS->second->setDomainSignal(
-                createAndAddSignal(buildDomainSignalNameFromTopic(topicForSubscribing, signalName), domainSignalDsc, false));
-        }
-        else
-        {
-            LOG_D("\tThe signal doesn't have a domain signal");
-        }
-    }
-    jsonDataWorker.setOutputSignals(&outputSignals);
 }
 
 std::string MqttJsonReceiverFbImpl::getSubscribedTopic() const
@@ -178,8 +259,6 @@ std::string MqttJsonReceiverFbImpl::getSubscribedTopic() const
 void MqttJsonReceiverFbImpl::clearSubscribedTopic()
 {
     auto lock = std::lock_guard<std::mutex>(sync);
-    subscribedSignals.clear();
-    signalNameList.clear();
     topicForSubscribing.clear();
 }
 
