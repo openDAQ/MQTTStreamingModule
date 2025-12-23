@@ -41,6 +41,7 @@ struct MqttMsgDescriptor
 {
     std::string valueFieldName; // Value
     std::string tsFieldName;    // Timestamp
+    daq::UnitPtr unit;
 };
 
 class MqttDataWrapper final
@@ -68,7 +69,9 @@ public:
     static CmdResult validateTopic(const daq::StringPtr topic, const daq::LoggerComponentPtr loggerComponent = nullptr);
 
     void setConfig(const std::string& config);
-    std::vector<std::pair<mqtt::SignalId, daq::DataDescriptorPtr>> extractDescription();
+    std::vector<std::pair<std::string, MqttMsgDescriptor>> extractDescription();
+    std::string extractTopic();
+    CmdResult isJsonValid();
     void setOutputSignal(daq::SignalConfigPtr outputSignal);
     void createAndSendDataPacket(const std::string& json);
     //bool hasDomainSignal(const SignalId& signalId) const;
@@ -76,6 +79,7 @@ public:
     void setTimestampFieldName(std::string tsFieldName);
 
 private:
+    rapidjson::Document doc;
     std::string config;
 
     daq::LoggerComponentPtr loggerComponent;

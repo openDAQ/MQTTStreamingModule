@@ -62,71 +62,70 @@ MqttDataWrapper::CmdResult MqttDataWrapper::validateTopic(const daq::StringPtr t
 void MqttDataWrapper::setConfig(const std::string& config)
 {
     this->config = config;
+    doc.Parse(config.c_str());
 }
 
-std::vector<std::pair<mqtt::SignalId, daq::DataDescriptorPtr>> MqttDataWrapper::extractDescription()
+std::vector<std::pair<std::string, MqttMsgDescriptor>> MqttDataWrapper::extractDescription()
 {
-    std::vector<std::pair<mqtt::SignalId, daq::DataDescriptorPtr>> result;
-    rapidjson::Document doc;
-    std::vector<MqttMsgDescriptor> topicDescriptors;    // TODO ! not used
-
-    if (config.empty())
-    {
-        LOG_E("The JSON config is empty");
+    std::vector<std::pair<std::string, MqttMsgDescriptor>> result;
+    if (config.empty() || !isJsonValid().success)
         return result;
-    }
 
-    if (doc.Parse(config.c_str()).HasParseError())
+    auto it = doc.MemberBegin();
+    const rapidjson::Value& array = it->value;
+    // Each topic array contains one or more signal objects
+    for (const auto& elem : array.GetArray())
     {
-        LOG_E("The JSON config has wrong format");
-        return result;
+        if (!elem.IsObject())
+            continue;
+
+        // Iterate over signals inside this element
+        for (auto sigIt = elem.MemberBegin(); sigIt != elem.MemberEnd(); ++sigIt)
+        {
+            std::string SignalName(sigIt->name.GetString());
+            const rapidjson::Value& signalObj = sigIt->value;
+            MqttMsgDescriptor msgDescriptor;
+            msgDescriptor.unit = extractSignalUnit(signalObj);
+            msgDescriptor.valueFieldName = extractValueFieldName(signalObj);
+            msgDescriptor.tsFieldName = extractTimestampFieldName(signalObj);
+            result.push_back(std::pair(std::move(SignalName), std::move(msgDescriptor)));
+        }
     }
 
-    for (auto it = doc.MemberBegin(); it != doc.MemberEnd(); ++it)
-    {
-        const rapidjson::Value& array = it->value;
-        const std::string topic = it->name.GetString();
-        if (validateTopic(topic, loggerComponent).success == false)
-            continue;
-        if (!array.IsArray())
-        {
-            LOG_W("Wrong description for \"{}\" topic. Skip!", topic);
-            continue;
-        }
-
-        std::vector<MqttMsgDescriptor> msgDescriptors;
-        // Each topic array contains one or more signal objects
-        for (const auto& elem : array.GetArray())
-        {
-            if (!elem.IsObject())
-                continue;
-
-
-
-            // Iterate over signals inside this element
-            for (auto sigIt = elem.MemberBegin(); sigIt != elem.MemberEnd(); ++sigIt)
-            {
-                mqtt::SignalId SignalId{.topic = topic, .signalName = sigIt->name.GetString()};
-
-                const rapidjson::Value& signalObj = sigIt->value;
-
-                auto unit = extractSignalUnit(signalObj);
-                std::string valueFieldName = extractValueFieldName(signalObj);
-                std::string tsFieldName = extractTimestampFieldName(signalObj);
-
-                msgDescriptors.emplace_back(MqttMsgDescriptor{std::move(valueFieldName), std::move(tsFieldName)});
-
-                auto dataDescBdr =
-                    daq::DataDescriptorBuilder().setSampleType(daq::SampleType::Undefined);
-                if (unit.assigned())
-                    dataDescBdr.setUnit(unit);
-
-                result.emplace_back(std::pair(std::move(SignalId), dataDescBdr.build()));
-            }
-        }
-        topicDescriptors = std::move(msgDescriptors);
-    }
     return result;
+}
+
+std::string MqttDataWrapper::extractTopic()
+{
+    std::string topic;
+    if (config.empty() || !isJsonValid().success)
+        return topic;
+
+    topic = doc.MemberBegin()->name.GetString();
+    return topic;
+}
+
+MqttDataWrapper::CmdResult MqttDataWrapper::isJsonValid()
+{
+    rapidjson::Document doc;
+    if (doc.Parse(config.c_str()).HasParseError())
+        return CmdResult(false, "The JSON config has wrong format");
+    if (!doc.IsObject())
+        return CmdResult(false, "The JSON config is not an object");
+
+    if (doc.MemberCount() > 1)
+        return CmdResult(false, "The JSON config has insufficient number of fields");
+    const auto& value = doc.MemberBegin()->value;
+    if (value.IsArray() == false)
+        return CmdResult(false, "The JSON config has wrong format (expected array of signals)");
+
+    for (const auto& element : value.GetArray())
+    {
+        if (!element.IsObject())
+            return CmdResult(false, "The JSON config has wrong format (expected signal object)");
+    }
+
+    return CmdResult(true);
 }
 
 void MqttDataWrapper::setOutputSignal(daq::SignalConfigPtr outputSignal)

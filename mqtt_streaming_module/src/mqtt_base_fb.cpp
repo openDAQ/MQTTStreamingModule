@@ -90,6 +90,7 @@ MqttBaseFb::CmdResult MqttBaseFb::subscribeToTopic()
         else
         {
             result = {false, "Couldn't subscribe to an empty topic"};
+            LOG_W("{}", result.msg);
         }
     }
     else

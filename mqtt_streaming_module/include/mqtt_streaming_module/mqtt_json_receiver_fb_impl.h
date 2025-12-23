@@ -42,7 +42,6 @@ public:
     std::string getSubscribedTopic() const override;
 
 protected:
-    mutable std::mutex sync;
     mqtt::MqttDataWrapper jsonDataWorker;
     std::unordered_map<mqtt::SignalId, SignalConfigPtr> outputSignals;
     std::string topicForSubscribing;
@@ -59,8 +58,12 @@ protected:
     void clearSubscribedTopic() override;
 
     void processMessage(const mqtt::MqttMessage& msg) override;
+    void initProperties(const PropertyObjectPtr& config) override;
     void readProperties() override;
+    void readJsonConfig();
     void propertyChanged() override;
+
+    bool setTopic(std::string topic);
 
     // void createDataPacket(const std::string& topic, const std::string& json);
 
