@@ -28,6 +28,7 @@ static constexpr const char* PROPERTY_NAME_MQTT_PASSWORD = "MqttPassword";
 static constexpr const char* PROPERTY_NAME_CONNECT_TIMEOUT = "ConnectTimeout";
 static constexpr const char* PROPERTY_NAME_SIGNAL_LIST = "SignalList";
 static constexpr const char* PROPERTY_NAME_JSON_CONFIG = "JsonConfig";
+static constexpr const char* PROPERTY_NAME_JSON_CONFIG_FILE = "JsonConfigFile";
 static constexpr const char* PROPERTY_NAME_TOPIC = "Topic";
 static constexpr const char* PROPERTY_NAME_VALUE_NAME = "ValueName";
 static constexpr const char* PROPERTY_NAME_TS_NAME = "TimestampName";

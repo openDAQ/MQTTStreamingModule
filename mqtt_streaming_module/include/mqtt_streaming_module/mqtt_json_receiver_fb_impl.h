@@ -61,6 +61,8 @@ protected:
     void initProperties(const PropertyObjectPtr& config) override;
     void readProperties() override;
     void readJsonConfig();
+    std::pair<bool, std::string> readFileToString(const std::string& filePath);
+    void setJsonConfig(const std::string config);
     void propertyChanged() override;
 
     bool setTopic(std::string topic);

@@ -3,6 +3,8 @@
 #include <mqtt_streaming_module/helper.h>
 #include <mqtt_streaming_module/mqtt_json_receiver_fb_impl.h>
 #include <mqtt_streaming_module/mqtt_json_decoder_fb_impl.h>
+#include <fstream>
+#include <sstream>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -41,7 +43,7 @@ void MqttJsonReceiverFbImpl::initProperties(const PropertyObjectPtr& config)
     for (const auto& prop : config.getAllProperties())
     {
         const auto propName = prop.getName();
-        if (propName == PROPERTY_NAME_JSON_CONFIG)
+        if (propName == PROPERTY_NAME_JSON_CONFIG || propName == PROPERTY_NAME_JSON_CONFIG_FILE)
         {
             if (!objPtr.hasProperty(propName))
             {
@@ -80,14 +82,19 @@ FunctionBlockTypePtr MqttJsonReceiverFbImpl::CreateType()
 {
     auto defaultConfig = PropertyObject();
     {
+        auto builder =
+            StringPropertyBuilder(PROPERTY_NAME_TOPIC, String("")).setDescription("An MQTT topic to subscribe to for receiving JSON data.");
+        defaultConfig.addProperty(builder.build());
+    }
+    {
         auto builder = StringPropertyBuilder(PROPERTY_NAME_JSON_CONFIG, String(""))
                            .setDescription(
                                "JSON configuration string that defines an MQTT topic and corresponding signals to subscribe to.");
         defaultConfig.addProperty(builder.build());
     }
     {
-        auto builder =
-            StringPropertyBuilder(PROPERTY_NAME_TOPIC, String("")).setDescription("An MQTT topic to subscribe to for receiving JSON data.");
+        auto builder = StringPropertyBuilder(PROPERTY_NAME_JSON_CONFIG_FILE, String(""))
+                           .setDescription("Path to file where the JSON configuration string is stored.");
         defaultConfig.addProperty(builder.build());
     }
     const auto fbType = FunctionBlockType(JSON_FB_NAME,
@@ -150,49 +157,95 @@ void MqttJsonReceiverFbImpl::readProperties()
 
 void MqttJsonReceiverFbImpl::readJsonConfig()
 {
+    bool hasJsonConfig = false;
     if (objPtr.hasProperty(PROPERTY_NAME_JSON_CONFIG))
     {
         const auto signalConfig = objPtr.getPropertyValue(PROPERTY_NAME_JSON_CONFIG).asPtrOrNull<IString>();
         if (signalConfig.assigned())
         {
-            if (signalConfig.toStdString().empty())
+            if (!signalConfig.toStdString().empty())
             {
-                return;
-            }
-            jsonDataWorker.setConfig(signalConfig.toStdString());
-            auto result = jsonDataWorker.isJsonValid();
-            if (result.success)
-            {
-                auto topic = jsonDataWorker.extractTopic();
-                {
-                    auto event = objPtr.getOnPropertyValueWrite(PROPERTY_NAME_TOPIC);
-                    event.mute();
-                    objPtr.setPropertyValue(PROPERTY_NAME_TOPIC, String(topic));
-                    event.unmute();
-                }
-                setTopic(topic);
-                if (const auto signalDscs = jsonDataWorker.extractDescription(); !signalDscs.empty())
-                {
-                    auto config = MqttJsonDecoderFbImpl::CreateType().createDefaultConfig();
-                    for (const auto& [signalName, descriptor] : signalDscs)
-                    {
-                        LOG_I("Creating a decoder FB for the signal \"{}\":", signalName);
-                        config.setPropertyValue(PROPERTY_NAME_VALUE_NAME, descriptor.valueFieldName);
-                        config.setPropertyValue(PROPERTY_NAME_TS_NAME, descriptor.tsFieldName);
-                        config.setPropertyValue(PROPERTY_NAME_SIGNAL_NAME, signalName);
-                        if (descriptor.unit.assigned())
-                            config.setPropertyValue(PROPERTY_NAME_UNIT, descriptor.unit.getSymbol());
-                        MqttJsonReceiverFbImpl::onAddFunctionBlock(JSON_DECODER_FB_NAME, config);
-                    }
-                }
-            }
-            else
-            {
-                const std::string msg = "JSON config is wrong!";
-                LOG_W("{}", msg);
-                setComponentStatusWithMessage(ComponentStatus::Error, std::string(fmt::format("{} {}", msg, result.msg)));
+                hasJsonConfig = true;
+                setJsonConfig(signalConfig.toStdString());
             }
         }
+    }
+    if (hasJsonConfig == false && objPtr.hasProperty(PROPERTY_NAME_JSON_CONFIG_FILE))
+    {
+        const auto configPath = objPtr.getPropertyValue(PROPERTY_NAME_JSON_CONFIG_FILE).asPtrOrNull<IString>();
+        if (configPath.assigned())
+        {
+            if (!configPath.toStdString().empty())
+            {
+                auto res = readFileToString(configPath.toStdString());
+                if (res.first)
+                {
+                    hasJsonConfig = true;
+                    setJsonConfig(res.second);
+                }
+                else
+                {
+                    auto msg = fmt::format("Failed to read JSON config from file: {}", configPath.toStdString());
+                    LOG_W("{}", msg);
+                    setComponentStatusWithMessage(ComponentStatus::Error, msg);
+                }
+            }
+        }
+    }
+}
+
+std::pair<bool, std::string> MqttJsonReceiverFbImpl::readFileToString(const std::string& filePath)
+{
+    std::ifstream file(filePath);
+    if (!file)
+        return std::pair(false, "");
+
+    std::ostringstream buffer;
+    buffer << file.rdbuf(); // Read the entire file buffer
+    return std::pair(true, buffer.str());
+}
+
+void MqttJsonReceiverFbImpl::setJsonConfig(const std::string config)
+{
+    jsonDataWorker.setConfig(config);
+    auto result = jsonDataWorker.isJsonValid();
+    if (result.success)
+    {
+        auto topic = jsonDataWorker.extractTopic();
+        result.success = setTopic(topic);
+        if (result.success)
+        {
+            {
+                auto event = objPtr.getOnPropertyValueWrite(PROPERTY_NAME_TOPIC);
+                event.mute();
+                objPtr.setPropertyValue(PROPERTY_NAME_TOPIC, String(topic));
+                event.unmute();
+            }
+            if (const auto signalDscs = jsonDataWorker.extractDescription(); !signalDscs.empty())
+            {
+                auto config = MqttJsonDecoderFbImpl::CreateType().createDefaultConfig();
+                for (const auto& [signalName, descriptor] : signalDscs)
+                {
+                    LOG_I("Creating a decoder FB for the signal \"{}\":", signalName);
+                    config.setPropertyValue(PROPERTY_NAME_VALUE_NAME, descriptor.valueFieldName);
+                    config.setPropertyValue(PROPERTY_NAME_TS_NAME, descriptor.tsFieldName);
+                    config.setPropertyValue(PROPERTY_NAME_SIGNAL_NAME, signalName);
+                    if (descriptor.unit.assigned())
+                        config.setPropertyValue(PROPERTY_NAME_UNIT, descriptor.unit.getSymbol());
+                    MqttJsonReceiverFbImpl::onAddFunctionBlock(JSON_DECODER_FB_NAME, config);
+                }
+            }
+        }
+        else
+        {
+            result.msg = "Failed to set topic from JSON config.";
+        }
+    }
+    if (!result.success)
+    {
+        result.msg = fmt::format("JSON config is wrong! {}", result.msg);
+        LOG_W("{}", result.msg);
+        setComponentStatusWithMessage(ComponentStatus::Error, result.msg);
     }
 }
 

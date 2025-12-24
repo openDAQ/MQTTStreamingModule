@@ -76,9 +76,6 @@ std::vector<std::pair<std::string, MqttMsgDescriptor>> MqttDataWrapper::extractD
     // Each topic array contains one or more signal objects
     for (const auto& elem : array.GetArray())
     {
-        if (!elem.IsObject())
-            continue;
-
         // Iterate over signals inside this element
         for (auto sigIt = elem.MemberBegin(); sigIt != elem.MemberEnd(); ++sigIt)
         {
@@ -108,25 +105,63 @@ std::string MqttDataWrapper::extractTopic()
 MqttDataWrapper::CmdResult MqttDataWrapper::isJsonValid()
 {
     rapidjson::Document doc;
+
     if (config.empty())
         return CmdResult(true);
-    if (doc.Parse(config.c_str()).HasParseError())
-        return CmdResult(false, "The JSON config has wrong format");
-    if (!doc.IsObject())
-        return CmdResult(false, "The JSON config is not an object");
 
-    if (doc.MemberCount() > 1)
-        return CmdResult(false, "The JSON config has insufficient number of fields");
-    const auto& value = doc.MemberBegin()->value;
-    if (value.IsArray() == false)
+    if (doc.Parse(config.c_str()).HasParseError())
+        return CmdResult(false, "The JSON config has an invalid format");
+
+    if (!doc.IsObject())
+        return CmdResult(false, "The JSON config must be an object");
+
+    if (doc.MemberCount() != 1)
+        return CmdResult(false, "The JSON config must contain exactly one topic");
+
+    const auto& arrayValue = doc.MemberBegin()->value;
+    if (!arrayValue.IsArray())
         return CmdResult(false, "The JSON config has wrong format (expected array of signals)");
 
-    for (const auto& element : value.GetArray())
+    if (!arrayValue.Empty())
     {
-        if (!element.IsObject())
-            return CmdResult(false, "The JSON config has wrong format (expected signal object)");
-    }
+        for (const auto& signalEntry : arrayValue.GetArray())
+        {
+            if (!signalEntry.IsObject())
+                return CmdResult(false, "Each signal entry must be an object");
 
+            if (signalEntry.MemberCount() != 1)
+                return CmdResult(false, "Each signal entry must contain exactly one signal");
+
+            const auto& signal = *signalEntry.MemberBegin();
+            const auto& signalBody = signal.value;
+
+            if (!signalBody.IsObject())
+                return CmdResult(false, "Signal definition must be an object");
+
+            if (!signalBody.HasMember("Value"))
+            {
+                return CmdResult(false, "Signal must contain a Value field");
+            }
+
+            if (!signalBody["Value"].IsString())
+                return CmdResult(false, "Signal field 'Value' must be a string");
+
+            if (signalBody.HasMember("Timestamp") && !signalBody["Timestamp"].IsString())
+                return CmdResult(false, "Signal field 'Timestamp' must be a string");
+
+            if (signalBody.HasMember("Unit"))
+            {
+                const auto& unit = signalBody["Unit"];
+                if (!unit.IsArray() || unit.Empty())
+                    return CmdResult(false, "Signal field 'Unit' must be a non-empty array");
+                for (const auto& u : unit.GetArray())
+                {
+                    if (!u.IsString())
+                        return CmdResult(false, "Each Unit entry must be a string");
+                }
+            }
+        }
+    }
     return CmdResult(true);
 }
 
