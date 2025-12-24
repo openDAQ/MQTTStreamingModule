@@ -1,0 +1,31 @@
+{
+    "/mirip/UNet3AC2/sensor/data":[
+        {
+            "temp":{
+                "Value":"temp",
+                "Timestamp":"ts",
+                "Unit":[
+                    "°C"
+                ]
+            }
+        },
+        {
+            "humidity":{
+                "Value":"humi",
+                "Timestamp":"ts",
+                "Unit":[
+                    "%"
+                ]
+            }
+        },
+        {
+            "tds":{
+                "Value":"tds_value",
+                "Timestamp":"ts",
+                "Unit":[
+                    "ppm", "parts per million", "Total dissolved solids"
+                ]
+            }
+        }
+    ]
+}

@@ -1,0 +1,15 @@
+{
+    "/neuron/IoTcloud":[
+        {
+            "node":{
+                "Value":"node",
+                "Timestamp": "timestamp"
+            }
+        },
+        {
+            "group":{
+                "Value":"group"
+            }
+        }
+    ]
+}

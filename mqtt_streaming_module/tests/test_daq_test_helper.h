@@ -10,6 +10,7 @@ class DaqTestHelper
 public:
     daq::InstancePtr daqInstance;
     daq::FunctionBlockPtr rootMqttFb;
+    daq::FunctionBlockPtr jsonMqttFb;
 
     void StartUp(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
     {
@@ -22,6 +23,13 @@ public:
         if (!daqInstance.assigned())
             daqInstance = daq::Instance();
         return daqInstance;
+    }
+
+    daq::FunctionBlockPtr DaqAddRootMqttFb(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
+    {
+        auto config = DaqMqttFbConfig(url, port);
+        rootMqttFb = daqInstance.addFunctionBlock(ROOT_FB_NAME, config);
+        return rootMqttFb;
     }
 
     daq::FunctionBlockPtr DaqMqttFbInit(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
@@ -50,5 +58,13 @@ public:
         daq::ModulePtr module;
         createModule(&module, daq::NullContext());
         return module;
+    }
+
+    daq::FunctionBlockPtr AddJsonFb(std::string topic = "")
+    {
+        auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
+        config.setPropertyValue(PROPERTY_NAME_TOPIC, daq::String(topic));
+        jsonMqttFb = rootMqttFb.addFunctionBlock(JSON_FB_NAME, config);
+        return jsonMqttFb;
     }
 };

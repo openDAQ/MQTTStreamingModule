@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-inline const std::string VALID_JSON_4_TOPIC_0 = R"json({
+inline const std::string VALID_JSON_1_TOPIC_0 = R"json({
     "openDAQ/RefDev0/IO/AI/RefCh0/Sig/AI0": [
         {
             "AI0": {
@@ -15,34 +15,19 @@ inline const std::string VALID_JSON_4_TOPIC_0 = R"json({
                     "voltage"
                 ]
             }
-        }
-    ],
-    "openDAQ/RefDev0/IO/AI/RefCh1/Sig/AI1": [
+        },
         {
             "AI1": {
-                "Value": "value",
-                "Timestamp": "timestamp",
-                "Unit": [
-                ]
+                "Value": "value1"
             }
-        }
-    ],
-    "openDAQ/RefDev0/IO/AI/RefCh2/Sig/AI2": [
+        },
         {
             "AI2": {
-                "Value": "value",
-                "Timestamp": "timestamp",
+                "Value": "value2",
+                "Timestamp": "",
                 "Unit": [
-                    "V"
+                    "W"
                 ]
-            }
-        }
-    ],
-    "openDAQ/RefDev0/IO/AI/RefCh3/Sig/AI3": [
-        {
-            "AI3": {
-                "Value": "value",
-                "Timestamp": "timestamp"
             }
         }
     ]
@@ -146,20 +131,38 @@ inline const std::string VALID_JSON_3_TOPIC_2 = R"json({
 }
 )json";
 
-inline const std::string VALID_JSON_1_TOPIC_3 = R"json({
-    "/mirip/UNet3AC2/sensor/data":[
-        {
-            "temp":{
-                "Value":"temp",
-                "Timestamp":"ts",
-                "Unit":[
-                    "°C"
-                ]
-            }
-        }
-    ]
-}
-)json";
+
+
+// inline const std::string VALID_JSON_1_TOPIC_3 = R"json({
+//     "/mirip/UNet3AC2/sensor/data":[
+//         {
+//             "temp":{
+//                 "Value":"temp",
+//                 "Timestamp":"ts",
+//                 "Unit":[
+//                     "°C"
+//                 ]
+//             }
+//         }
+//     ]
+// }
+// )json";
+
+// inline const std::string VALID_JSON_1_TOPIC_4 = R"json({
+//     "/mirip/UNet3AC2/+/data0":[
+//     ]
+// }
+// )json";
+
+// inline const std::string VALID_JSON_1_TOPIC_5 = R"json({
+//     "/mirip/UNet3AC2/+/data0":[
+//         {
+//             "temp":{
+//             }
+//         }
+//     ]
+// }
+// )json";
 
 inline const std::string WILDCARD_JSON_0 = R"json({
     "/mirip/UNet3AC2/+/data0":[
@@ -190,7 +193,11 @@ inline const std::string WILDCARD_JSON_0 = R"json({
                 ]
             }
         }
-    ],
+    ]
+}
+)json";
+
+inline const std::string WILDCARD_JSON_1 = R"json({
     "/mirip/#":[
         {
             "temp":{
@@ -210,33 +217,12 @@ inline const std::string WILDCARD_JSON_0 = R"json({
                 ]
             }
         }
-    ],
-    "/mirip/UNet3AC2/sensor/data2":[
-        {
-            "temp":{
-                "Value":"temp",
-                "Timestamp":"ts",
-                "Unit":[
-                    "°C"
-                ]
-            }
-        }
-    ]
-}
-)json";
-
-inline const std::string INVALID_JSON_0 = R"json({
-    "/mirip/UNet3AC2/+/data0":[
-        {
-            "temp":{
-            }
-        }
     ]
 }
 )json";
 
 inline const std::string INVALID_JSON_1 = R"json({
-    "/mirip/UNet3AC2/+/data0":[
+    "/mirip/UNet3AC2/test/data0":[
         {
             "temp": 0
         }
@@ -244,14 +230,8 @@ inline const std::string INVALID_JSON_1 = R"json({
 }
 )json";
 
-inline const std::string INVALID_JSON_2 = R"json({
-    "/mirip/UNet3AC2/+/data0":[
-    ]
-}
-)json";
-
 inline const std::string INVALID_JSON_3 = R"json({
-    "/mirip/UNet3AC2/+/data0": "invalid_value"
+    "/mirip/UNet3AC2/test/data0": "invalid_value"
 }
 )json";
 
