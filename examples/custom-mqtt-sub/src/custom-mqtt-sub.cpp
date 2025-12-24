@@ -22,7 +22,7 @@ std::string to_string(uint64_t ts)
     system_clock::time_point tp = system_clock::time_point(microseconds(ts));
 
     auto tt = system_clock::to_time_t(tp);
-    std::tm tm = *std::localtime(&tt);
+    std::tm tm = *std::gmtime(&tt);
 
     auto us = duration_cast<milliseconds>(tp.time_since_epoch()) % 1000;
 
@@ -129,23 +129,31 @@ int main(int argc, char* argv[])
     auto brokerFB = instance.addFunctionBlock(rootFbName, rootFbConfig);
     auto availableFbs = brokerFB.getAvailableFunctionBlockTypes();
 
-    const std::string fbName = "@jsonMqttFb";
-    std::cout << "Try to add the " << fbName << std::endl;
+    const std::string jsonFbName = "@jsonMqttFb";
+    std::cout << "Try to add the " << jsonFbName << std::endl;
 
-    // Read JSON function block configuration from file and fill out the function block config
-    const std::string jsonConfig = readFileToString(appConfig.configFilePath);
-    auto config = availableFbs.get(fbName).createDefaultConfig();
-    config.setPropertyValue("SignalList", jsonConfig);
+    auto config = availableFbs.get(jsonFbName).createDefaultConfig();
+    config.setPropertyValue("JsonConfigFile", appConfig.configFilePath);
 
     // Add the JSON function block to the broker FB
-    daq::FunctionBlockPtr jsonFb = brokerFB.addFunctionBlock(fbName, config);
+    daq::FunctionBlockPtr jsonFb = brokerFB.addFunctionBlock(jsonFbName, config);
 
     // Create packet readers for all signals
-    const auto signals = jsonFb.getSignals();
-    std::map<std::string, PacketReaderPtr> packetReaders;
+    auto signals = List<daq::ISignal>();
+    const auto fbs = jsonFb.getFunctionBlocks();
+    for (const auto& fb : fbs)
+    {
+        const auto sig = fb.getSignals();
+        for (const auto& s : sig)
+        {
+            signals.pushBack(s);
+        }
+    }
+
+    std::vector<std::pair<std::string, PacketReaderPtr>> packetReaders;
     for (const auto& s : signals)
     {
-        packetReaders.emplace(std::pair<std::string, PacketReaderPtr>(s.getName().toStdString(), daq::PacketReader(s)));
+        packetReaders.push_back(std::pair<std::string, PacketReaderPtr>(s.getName().toStdString(), daq::PacketReader(s)));
     }
 
     // Start a thread to read packets from the readers

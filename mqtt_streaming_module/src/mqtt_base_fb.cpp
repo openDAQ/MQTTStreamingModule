@@ -29,7 +29,7 @@ void MqttBaseFb::removed()
     FunctionBlock::removed();
     unsubscribeFromTopic();
     setSubscriptionStatus(SubscriptionStatus::InvalidTopicName, "Function block removed");
-    setComponentStatusWithMessage(ComponentStatus::Error, "Function block removed");
+    setComponentStatusWithMessage(ComponentStatus::Ok, "Function block removed");
 }
 
 void MqttBaseFb::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg)
