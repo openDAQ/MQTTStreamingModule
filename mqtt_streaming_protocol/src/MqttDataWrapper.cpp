@@ -108,6 +108,8 @@ std::string MqttDataWrapper::extractTopic()
 MqttDataWrapper::CmdResult MqttDataWrapper::isJsonValid()
 {
     rapidjson::Document doc;
+    if (config.empty())
+        return CmdResult(true);
     if (doc.Parse(config.c_str()).HasParseError())
         return CmdResult(false, "The JSON config has wrong format");
     if (!doc.IsObject())
@@ -133,13 +135,17 @@ void MqttDataWrapper::setOutputSignal(daq::SignalConfigPtr outputSignal)
     this->outputSignal = outputSignal;
 }
 
-void MqttDataWrapper::createAndSendDataPacket(const std::string& json)
+MqttDataWrapper::CmdResult MqttDataWrapper::createAndSendDataPacket(const std::string& json)
 {
-    auto packets = extractDataSamples(msgDescriptor, json);
-    for (const auto& data : packets)
+    auto [status, packets] = extractDataSamples(msgDescriptor, json);
+    if (status.success)
     {
-        sendDataSamples(data);
+        for (const auto& data : packets)
+        {
+            sendDataSamples(data);
+        }
     }
+    return status;
 }
 
 // bool MqttDataWrapper::hasDomainSignal(const SignalId& signalId) const
@@ -157,22 +163,22 @@ void MqttDataWrapper::setTimestampFieldName(std::string tsFieldName)
     msgDescriptor.tsFieldName = std::move(tsFieldName);
 }
 
-std::vector<DataPackets> MqttDataWrapper::extractDataSamples(const MqttMsgDescriptor& msgDescriptor, const std::string& json)
+std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper::extractDataSamples(const MqttMsgDescriptor& msgDescriptor, const std::string& json)
 {
     using ValueVariant = std::variant<int64_t, double, std::string>;
     ValueVariant value{};
-    std::vector<DataPackets> res;
+    std::vector<DataPackets> outputData;
     uint64_t ts = 0;
     bool hasTS = false;
     bool hasValue = false;
+    CmdResult result(true);
     try
     {
         rapidjson::Document jsonDocument;
         jsonDocument.Parse(json);
         if (jsonDocument.HasParseError())
         {
-            LOG_E("Error parsing mqtt payload as JSON");
-            return res;
+            return std::pair{CmdResult(false, "Error parsing mqtt payload as JSON"), outputData};
         }
 
         if (jsonDocument.IsObject())
@@ -194,8 +200,9 @@ std::vector<DataPackets> MqttDataWrapper::extractDataSamples(const MqttMsgDescri
                         value = std::string(v.GetString());
                     else
                     {
+                        result.success = false;
+                        result.msg = fmt::format("Unsupported value type for '{}'.", name);
                         hasValue = false;
-                        LOG_W("Unsupported value type for '{}'.", name);
                     }
                 }
                 else if (!msgDescriptor.tsFieldName.empty() && name == msgDescriptor.tsFieldName)
@@ -213,7 +220,8 @@ std::vector<DataPackets> MqttDataWrapper::extractDataSamples(const MqttMsgDescri
                     }
                     else
                     {
-                        LOG_W("Value is not supported.");
+                        result.success = false;
+                        result.msg = "Timestamp value type is not supported.";
                     }
                 }
                 else
@@ -225,18 +233,16 @@ std::vector<DataPackets> MqttDataWrapper::extractDataSamples(const MqttMsgDescri
     }
     catch (...)
     {
-        LOG_E("Error deserializing mqtt payload");
+        result.success = false;
+        result.msg = "Error deserializing MQTT payload";
+    }
+    if (!hasValue || (!msgDescriptor.tsFieldName.empty() && !hasTS))
+    {
+        result.success = false;
+        result.msg = "Not all required fields are present in the JSON message.";
     }
 
-    if (!hasValue)
-    {
-        LOG_W("Not all required fields are present.");
-    }
-    else if (!msgDescriptor.tsFieldName.empty() && hasTS == false)
-    {
-        LOG_W("Timestamp field is expected but missing.");
-    }
-    else
+    if (result.success)
     {
         // TODO : value [1, 2, 3, ...] support
         DataPackets dataPackets;
@@ -251,9 +257,9 @@ std::vector<DataPackets> MqttDataWrapper::extractDataSamples(const MqttMsgDescri
             },
             value);
         if (dataPackets.dataPacket.assigned())
-            res.push_back(std::move(dataPackets));
+            outputData.push_back(std::move(dataPackets));
     }
-    return res;
+    return std::pair{result, outputData};
 }
 
 void MqttDataWrapper::sendDataSamples(const DataPackets& dataPackets)

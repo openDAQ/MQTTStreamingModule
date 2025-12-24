@@ -155,6 +155,10 @@ void MqttJsonReceiverFbImpl::readJsonConfig()
         const auto signalConfig = objPtr.getPropertyValue(PROPERTY_NAME_JSON_CONFIG).asPtrOrNull<IString>();
         if (signalConfig.assigned())
         {
+            if (signalConfig.toStdString().empty())
+            {
+                return;
+            }
             jsonDataWorker.setConfig(signalConfig.toStdString());
             auto result = jsonDataWorker.isJsonValid();
             if (result.success)
@@ -181,6 +185,12 @@ void MqttJsonReceiverFbImpl::readJsonConfig()
                         MqttJsonReceiverFbImpl::onAddFunctionBlock(JSON_DECODER_FB_NAME, config);
                     }
                 }
+            }
+            else
+            {
+                const std::string msg = "JSON config is wrong!";
+                LOG_W("{}", msg);
+                setComponentStatusWithMessage(ComponentStatus::Error, std::string(fmt::format("{} {}", msg, result.msg)));
             }
         }
     }
@@ -270,6 +280,11 @@ void MqttJsonReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
 {
     if (topicForSubscribing == msg.getTopic())
     {
+        if (subscriptionStatus.getIntValue() == static_cast<Int>(SubscriptionStatus::WaitingForData))
+        {
+            setSubscriptionStatus(SubscriptionStatus::HasData);
+        }
+
         std::string jsonObjStr(msg.getData().begin(), msg.getData().end());
         auto acqlock = this->getAcquisitionLock2();
         for (const auto& fb : nestedFunctionBlocks)

@@ -26,6 +26,15 @@ class MqttJsonDecoderFbImpl final : public FunctionBlock
     // friend class MqttJsonFbHelper;
 
 public:
+
+    enum class ParsingStatus : EnumType
+    {
+        InvalidParamaters = 0,
+        ParsingFailed,
+        WaitingForData,
+        ParsingSuccedeed
+    };
+
     explicit MqttJsonDecoderFbImpl(const ContextPtr& ctx,
                                 const ComponentPtr& parent,
                                 const FunctionBlockTypePtr& type,
@@ -41,13 +50,23 @@ protected:
         std::string unitSymbol;
         std::string signalName;
     };
+    struct ConfigStatus {
+        bool configValid;
+        std::string configMsg;
+        bool waitingData;
+        bool parsingSucceeded;
+        std::string parsingMsg;
+    };
     static std::atomic<int> localIndex;
+    static std::vector<std::pair<ParsingStatus, std::string>> parsingStatusMap;
 
     mqtt::MqttDataWrapper jsonDataWorker;
     SignalConfigPtr outputSignal;
     SignalConfigPtr outputDomainSignal;
 
     FbConfig config;
+    EnumerationPtr parsingStatus;
+    ConfigStatus configStatus;
 
     static std::string getLocalId();
 
@@ -60,6 +79,10 @@ protected:
     template <typename retT, typename intfT>
     retT readProperty(const std::string& propertyName, const retT defaultValue);
     void propertyChanged();
+
+    void initParsingStatus();
+    void setParsingStatus(const ParsingStatus status, std::string message = "");
+    void updateStatuses();
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

@@ -156,14 +156,14 @@ void MqttBaseFb::initSubscriptionStatus()
     subscriptionStatus = EnumerationWithIntValue(MQTT_FB_SUB_STATUS_TYPE,
                                                  static_cast<Int>(SubscriptionStatus::InvalidTopicName),
                                                  this->context.getTypeManager());
-    statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).addStatus("SubscriptionStatus",
+    statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).addStatus(MQTT_FB_SUB_STATUS_NAME,
                                                                                      subscriptionStatus);
 }
 
 void MqttBaseFb::setSubscriptionStatus(const SubscriptionStatus status, std::string message)
 {
     subscriptionStatus = EnumerationWithIntValue(MQTT_FB_SUB_STATUS_TYPE, static_cast<Int>(status), this->context.getTypeManager());
-    statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).setStatusWithMessage("SubscriptionStatus",
+    statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).setStatusWithMessage(MQTT_FB_SUB_STATUS_NAME,
                                                                                                 subscriptionStatus,
                                                                                                 message);
 }

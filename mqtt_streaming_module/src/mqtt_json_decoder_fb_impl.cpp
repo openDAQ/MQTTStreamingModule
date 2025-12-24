@@ -6,6 +6,12 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
 std::atomic<int> MqttJsonDecoderFbImpl::localIndex = 0;
 
+std::vector<std::pair<MqttJsonDecoderFbImpl::ParsingStatus, std::string>> MqttJsonDecoderFbImpl::parsingStatusMap =
+    {{ParsingStatus::InvalidParamaters, "InvalidParamaters"},
+     {ParsingStatus::ParsingFailed, "ParsingFailed"},
+     {ParsingStatus::WaitingForData, "WaitingForData"},
+     {ParsingStatus::ParsingSuccedeed, "ParsingSuccedeed"}};
+
 MqttJsonDecoderFbImpl::MqttJsonDecoderFbImpl(const ContextPtr& ctx,
                                        const ComponentPtr& parent,
                                        const FunctionBlockTypePtr& type,
@@ -14,6 +20,7 @@ MqttJsonDecoderFbImpl::MqttJsonDecoderFbImpl(const ContextPtr& ctx,
       jsonDataWorker(loggerComponent)
 {
     initComponentStatus();
+    initParsingStatus();
     if (config.assigned())
         initProperties(populateDefaultConfig(type.createDefaultConfig(), config));
     else
@@ -83,7 +90,14 @@ void MqttJsonDecoderFbImpl::initProperties(const PropertyObjectPtr& config)
 void MqttJsonDecoderFbImpl::readProperties()
 {
     auto lock = this->getRecursiveConfigLock();
+    configStatus.configValid = true;
+    configStatus.configMsg.clear();
     config.valueFieldName = readProperty<std::string, IString>(PROPERTY_NAME_VALUE_NAME, "");
+    if (config.valueFieldName.empty())
+    {
+        configStatus.configMsg = fmt::format("\"{}\" property is empty!", PROPERTY_NAME_VALUE_NAME);
+        configStatus.configValid = false;
+    }
     config.tsFieldName = readProperty<std::string, IString>(PROPERTY_NAME_TS_NAME, "");
     config.unitSymbol = readProperty<std::string, IString>(PROPERTY_NAME_UNIT, "");
     config.signalName = readProperty<std::string, IString>(PROPERTY_NAME_SIGNAL_NAME, DEFAULT_SIGNAL_NAME);
@@ -92,6 +106,8 @@ void MqttJsonDecoderFbImpl::readProperties()
 
     jsonDataWorker.setValueFieldName(config.valueFieldName);
     jsonDataWorker.setTimestampFieldName(config.tsFieldName);
+    configStatus.waitingData = true;
+    updateStatuses();
 }
 
 template <typename retT, typename intfT>
@@ -123,10 +139,75 @@ void MqttJsonDecoderFbImpl::propertyChanged()
     reconfigureSignal(prevConfig);
 }
 
+void MqttJsonDecoderFbImpl::initParsingStatus()
+{
+    if (!context.getTypeManager().hasType(MQTT_FB_PARSING_STATUS_TYPE))
+    {
+        auto list = List<IString>();
+        for (const auto& [_, st] : parsingStatusMap)
+            list.pushBack(st);
+
+        context.getTypeManager().addType(EnumerationType(MQTT_FB_PARSING_STATUS_TYPE, list));
+    }
+
+    parsingStatus = EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
+                                                 static_cast<Int>(ParsingStatus::WaitingForData),
+                                                 this->context.getTypeManager());
+    statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).addStatus(MQTT_FB_PARSING_STATUS_NAME,
+                                                                                     parsingStatus);
+}
+
+void MqttJsonDecoderFbImpl::setParsingStatus(const ParsingStatus status, std::string message)
+{
+
+    parsingStatus = EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE, static_cast<Int>(status), this->context.getTypeManager());
+    statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).setStatusWithMessage(MQTT_FB_PARSING_STATUS_NAME,
+                                                                                                parsingStatus,
+                                                                                                message);
+}
+
+void MqttJsonDecoderFbImpl::updateStatuses()
+{
+    if (configStatus.configValid == false)
+    {
+        setComponentStatusWithMessage(ComponentStatus::Error, "Configuration is invalid!");
+        setParsingStatus(ParsingStatus::InvalidParamaters, configStatus.configMsg);
+    }
+    else if (configStatus.waitingData)
+    {
+        setComponentStatus(ComponentStatus::Ok);
+        setParsingStatus(ParsingStatus::WaitingForData);
+    }
+    else if (configStatus.parsingSucceeded)
+    {
+        setComponentStatus(ComponentStatus::Ok);
+        setParsingStatus(ParsingStatus::ParsingSuccedeed);
+    }
+    else
+    {
+        if (statusContainer.getStatus("ComponentStatus") == ComponentStatus::Ok)
+        {
+            setComponentStatus(ComponentStatus::Warning);
+        }
+        setParsingStatus(ParsingStatus::ParsingFailed, configStatus.parsingMsg);
+    }
+}
+
 void MqttJsonDecoderFbImpl::processMessage(const std::string& json)
 {
     auto lock = this->getRecursiveConfigLock();
-    jsonDataWorker.createAndSendDataPacket(json);
+    configStatus.waitingData = false;
+    auto status = jsonDataWorker.createAndSendDataPacket(json);
+    configStatus.parsingSucceeded = status.success;
+    if (status.success)
+    {
+        configStatus.parsingMsg.clear();
+    }
+    else
+    {
+        configStatus.parsingMsg = status.msg;
+    }
+    updateStatuses();
 }
 
 void MqttJsonDecoderFbImpl::createSignal()

@@ -73,7 +73,7 @@ public:
     std::string extractTopic();
     CmdResult isJsonValid();
     void setOutputSignal(daq::SignalConfigPtr outputSignal);
-    void createAndSendDataPacket(const std::string& json);
+    CmdResult createAndSendDataPacket(const std::string& json);
     //bool hasDomainSignal(const SignalId& signalId) const;
     void setValueFieldName(std::string valueFieldName);
     void setTimestampFieldName(std::string tsFieldName);
@@ -87,7 +87,7 @@ private:
     // used for description how to extract data from sample json
     MqttMsgDescriptor msgDescriptor;
 
-    std::vector<DataPackets> extractDataSamples(const MqttMsgDescriptor& msgDescriptor, const std::string& json);
+    std::pair<CmdResult, std::vector<DataPackets>> extractDataSamples(const MqttMsgDescriptor& msgDescriptor, const std::string& json);
     void sendDataSamples(const DataPackets& dataPackets);
     template <typename T>
     DataPackets buildDataPackets(T value, uint64_t timestamp);
