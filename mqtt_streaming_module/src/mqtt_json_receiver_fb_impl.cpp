@@ -151,7 +151,7 @@ void MqttJsonReceiverFbImpl::readProperties()
     {
         LOG_W("\'{}\' property is missing!", PROPERTY_NAME_TOPIC);
         setComponentStatus(ComponentStatus::Warning);
-        setSubscriptionStatus(SubscriptionStatus::InvalidTopicName, "The topic property is not set!");
+        subscriptionStatus.setStatus(SubscriptionStatus::InvalidTopicName, "The topic property is not set!");
     }
 }
 
@@ -270,12 +270,12 @@ bool MqttJsonReceiverFbImpl::setTopic(std::string topic)
         LOG_I("An MQTT topic: {}", topic);
         topicForSubscribing = std::move(topic);
         setComponentStatus(ComponentStatus::Ok);
-        setSubscriptionStatus(SubscriptionStatus::WaitingForData, "Subscribing to topic: " + topicForSubscribing);
+        subscriptionStatus.setStatus(SubscriptionStatus::WaitingForData, "Subscribing to topic: " + topicForSubscribing);
     }
     else
     {
         setComponentStatus(ComponentStatus::Warning);
-        setSubscriptionStatus(SubscriptionStatus::InvalidTopicName, validationStatus.msg);
+        subscriptionStatus.setStatus(SubscriptionStatus::InvalidTopicName, validationStatus.msg);
     }
     return validationStatus.success;
 }
@@ -333,9 +333,9 @@ void MqttJsonReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
 {
     if (topicForSubscribing == msg.getTopic())
     {
-        if (subscriptionStatus.getIntValue() == static_cast<Int>(SubscriptionStatus::WaitingForData))
+        if (subscriptionStatus.getStatus() == SubscriptionStatus::WaitingForData)
         {
-            setSubscriptionStatus(SubscriptionStatus::HasData);
+            subscriptionStatus.setStatus(SubscriptionStatus::HasData);
         }
 
         std::string jsonObjStr(msg.getData().begin(), msg.getData().end());

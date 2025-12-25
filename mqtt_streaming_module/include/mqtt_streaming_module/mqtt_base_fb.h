@@ -19,6 +19,7 @@
 #include <opendaq/function_block_impl.h>
 
 #include "MqttAsyncClient.h"
+#include "mqtt_streaming_module/status_helper.h"
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
     
@@ -62,7 +63,7 @@ protected:
     static std::vector<std::pair<SubscriptionStatus, std::string>> subscriptionStatusMap;
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
-    EnumerationPtr subscriptionStatus;
+    StatusHelper<SubscriptionStatus> subscriptionStatus;
 
     virtual void createSignals() = 0;
     virtual void processMessage(const mqtt::MqttMessage& msg) = 0;
@@ -79,9 +80,6 @@ protected:
     virtual void propertyChanged() = 0;
 
     void removed() override;
-
-    void initSubscriptionStatus();
-    void setSubscriptionStatus(const SubscriptionStatus status, std::string message = "");
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

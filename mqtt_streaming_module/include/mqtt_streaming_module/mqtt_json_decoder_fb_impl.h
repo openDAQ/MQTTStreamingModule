@@ -16,6 +16,7 @@
 
 #pragma once
 #include "MqttDataWrapper.h"
+#include "mqtt_streaming_module/status_helper.h"
 #include <mqtt_streaming_module/common.h>
 #include <opendaq/function_block_impl.h>
 
@@ -65,7 +66,7 @@ protected:
     SignalConfigPtr outputDomainSignal;
 
     FbConfig config;
-    EnumerationPtr parsingStatus;
+    StatusHelper<ParsingStatus> parsingStatus;
     ConfigStatus configStatus;
 
     static std::string getLocalId();
@@ -80,8 +81,6 @@ protected:
     retT readProperty(const std::string& propertyName, const retT defaultValue);
     void propertyChanged();
 
-    void initParsingStatus();
-    void setParsingStatus(const ParsingStatus status, std::string message = "");
     void updateStatuses();
 };
 

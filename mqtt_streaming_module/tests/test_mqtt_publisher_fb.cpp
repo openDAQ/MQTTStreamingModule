@@ -665,7 +665,14 @@ TEST_F(MqttPublisherFbTest, CreationWithPartialConfig)
 TEST_F(MqttPublisherFbTest, ConnectToPort)
 {
     StartUp();
-    MqttPublisherFbImpl::addTypesToTypeManager(rootMqttFb.getContext().getTypeManager());
+    StatusHelper<MqttPublisherFbImpl::SignalStatus>::addTypesToTypeManager(MQTT_PUB_FB_SIG_STATUS_TYPE,
+                                                                           MQTT_PUB_FB_SIG_STATUS_NAME,
+                                                                           MqttPublisherFbImpl::signalStatusMap,
+                                                                           rootMqttFb.getContext().getTypeManager());
+    StatusHelper<MqttPublisherFbImpl::PublishingStatus>::addTypesToTypeManager(MQTT_PUB_FB_PUB_STATUS_TYPE,
+                                                                               MQTT_PUB_FB_PUB_STATUS_NAME,
+                                                                               MqttPublisherFbImpl::publishingStatusMap,
+                                                                               rootMqttFb.getContext().getTypeManager());
     const auto sigStValid = EnumerationWithIntValue(MQTT_PUB_FB_SIG_STATUS_TYPE,
                                                     static_cast<Int>(MqttPublisherFbImpl::SignalStatus::Valid),
                                                     daqInstance.getContext().getTypeManager());

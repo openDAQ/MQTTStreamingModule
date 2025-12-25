@@ -349,9 +349,9 @@ TEST_F(MqttJsonFbTest, JsonInitFromFileWithChecking)
     auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(JSON_FB_NAME).createDefaultConfig();
     config.setPropertyValue(PROPERTY_NAME_JSON_CONFIG_FILE, String("data/public-example0.json"));
     ASSERT_NO_THROW(jsonFb = rootMqttFb.addFunctionBlock(JSON_FB_NAME, config));
-    ASSERT_EQ(jsonFb.getFunctionBlocks().getCount(), 3u);
     ASSERT_EQ(jsonFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+    ASSERT_EQ(jsonFb.getFunctionBlocks().getCount(), 3u);
     auto lambda = [&](FunctionBlockPtr nestedFb, std::string name, std::string value, std::string ts, std::string symbol)
     {
         EXPECT_EQ(nestedFb.getSignals()[0].getName().toStdString(), name);

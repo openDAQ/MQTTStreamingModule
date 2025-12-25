@@ -17,8 +17,9 @@
 #pragma once
 #include "MqttAsyncClient.h"
 #include "MqttDataWrapper.h"
-#include "mqtt_streaming_module/handler_base.h"
 #include "mqtt_streaming_helper/timer.h"
+#include "mqtt_streaming_module/handler_base.h"
+#include "mqtt_streaming_module/status_helper.h"
 #include <mqtt_streaming_module/common.h>
 #include <mqtt_streaming_module/types.h>
 #include <opendaq/function_block_impl.h>
@@ -54,12 +55,10 @@ public:
     void onConnected(const InputPortPtr& port) override;
     void onDisconnected(const InputPortPtr& port) override;
 
-    static void addTypesToTypeManager(daq::TypeManagerPtr manager);
-
-private:
     static const std::vector<std::pair<SignalStatus, std::string>> signalStatusMap;
     static const std::vector<std::pair<PublishingStatus, std::string>> publishingStatusMap;
 
+private:
     static std::atomic<int> localIndex;
     std::shared_ptr<mqtt::MqttAsyncClient> mqttClient;
     mqtt::MqttDataWrapper jsonDataWorker;
@@ -70,16 +69,15 @@ private:
     std::atomic<bool> running;
     std::atomic<bool> hasError;
     std::unique_ptr<HandlerBase> handler;
-    EnumerationPtr signalStatus;
-    EnumerationPtr publishingStatus;
+    std::mutex statusMutex;
+    StatusHelper<SignalStatus> signalStatus;
+    StatusHelper<PublishingStatus> publishingStatus;
     uint64_t skippedMsgCnt;
     uint64_t publishedMsgCnt;
     std::string lastSkippedReason;
     helper::utils::Timer publishingStatusTimer;
 
     static std::string getLocalId();
-    void setSignalStatus(const SignalStatus status, std::string message = "", bool init = false);
-    void setPublishingStatus(const PublishingStatus status, std::string message = "", bool init = false);
     void updatePublishingStatus();
     void initProperties(const PropertyObjectPtr& config);
     void readProperties();

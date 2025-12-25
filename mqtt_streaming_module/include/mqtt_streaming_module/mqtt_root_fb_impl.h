@@ -21,7 +21,7 @@
 #include <mqtt_streaming_module/common.h>
 #include <opendaq/function_block_impl.h>
 #include <opendaq/streaming_ptr.h>
-#include "MqttDataWrapper.h"
+#include <mqtt_streaming_module/status_helper.h>
 
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
@@ -58,11 +58,10 @@ protected:
     void initProperties(const PropertyObjectPtr& config);
     void readProperties();
     bool waitForConnection(const int timeoutMs);
-    void setConnectionStatus(const ConnectionStatus status, std::string message = "");
 
     DictObjectPtr<IDict, IString, IFunctionBlockType> baseFbTypes;
 
-    EnumerationPtr connectionStatus;
+    StatusHelper<ConnectionStatus> connectionStatus;
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
     Mqtt::Utils::Settings::MqttConnectionSettings connectionSettings;

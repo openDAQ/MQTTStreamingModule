@@ -68,12 +68,12 @@ void MqttRawReceiverFbImpl::readProperties()
                 LOG_I("An MQTT topic: {}", topicStr.toStdString());
                 topicForSubscribing = topicStr.toStdString();
                 setComponentStatus(ComponentStatus::Ok);
-                setSubscriptionStatus(SubscriptionStatus::WaitingForData, "Subscribing to topic: " + topicForSubscribing);
+                subscriptionStatus.setStatus(SubscriptionStatus::WaitingForData, "Subscribing to topic: " + topicForSubscribing);
             }
             else
             {
                 setComponentStatus(ComponentStatus::Warning);
-                setSubscriptionStatus(SubscriptionStatus::InvalidTopicName, validationStatus.msg);
+                subscriptionStatus.setStatus(SubscriptionStatus::InvalidTopicName, validationStatus.msg);
             }
         }
     }
@@ -81,7 +81,7 @@ void MqttRawReceiverFbImpl::readProperties()
     {
         LOG_W("\'{}\' property is missing!", PROPERTY_NAME_TOPIC);
         setComponentStatus(ComponentStatus::Warning);
-        setSubscriptionStatus(SubscriptionStatus::InvalidTopicName, "The topic property is not set!");
+        subscriptionStatus.setStatus(SubscriptionStatus::InvalidTopicName, "The topic property is not set!");
     }
     if (topicForSubscribing.empty())
     {
@@ -108,9 +108,9 @@ void MqttRawReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
     auto lock = std::lock_guard<std::mutex>(sync);
     if (topicForSubscribing == topic)
     {
-        if (subscriptionStatus.getIntValue() == static_cast<Int>(SubscriptionStatus::WaitingForData))
+        if (subscriptionStatus.getStatus() == SubscriptionStatus::WaitingForData)
         {
-            setSubscriptionStatus(SubscriptionStatus::HasData);
+            subscriptionStatus.setStatus(SubscriptionStatus::HasData);
         }
         const auto outputPacket = BinaryDataPacket(nullptr, outputSignal.getDescriptor(), msg.getData().size());
         memcpy(outputPacket.getData(), msg.getData().data(), msg.getData().size());

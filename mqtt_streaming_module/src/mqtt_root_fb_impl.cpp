@@ -19,7 +19,13 @@ std::vector<std::pair<MqttRootFbImpl::ConnectionStatus, std::string>> MqttRootFb
 MqttRootFbImpl::MqttRootFbImpl(const ContextPtr& ctx, const ComponentPtr& parent, const PropertyObjectPtr& config)
     : FunctionBlock(CreateType(), ctx, parent, getLocalId()),
       subscriber(std::make_shared<mqtt::MqttAsyncClient>()),
-      connectTimeout(0)
+      connectTimeout(0),
+      connectionStatus(MQTT_ROOT_FB_CON_STATUS_TYPE,
+                       MQTT_ROOT_FB_CON_STATUS_NAME,
+                       statusContainer,
+                       connectionStatusMap,
+                       ConnectionStatus::Disconnected,
+                       context.getTypeManager())
 {
     initComponentStatus();
     initConnectionStatus();
@@ -48,7 +54,7 @@ void MqttRootFbImpl::removed()
     else
     {
         LOG_I("MQTT: disconnection was successful");
-        setConnectionStatus(ConnectionStatus::Disconnected);
+        connectionStatus.setStatus(ConnectionStatus::Disconnected);
     }
 }
 
@@ -103,7 +109,7 @@ void MqttRootFbImpl::initMqttSubscriber()
             bool expected = false;
             if (connectedDone.compare_exchange_strong(expected, true))
             {
-                setConnectionStatus(ConnectionStatus::Connected);
+                connectionStatus.setStatus(ConnectionStatus::Connected);
                 connectedPromise.set_value(true);
             }
         });
@@ -114,24 +120,10 @@ void MqttRootFbImpl::initMqttSubscriber()
 
 void MqttRootFbImpl::initConnectionStatus()
 {
-    if (!context.getTypeManager().hasType(MQTT_ROOT_FB_CON_STATUS_TYPE))
-    {
-        auto list = List<IString>();
-        for (const auto& [_, st] : connectionStatusMap)
-            list.pushBack(st);
-
-        context.getTypeManager().addType(EnumerationType(MQTT_ROOT_FB_CON_STATUS_TYPE, list));
-    }
-
-    connectionStatus = EnumerationWithIntValue(MQTT_ROOT_FB_CON_STATUS_TYPE,
-                                               static_cast<Int>(ConnectionStatus::Disconnected),
-                                               this->context.getTypeManager());
-    statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).addStatus("ConnectionStatus",
-                                                                                                connectionStatus);
     subscriber->setConnectionLostCb(
         [this](std::string msg)
         {
-            setConnectionStatus(ConnectionStatus::Reconnecting, msg);
+            connectionStatus.setStatus(ConnectionStatus::Reconnecting, msg);
         });
 }
 
@@ -190,17 +182,9 @@ bool MqttRootFbImpl::waitForConnection(const int timeoutMs)
     subscriber->setConnectedCb(
         [this]
         {
-            setConnectionStatus(ConnectionStatus::Connected);
+            connectionStatus.setStatus(ConnectionStatus::Connected);
         });
     return res;
-}
-
-void MqttRootFbImpl::setConnectionStatus(const ConnectionStatus status, std::string message)
-{
-    connectionStatus = EnumerationWithIntValue(MQTT_ROOT_FB_CON_STATUS_TYPE, static_cast<Int>(status), this->context.getTypeManager());
-    statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).setStatusWithMessage("ConnectionStatus",
-                                                                                                connectionStatus,
-                                                                                                message);
 }
 
 DictPtr<IString, IFunctionBlockType> MqttRootFbImpl::onGetAvailableFunctionBlockTypes()
