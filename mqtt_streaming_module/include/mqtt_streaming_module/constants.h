@@ -17,6 +17,7 @@ static constexpr uint32_t DEFAULT_INIT_TIMEOUT = 3000; // ms
 static constexpr uint32_t DEFAULT_PUB_READ_PERIOD = 20; // ms
 static constexpr uint32_t DEFAULT_PUB_QOS = 1;
 static constexpr uint32_t DEFAULT_PUB_PACK_SIZE = 1;
+static constexpr const char* DEFAULT_PUB_TOPIC_NAME = "";
 
 static constexpr const char* PROPERTY_NAME_MQTT_BROKER_ADDRESS = "MqttBrokerAddress";
 static constexpr const char* PROPERTY_NAME_MQTT_BROKER_PORT = "MqttBrokerPort";
@@ -24,8 +25,10 @@ static constexpr const char* PROPERTY_NAME_MQTT_USERNAME = "MqttUsername";
 static constexpr const char* PROPERTY_NAME_MQTT_PASSWORD = "MqttPassword";
 static constexpr const char* PROPERTY_NAME_CONNECT_TIMEOUT = "ConnectTimeout";
 static constexpr const char* PROPERTY_NAME_SIGNAL_LIST = "SignalList";
+static constexpr const char* PROPERTY_NAME_TOPIC = "Topic";
 
 static constexpr const char* PROPERTY_NAME_PUB_TOPIC_MODE = "TopicMode";
+static constexpr const char* PROPERTY_NAME_PUB_TOPIC_NAME = "Topic";
 static constexpr const char* PROPERTY_NAME_PUB_SHARED_TS = "SharedTimestamp";
 static constexpr const char* PROPERTY_NAME_PUB_GROUP_VALUES = "GroupValues";
 static constexpr const char* PROPERTY_NAME_PUB_USE_SIGNAL_NAMES = "UseSignalNames";
@@ -40,8 +43,16 @@ static constexpr const char* ROOT_FB_NAME = "@rootMqttFb";
 
 static const char* MQTT_LOCAL_ROOT_FB_ID_PREFIX = "rootMqttFb";
 static const char* MQTT_LOCAL_PUB_FB_ID_PREFIX = "publisherMqttFb";
+static const char* MQTT_LOCAL_RAW_FB_ID_PREFIX = "rawMqttFb";
+static const char* MQTT_LOCAL_JSON_FB_ID_PREFIX = "jsonMqttFb";
 
 
 static const char* MQTT_ROOT_FB_CON_STATUS_TYPE = "BrokerConnectionStatusType";
+static const char* MQTT_RAW_FB_SUB_STATUS_TYPE = "MqttSubscriptionStatusType";
+static const char* MQTT_PUB_FB_SIG_STATUS_TYPE = "MqttSignalStatusType";
+static const char* MQTT_PUB_FB_PUB_STATUS_TYPE = "MqttPublishingStatusType";
+
+static const char* MQTT_PUB_FB_SIG_STATUS_NAME = "SignalStatus";
+static const char* MQTT_PUB_FB_PUB_STATUS_NAME = "PublishingStatus";
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

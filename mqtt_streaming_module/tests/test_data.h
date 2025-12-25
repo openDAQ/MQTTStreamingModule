@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-inline const std::string VALID_JSON_0 = R"json({
+inline const std::string VALID_JSON_4_TOPIC_0 = R"json({
     "openDAQ/RefDev0/IO/AI/RefCh0/Sig/AI0": [
         {
             "AI0": {
@@ -49,7 +49,7 @@ inline const std::string VALID_JSON_0 = R"json({
 }
 )json";
 
-inline const std::string VALID_JSON_1 = R"json({
+inline const std::string VALID_JSON_1_TOPIC_1 = R"json({
     "/mirip/UNet3AC2/sensor/data":[
         {
             "temp":{
@@ -82,7 +82,7 @@ inline const std::string VALID_JSON_1 = R"json({
 }
 )json";
 
-inline const std::string VALID_JSON_2 = R"json({
+inline const std::string VALID_JSON_3_TOPIC_2 = R"json({
     "/mirip/UNet3AC2/sensor/data0":[
         {
             "temp":{
@@ -133,6 +133,21 @@ inline const std::string VALID_JSON_2 = R"json({
         }
     ],
     "/mirip/UNet3AC2/sensor/data2":[
+        {
+            "temp":{
+                "Value":"temp",
+                "Timestamp":"ts",
+                "Unit":[
+                    "°C"
+                ]
+            }
+        }
+    ]
+}
+)json";
+
+inline const std::string VALID_JSON_1_TOPIC_3 = R"json({
+    "/mirip/UNet3AC2/sensor/data":[
         {
             "temp":{
                 "Value":"temp",

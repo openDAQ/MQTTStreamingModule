@@ -18,6 +18,7 @@
 #include "MqttAsyncClient.h"
 #include "MqttDataWrapper.h"
 #include "mqtt_streaming_module/handler_base.h"
+#include "mqtt_streaming_helper/timer.h"
 #include <mqtt_streaming_module/common.h>
 #include <mqtt_streaming_module/types.h>
 #include <opendaq/function_block_impl.h>
@@ -27,6 +28,19 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 class MqttPublisherFbImpl final : public FunctionBlock
 {
 public:
+    enum class SignalStatus : EnumType
+    {
+        NotConnected = 0,
+        Invalid,
+        Valid
+    };
+
+    enum class PublishingStatus : EnumType
+    {
+        Ok = 0,
+        SampleSkipped
+    };
+
     explicit MqttPublisherFbImpl(const ContextPtr& ctx,
                                  const ComponentPtr& parent,
                                  const FunctionBlockTypePtr& type,
@@ -40,7 +54,12 @@ public:
     void onConnected(const InputPortPtr& port) override;
     void onDisconnected(const InputPortPtr& port) override;
 
+    static void addTypesToTypeManager(daq::TypeManagerPtr manager);
+
 private:
+    static const std::vector<std::pair<SignalStatus, std::string>> signalStatusMap;
+    static const std::vector<std::pair<PublishingStatus, std::string>> publishingStatusMap;
+
     static std::atomic<int> localIndex;
     std::shared_ptr<mqtt::MqttAsyncClient> mqttClient;
     mqtt::MqttDataWrapper jsonDataWorker;
@@ -51,10 +70,20 @@ private:
     std::atomic<bool> running;
     std::atomic<bool> hasError;
     std::unique_ptr<HandlerBase> handler;
+    EnumerationPtr signalStatus;
+    EnumerationPtr publishingStatus;
+    uint64_t skippedMsgCnt;
+    uint64_t publishedMsgCnt;
+    std::string lastSkippedReason;
+    helper::utils::Timer publishingStatusTimer;
 
     static std::string getLocalId();
+    void setSignalStatus(const SignalStatus status, std::string message = "", bool init = false);
+    void setPublishingStatus(const PublishingStatus status, std::string message = "", bool init = false);
+    void updatePublishingStatus();
     void initProperties(const PropertyObjectPtr& config);
     void readProperties();
+    void propertyChanged();
     void updateInputPorts();
     void validateInputPorts();
     template <typename retT, typename intfT>

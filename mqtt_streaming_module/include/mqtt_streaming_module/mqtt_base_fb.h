@@ -25,6 +25,29 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 class MqttBaseFb : public FunctionBlock
 {
 public:
+    enum class SubscriptionStatus : EnumType
+    {
+        InvalidTopicName = 0,
+        SubscribingError,
+        WaitingForData,
+        HasData
+    };
+
+    struct CmdResult
+    {
+        bool success = false;
+        std::string msg;
+        int token = 0;
+
+        CmdResult(bool success = false, const std::string& msg = "", int token = 0)
+            : success(success),
+              msg(msg),
+              token(token)
+        {
+        }
+    };
+
+
     explicit MqttBaseFb(const ContextPtr& ctx,
                                 const ComponentPtr& parent,
                                 const FunctionBlockTypePtr& type,
@@ -34,7 +57,10 @@ public:
     ~MqttBaseFb() = default;
 
 protected:
+    static std::vector<std::pair<SubscriptionStatus, std::string>> subscriptionStatusMap;
+
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
+    EnumerationPtr subscriptionStatus;
 
     virtual void createSignals() = 0;
     virtual void processMessage(const mqtt::MqttMessage& msg) = 0;
@@ -44,12 +70,17 @@ protected:
 
     void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg);
 
-    virtual std::vector<std::string> getSubscribedTopics() const = 0;
-    virtual void clearSubscribedTopics() = 0;
-    virtual  void subscribeToTopics();
-    virtual  void unsubscribeFromTopics();
+    virtual std::string getSubscribedTopic() const = 0;
+    virtual void clearSubscribedTopic() = 0;
+    virtual  CmdResult subscribeToTopic();
+    virtual  CmdResult unsubscribeFromTopic();
+
+    virtual void propertyChanged() = 0;
 
     void removed() override;
+
+    void initSubscriptionStatus();
+    void setSubscriptionStatus(const SubscriptionStatus status, std::string message = "");
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

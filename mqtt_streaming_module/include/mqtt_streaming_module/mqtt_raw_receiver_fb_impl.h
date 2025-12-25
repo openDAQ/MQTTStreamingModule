@@ -30,7 +30,6 @@ public:
     explicit MqttRawReceiverFbImpl(const ContextPtr& ctx,
                                    const ComponentPtr& parent,
                                    const FunctionBlockTypePtr& type,
-                                   const StringPtr& localId,
                                    std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                    const PropertyObjectPtr& config = nullptr);
     ~MqttRawReceiverFbImpl() override;
@@ -38,14 +37,18 @@ public:
     static FunctionBlockTypePtr CreateType();
 private:
     std::mutex sync;
-    std::unordered_map<std::string, SignalConfigPtr> outputSignals;
-    std::vector<std::string> topicsForSubscribing;
+    SignalConfigPtr outputSignal;
+    std::string topicForSubscribing;
+    static std::atomic<int> localIndex;
+
+    static std::string getLocalId();
 
     void createSignals() override;
-    void clearSubscribedTopics() override;
-    std::vector<std::string> getSubscribedTopics() const override;
+    void clearSubscribedTopic() override;
+    std::string getSubscribedTopic() const override;
     void processMessage(const mqtt::MqttMessage& msg) override;
     void readProperties() override;
+    void propertyChanged() override;
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

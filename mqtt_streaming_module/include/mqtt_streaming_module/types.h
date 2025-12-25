@@ -19,6 +19,7 @@ enum class TopicMode {
 
 struct PublisherFbConfig {
     TopicMode topicMode;
+    std::string topicName;
     bool sharedTs;
     bool groupValues;
     bool useSignalNames;

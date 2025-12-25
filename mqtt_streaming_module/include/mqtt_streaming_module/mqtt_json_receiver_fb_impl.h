@@ -31,7 +31,6 @@ public:
     explicit MqttJsonReceiverFbImpl(const ContextPtr& ctx,
                                 const ComponentPtr& parent,
                                 const FunctionBlockTypePtr& type,
-                                const StringPtr& localId,
                                 std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                 const PropertyObjectPtr& config = nullptr);
     ~MqttJsonReceiverFbImpl() override;
@@ -42,14 +41,19 @@ private:
     mutable std::mutex sync;
     mqtt::MqttDataWrapper jsonDataWorker;
     std::unordered_map<mqtt::SignalId, SignalConfigPtr> outputSignals;
-    std::vector<mqtt::SignalId> signalIdList;
-    std::unordered_map<mqtt::SignalId, DataDescriptorPtr> subscribedSignals;
+    std::vector<std::string> signalNameList;
+    std::unordered_map<std::string, DataDescriptorPtr> subscribedSignals;
+    std::string topicForSubscribing;
+    static std::atomic<int> localIndex;
+
+    static std::string getLocalId();
 
     void createSignals() override;
-    void clearSubscribedTopics() override;
-    std::vector<std::string> getSubscribedTopics() const override;
+    void clearSubscribedTopic() override;
+    std::string getSubscribedTopic() const override;
     void processMessage(const mqtt::MqttMessage& msg) override;
     void readProperties() override;
+    void propertyChanged() override;
 
     void createDataPacket(const std::string& topic, const std::string& json);
 };

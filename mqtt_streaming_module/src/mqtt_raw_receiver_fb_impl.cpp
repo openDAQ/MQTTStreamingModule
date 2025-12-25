@@ -9,13 +9,14 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
 constexpr int MQTT_RAW_FB_UNSUBSCRIBE_TOUT = 3000;
 
+std::atomic<int> MqttRawReceiverFbImpl::localIndex = 0;
+
 MqttRawReceiverFbImpl::MqttRawReceiverFbImpl(const ContextPtr& ctx,
                                              const ComponentPtr& parent,
                                              const FunctionBlockTypePtr& type,
-                                             const StringPtr& localId,
                                              std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                              const PropertyObjectPtr& config)
-    : MqttBaseFb(ctx, parent, type, localId, subscriber, config)
+    : MqttBaseFb(ctx, parent, type, getLocalId(), subscriber, config)
 {
     if (config.assigned())
         initProperties(populateDefaultConfig(type.createDefaultConfig(), config));
@@ -23,105 +24,115 @@ MqttRawReceiverFbImpl::MqttRawReceiverFbImpl(const ContextPtr& ctx,
         initProperties(type.createDefaultConfig());
 
     createSignals();
-    subscribeToTopics();
+    subscribeToTopic();
 }
 
 MqttRawReceiverFbImpl::~MqttRawReceiverFbImpl()
 {
-    unsubscribeFromTopics();
+    unsubscribeFromTopic();
 }
 
 FunctionBlockTypePtr MqttRawReceiverFbImpl::CreateType()
 {
     auto defaultConfig = PropertyObject();
-    auto builder = ListPropertyBuilder(PROPERTY_NAME_SIGNAL_LIST, List<IString>())
-                       .setDescription("List of MQTT topics to subscribe to for receiving raw binary data.");
+    auto builder = StringPropertyBuilder(PROPERTY_NAME_TOPIC, "")
+                       .setDescription("An MQTT topic to subscribe to for receiving raw binary data.");
     defaultConfig.addProperty(builder.build());
     const auto fbType = FunctionBlockType(RAW_FB_NAME,
                                           RAW_FB_NAME,
-                                          "The raw MQTT function block allows subscribing to MQTT topics and converting MQTT payloads into "
+                                          "The raw MQTT function block allows subscribing to an MQTT topic and converting MQTT payloads into "
                                           "openDAQ signal binary data samples.",
                                           defaultConfig);
     return fbType;
 }
 
+std::string MqttRawReceiverFbImpl::getLocalId()
+{
+    return std::string(MQTT_LOCAL_RAW_FB_ID_PREFIX + std::to_string(localIndex++));
+}
+
 void MqttRawReceiverFbImpl::readProperties()
 {
-    auto lock = std::scoped_lock(sync);
-    topicsForSubscribing.clear();
+    auto lock = std::lock_guard<std::mutex>(sync);
+    topicForSubscribing.clear();
     bool isPresent = false;
-    if (objPtr.hasProperty(PROPERTY_NAME_SIGNAL_LIST))
+    if (objPtr.hasProperty(PROPERTY_NAME_TOPIC))
     {
-        auto prop = objPtr.getPropertyValue(PROPERTY_NAME_SIGNAL_LIST).asPtrOrNull<IList>();
-        if (prop.assigned())
+        auto topicStr = objPtr.getPropertyValue(PROPERTY_NAME_TOPIC).asPtrOrNull<IString>();
+        if (topicStr.assigned())
         {
             isPresent = true;
-            if (prop.getCount() != 0)
+            const auto validationStatus = mqtt::MqttDataWrapper::validateTopic(topicStr, loggerComponent);
+            if (validationStatus.success)
             {
-                LOG_I("Topics in the list:");
+                LOG_I("An MQTT topic: {}", topicStr.toStdString());
+                topicForSubscribing = topicStr.toStdString();
+                setComponentStatus(ComponentStatus::Ok);
+                setSubscriptionStatus(SubscriptionStatus::WaitingForData, "Subscribing to topic: " + topicForSubscribing);
             }
-            for (const auto& topic : prop)
+            else
             {
-                auto topicStr = topic.asPtr<IString>();
-                if (mqtt::MqttDataWrapper::validateTopic(topicStr, loggerComponent))
-                {
-                    LOG_I("\t{}", topicStr.toStdString());
-                    topicsForSubscribing.emplace_back(topicStr.toStdString());
-                }
+                setComponentStatus(ComponentStatus::Warning);
+                setSubscriptionStatus(SubscriptionStatus::InvalidTopicName, validationStatus.msg);
             }
         }
     }
     if (!isPresent)
     {
-        LOG_W("{} property is missing!", PROPERTY_NAME_SIGNAL_LIST);
+        LOG_W("\'{}\' property is missing!", PROPERTY_NAME_TOPIC);
+        setComponentStatus(ComponentStatus::Warning);
+        setSubscriptionStatus(SubscriptionStatus::InvalidTopicName, "The topic property is not set!");
     }
-    if (topicsForSubscribing.empty())
+    if (topicForSubscribing.empty())
     {
-        LOG_W("No topics to subscribe to!");
+        LOG_W("No topic to subscribe to!");
     }
+}
+
+void MqttRawReceiverFbImpl::propertyChanged()
+{
+    auto result = unsubscribeFromTopic();
+    if (result.success == false)
+    {
+        LOG_W("Failed to unsubscribe from the previous topic before subscribing to a new one; reason: {}", result.msg);
+        return;
+    }
+    readProperties();
+    result = subscribeToTopic();
 }
 
 void MqttRawReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
 {
-    std::string topic(msg.getTopic());
+    const std::string topic(msg.getTopic());
 
-    auto lock = std::scoped_lock(sync);
-    auto signalIter = outputSignals.find(topic);
-    if (signalIter == outputSignals.end())
+    auto lock = std::lock_guard<std::mutex>(sync);
+    if (topicForSubscribing == topic)
     {
-        return;
+        if (subscriptionStatus.getIntValue() == static_cast<Int>(SubscriptionStatus::WaitingForData))
+        {
+            setSubscriptionStatus(SubscriptionStatus::HasData);
+        }
+        const auto outputPacket = BinaryDataPacket(nullptr, outputSignal.getDescriptor(), msg.getData().size());
+        memcpy(outputPacket.getData(), msg.getData().data(), msg.getData().size());
+        outputSignal.sendPacket(outputPacket);
     }
-
-    const auto& signal = signalIter->second;
-    const auto outputPacket = BinaryDataPacket(nullptr, signal.getDescriptor(), msg.getData().size());
-    memcpy(outputPacket.getData(), msg.getData().data(), msg.getData().size());
-    signal.sendPacket(outputPacket);
 }
 
 void MqttRawReceiverFbImpl::createSignals()
 {
-    auto lock = std::scoped_lock(sync);
-    if (!topicsForSubscribing.empty())
-    {
-        LOG_I("Creating signals...");
-    }
-    for (const auto& topic : topicsForSubscribing)
-    {
-        LOG_D("\tfor the topic: {}", topic);
-
-        const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::Binary).build();
-        outputSignals.emplace(std::make_pair(topic, createAndAddSignal(buildSignalNameFromTopic(topic, ""), signalDsc)));
-    }
+    auto lock = std::lock_guard<std::mutex>(sync);
+    const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::Binary).build();
+    outputSignal = createAndAddSignal("mqttValueSignal", signalDsc);
 }
 
-std::vector<std::string> MqttRawReceiverFbImpl::getSubscribedTopics() const
+std::string MqttRawReceiverFbImpl::getSubscribedTopic() const
 {
-    return topicsForSubscribing;
+    return topicForSubscribing;
 }
 
-void MqttRawReceiverFbImpl::clearSubscribedTopics()
+void MqttRawReceiverFbImpl::clearSubscribedTopic()
 {
-    topicsForSubscribing.clear();
+    topicForSubscribing.clear();
 }
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

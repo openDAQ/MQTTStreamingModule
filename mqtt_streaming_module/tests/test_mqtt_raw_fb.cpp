@@ -7,6 +7,7 @@
 #include <opendaq/data_packet_ptr.h>
 #include <opendaq/reader_factory.h>
 #include <testutils/testutils.h>
+#include <mqtt_streaming_helper/timer.h>
 
 using namespace daq;
 using namespace daq::modules::mqtt_streaming_module;
@@ -24,24 +25,24 @@ public:
         obj->onSignalsMessage(unused, msg);
     }
 
-    void CreateRawFB(std::vector<std::string> topics)
+    void CreateRawFB(std::string topic)
     {
         auto config = PropertyObject();
-        config.addProperty(ListProperty(PROPERTY_NAME_SIGNAL_LIST, List<IString>()));
+        config.addProperty(StringProperty(PROPERTY_NAME_TOPIC, ""));
         const auto fbType = FunctionBlockType(RAW_FB_NAME, RAW_FB_NAME, "", config);
-        auto topicList = List<IString>();
-        for (auto& topic : topics)
-        {
-            addToList(topicList, std::move(topic));
-        }
-        config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, topicList);
-        obj = std::make_unique<MqttRawReceiverFbImpl>(NullContext(), nullptr, fbType, "localId", nullptr, config);
+        config.setPropertyValue(PROPERTY_NAME_TOPIC, topic);
+        obj = std::make_unique<MqttRawReceiverFbImpl>(NullContext(), nullptr, fbType, nullptr, config);
     }
 
-    std::string buildTopicName()
+    std::string buildTopicName(const std::string& postfix = "")
     {
-        return std::string("test/topic/") + std::string(::testing::UnitTest::GetInstance()->current_test_info()->name());
+        return std::string("test/topic/") + std::string(::testing::UnitTest::GetInstance()->current_test_info()->name()) + postfix;
     }
+};
+
+class MqttRawFbPTest : public ::testing::TestWithParam<std::pair<std::string, bool>>,
+                                       public DaqTestHelper
+{
 };
 } // namespace daq::modules::mqtt_streaming_module
 
@@ -59,36 +60,21 @@ TEST_F(MqttRawFbTest, DefaultRawFbConfig)
 
     ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 1u);
 
-    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SIGNAL_LIST));
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_TOPIC));
 
-    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SIGNAL_LIST).getValueType(), CoreType::ctList);
-    ASSERT_TRUE(defaultConfig.getPropertyValue(PROPERTY_NAME_SIGNAL_LIST).asPtr<IList>().empty());
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_TOPIC).getValueType(), CoreType::ctString);
+    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_TOPIC).asPtr<IString>().getLength(), 0u);
 }
 
-TEST_F(MqttRawFbTest, CreateRawFunctionalBlocks)
+TEST_F(MqttRawFbTest, Creation)
 {
     StartUp();
     daq::FunctionBlockPtr rawFb;
-    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME));
+    auto config = PropertyObject();
+    config.addProperty(StringProperty(PROPERTY_NAME_TOPIC, buildTopicName()));
+    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
     ASSERT_EQ(rawFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    ASSERT_EQ(rawFb.getName(), RAW_FB_NAME);
-    auto fbs = rootMqttFb.getFunctionBlocks();
-    bool contain = false;
-    daq::GenericFunctionBlockPtr<daq::IFunctionBlock> fbFromList;
-    for (const auto& fb : fbs)
-    {
-        contain = (fb.getName() == RAW_FB_NAME);
-        if (contain)
-        {
-            fbFromList = fb;
-            break;
-        }
-    }
-    ASSERT_TRUE(contain);
-    ASSERT_TRUE(fbFromList.assigned());
-    ASSERT_EQ(fbFromList.getName(), rawFb.getName());
-    ASSERT_TRUE(fbFromList == rawFb);
 }
 
 TEST_F(MqttRawFbTest, CheckRawFbWithEmptyConfig)
@@ -98,7 +84,30 @@ TEST_F(MqttRawFbTest, CheckRawFbWithEmptyConfig)
     auto config = PropertyObject();
     ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
     auto signals = rawFb.getSignals();
-    ASSERT_EQ(signals.getCount(), 0u);
+    ASSERT_EQ(signals.getCount(), 1u);
+}
+
+TEST_F(MqttRawFbTest, TwoFbCreation)
+{
+    StartUp();
+    {
+        daq::FunctionBlockPtr fb;
+        auto config = PropertyObject();
+        config.addProperty(StringProperty(PROPERTY_NAME_TOPIC, buildTopicName("0")));
+        ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
+        EXPECT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+    }
+    {
+        daq::FunctionBlockPtr fb;
+        auto config = PropertyObject();
+        config.addProperty(StringProperty(PROPERTY_NAME_TOPIC, buildTopicName("1")));
+        ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
+        EXPECT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+    }
+    auto fbs = rootMqttFb.getFunctionBlocks();
+    ASSERT_EQ(fbs.getCount(), 2u);
 }
 
 TEST_F(MqttRawFbTest, CheckRawFbWithDefaultConfig)
@@ -107,7 +116,7 @@ TEST_F(MqttRawFbTest, CheckRawFbWithDefaultConfig)
     daq::FunctionBlockPtr rawFb;
     ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME));
     auto signals = rawFb.getSignals();
-    ASSERT_EQ(signals.getCount(), 0u);
+    ASSERT_EQ(signals.getCount(), 1u);
 }
 
 TEST_F(MqttRawFbTest, CheckRawFbWithPartialConfig)
@@ -116,7 +125,7 @@ TEST_F(MqttRawFbTest, CheckRawFbWithPartialConfig)
     StartUp();
     daq::FunctionBlockPtr rawFb;
     auto config = PropertyObject();
-    config.addProperty(ListProperty(PROPERTY_NAME_SIGNAL_LIST, List<IString>()));
+    config.addProperty(StringProperty(PROPERTY_NAME_TOPIC, ""));
     ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
 }
 
@@ -126,65 +135,18 @@ TEST_F(MqttRawFbTest, CheckRawFbWithCustomConfig)
     StartUp();
     daq::FunctionBlockPtr rawFb;
     auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
-    config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, List<IString>(buildTopicName()));
+    config.setPropertyValue(PROPERTY_NAME_TOPIC, buildTopicName());
     ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
-}
-
-TEST_F(MqttRawFbTest, CheckRawFbSignalList)
-{
-    constexpr uint NUM_TOPICS = 5u;
-    StartUp();
-
-    const auto topic = buildTopicName();
-    auto topicList = List<IString>();
-    for (int i = 0; i < NUM_TOPICS; ++i)
-    {
-        addToList(topicList, fmt::format("{}_{}", topic, i));
-    }
-    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
-
-    config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, topicList);
-    daq::FunctionBlockPtr rawFb;
-    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
-    auto signals = rawFb.getSignals();
-    ASSERT_EQ(signals.getCount(), NUM_TOPICS);
-}
-
-TEST_F(MqttRawFbTest, CheckRawFbSignalListWithWildcard)
-{
-    StartUp();
-
-    auto topicList = List<IString>();
-    addToList(topicList, "");
-    addToList(topicList, "goodTopic/test/topic");
-    addToList(topicList, "badTopic/+/test/topic");
-    addToList(topicList, "badTopic/+/+/topic");
-    addToList(topicList, "badTopic/#");
-    addToList(topicList, "goodTopic/test/newTopic");
-
-    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
-
-    config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, topicList);
-    daq::FunctionBlockPtr rawFb;
-    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
-    auto signals = rawFb.getSignals();
-    ASSERT_EQ(signals.getCount(), 2u);
 }
 
 TEST_F(MqttRawFbTest, CheckRawFbConfig)
 {
-    constexpr uint NUM_TOPICS = 5u;
     StartUp();
 
     const auto topic = buildTopicName();
-    auto topicList = List<IString>();
-    for (int i = 0; i < NUM_TOPICS; ++i)
-    {
-        addToList(topicList, fmt::format("{}_{}", topic, i));
-    }
     auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
 
-    config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, topicList);
+    config.setPropertyValue(PROPERTY_NAME_TOPIC, topic);
     daq::FunctionBlockPtr rawFb;
     ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
 
@@ -198,6 +160,64 @@ TEST_F(MqttRawFbTest, CheckRawFbConfig)
         ASSERT_EQ(rawFb.getPropertyValue(propName), config.getPropertyValue(propName));
     }
 }
+
+TEST_F(MqttRawFbTest, CheckRawFbSubscriptionStatusWaitingForData)
+{
+    StartUp();
+
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
+
+    config.setPropertyValue(PROPERTY_NAME_TOPIC, buildTopicName());
+    daq::FunctionBlockPtr rawFb;
+    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
+    EXPECT_EQ(rawFb.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+
+    EXPECT_EQ(rawFb.getStatusContainer().getStatus("SubscriptionStatus"),
+              EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+                                      static_cast<Int>(MqttBaseFb::SubscriptionStatus::WaitingForData),
+                                      daqInstance.getContext().getTypeManager()));
+}
+
+TEST_P(MqttRawFbPTest, CheckRawFbTopic)
+{
+    auto [topic, result] = GetParam();
+    StartUp();
+
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
+
+    config.setPropertyValue(PROPERTY_NAME_TOPIC, topic);
+    daq::FunctionBlockPtr rawFb;
+    ASSERT_NO_THROW(rawFb = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config));
+    auto signals = rawFb.getSignals();
+    ASSERT_EQ(signals.getCount(), 1);
+    const auto expectedComponentStatus = result ? "Ok" : "Warning";
+    EXPECT_EQ(rawFb.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", expectedComponentStatus, daqInstance.getContext().getTypeManager()));
+    if (result)
+    {
+        EXPECT_NE(rawFb.getStatusContainer().getStatus("SubscriptionStatus"),
+                  EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+                                          static_cast<Int>(MqttBaseFb::SubscriptionStatus::InvalidTopicName),
+                                          daqInstance.getContext().getTypeManager()));
+    }
+    else
+    {
+        EXPECT_EQ(rawFb.getStatusContainer().getStatus("SubscriptionStatus"),
+                  EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+                                          static_cast<Int>(MqttBaseFb::SubscriptionStatus::InvalidTopicName),
+                                          daqInstance.getContext().getTypeManager()));
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(TopicTest,
+                         MqttRawFbPTest,
+                         ::testing::Values(std::make_pair("", false),
+                                           std::make_pair("goodTopic/test", true),
+                                           std::make_pair("/goodTopic/test0", true),
+                                           std::make_pair("badTopic/+/test/topic", false),
+                                           std::make_pair("badTopic/+/+/topic", false),
+                                           std::make_pair("badTopic/#", false)));
 
 TEST_F(MqttRawFbTest, CheckRawFbDataTransfer)
 {
@@ -245,11 +265,9 @@ TEST_F(MqttRawFbTest, CheckRawFbFullDataTransfer)
 
     StartUp();
 
-    auto topicList = List<IString>();
-    addToList(topicList, topic);
     auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
 
-    config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, topicList);
+    config.setPropertyValue(PROPERTY_NAME_TOPIC, topic);
     auto singal = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config).getSignals()[0];
     auto reader = daq::PacketReader(singal);
 
@@ -286,4 +304,86 @@ TEST_F(MqttRawFbTest, CheckRawFbFullDataTransfer)
 
     ASSERT_EQ(dataToSend.size(), dataToReceive.size());
     ASSERT_EQ(dataToSend, dataToReceive);
+}
+
+TEST_F(MqttRawFbTest, CheckRawFbFullDataTransferWithReconfiguring)
+{
+    const std::string topic0 = buildTopicName("0");
+    const std::string topic1 = buildTopicName("1");
+    const auto dataToSend = std::vector<std::vector<uint8_t>>{std::vector<uint8_t>{0x01, 0x02, 0x03, 0x04, 0x05},
+                                                              std::vector<uint8_t>{0x11, 0x12, 0x13, 0x14}};
+    std::vector<std::vector<uint8_t>> dataToReceive;
+
+    StartUp();
+
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(RAW_FB_NAME).createDefaultConfig();
+    config.setPropertyValue(PROPERTY_NAME_TOPIC, topic0);
+    auto rawFB = rootMqttFb.addFunctionBlock(RAW_FB_NAME, config);
+    auto singal = rawFB.getSignals()[0];
+    auto reader = daq::PacketReader(singal);
+
+    const auto stHasData = EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+                                                   static_cast<Int>(MqttBaseFb::SubscriptionStatus::HasData),
+                                                   daqInstance.getContext().getTypeManager());
+
+    const auto stWaitData = EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+                                                    static_cast<Int>(MqttBaseFb::SubscriptionStatus::WaitingForData),
+                                                    daqInstance.getContext().getTypeManager());
+
+    MqttAsyncClientWrapper publisher("testPublisherId");
+    ASSERT_TRUE(publisher.connect("127.0.0.1"));
+    EXPECT_EQ(rawFB.getStatusContainer().getStatus("SubscriptionStatus"), stWaitData);
+
+    mqtt::MqttMessage msg = {topic0, dataToSend[0], 2, 0};
+    ASSERT_TRUE(publisher.publishMsg(msg));
+
+    auto readerLambda = [&reader, &dataToReceive]()
+    {
+        while (!reader.getEmpty())
+        {
+            auto packet = reader.read();
+            if (const auto eventPacket = packet.asPtrOrNull<IEventPacket>(); eventPacket.assigned())
+            {
+                continue;
+            }
+            if (const auto dataPacket = packet.asPtrOrNull<IDataPacket>(); dataPacket.assigned())
+            {
+                std::vector<uint8_t> readData(dataPacket.getDataSize());
+                memcpy(readData.data(), dataPacket.getData(), dataPacket.getDataSize());
+                dataToReceive.push_back(std::move(readData));
+            }
+        }
+    };
+    helper::utils::Timer tmr(1000, true);
+
+    bool hasData = false;
+    while (tmr.expired() == false && hasData == false)
+        hasData = rawFB.getStatusContainer().getStatus("SubscriptionStatus") == stHasData;
+
+    EXPECT_TRUE(hasData);
+
+    readerLambda();
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    ASSERT_EQ(dataToSend[0], dataToReceive[0]);
+
+    dataToReceive.clear();
+
+    ASSERT_NO_THROW(rawFB.setPropertyValue(PROPERTY_NAME_TOPIC, topic1));
+    EXPECT_EQ(rawFB.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+    EXPECT_EQ(rawFB.getStatusContainer().getStatus("SubscriptionStatus"), stWaitData);
+
+    msg = {topic1, dataToSend[1], 2, 0};
+    ASSERT_TRUE(publisher.publishMsg(msg));
+    tmr.restart();
+
+    hasData = false;
+    while (tmr.expired() == false && hasData == false)
+        hasData = rawFB.getStatusContainer().getStatus("SubscriptionStatus") == stHasData;
+
+    EXPECT_TRUE(hasData);
+
+    readerLambda();
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    ASSERT_EQ(dataToSend[1], dataToReceive[0]);
 }

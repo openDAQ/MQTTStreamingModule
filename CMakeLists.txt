@@ -62,6 +62,7 @@ if(OPENDAQ_MQTT_MODULE_ENABLE_SSL)
 endif()
 
 add_subdirectory(external)
+add_subdirectory(helper_utils)
 add_subdirectory(mqtt_streaming_protocol)
 add_subdirectory(mqtt_streaming_module)
 

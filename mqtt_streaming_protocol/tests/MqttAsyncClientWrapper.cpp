@@ -1,11 +1,12 @@
 #include "MqttAsyncClientWrapper.h"
 #include "MqttAsyncClient.h"
-#include "Timer.h"
+#include "mqtt_streaming_helper/timer.h"
 #include <future>
 #include <iostream>
 #include <ostream>
 
 using namespace std::chrono;
+using namespace helper::utils;
 
 MqttAsyncClientWrapper::MqttAsyncClientWrapper(std::string clientId)
     : instance(std::make_unique<mqtt::MqttAsyncClient>()),

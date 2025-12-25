@@ -18,6 +18,7 @@ target_link_libraries(${TEST_APP} PRIVATE daq::test_utils
                                           ${MODULE_NAME}
                                           mqtt_stream_module
                                           mqtt_streaming_protocol_test_helper
+                                          mqtt_streaming_helper
 )
 
 add_test(NAME ${TEST_APP}

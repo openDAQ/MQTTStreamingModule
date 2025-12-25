@@ -47,6 +47,23 @@ struct MqttMsgDescriptor
 class MqttDataWrapper final
 {
 public:
+    struct CmdResult
+    {
+        bool success = false;
+        std::string msg;
+
+        CmdResult()
+            : success(false),
+              msg("")
+        {
+        }
+        CmdResult(bool success, const std::string& msg = "")
+            : success(success),
+              msg(msg)
+        {
+        }
+    };
+
     MqttDataWrapper(daq::LoggerComponentPtr loggerComponent);
 
     static std::string extractDeviceName(const std::string& topic);
@@ -56,7 +73,7 @@ public:
 
     static std::string buildTopicFromId(const std::string& globalId);
     static std::string buildSignalsTopic(const std::string& deviceId);
-    static bool validateTopic(const daq::StringPtr topic, const daq::LoggerComponentPtr loggerComponent = nullptr);
+    static CmdResult validateTopic(const daq::StringPtr topic, const daq::LoggerComponentPtr loggerComponent = nullptr);
 
     void setConfig(const std::string& config);
     std::vector<std::pair<mqtt::SignalId, daq::DataDescriptorPtr>> extractDescription();

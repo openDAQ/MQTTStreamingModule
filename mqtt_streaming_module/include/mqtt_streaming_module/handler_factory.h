@@ -31,7 +31,8 @@ public:
     {
         if (config.sharedTs)
         {
-            return std::make_unique<MultipleSharedHandler>(config.useSignalNames, publisherFbGlobalId);
+            return std::make_unique<MultipleSharedHandler>(config.useSignalNames,
+                                                           config.topicName.empty() ? publisherFbGlobalId : config.topicName);
         }
         else if (config.topicMode == TopicMode::Single)
         {
@@ -42,7 +43,8 @@ public:
         }
         else if (config.topicMode == TopicMode::Multi)
         {
-            return std::make_unique<MultipleHandler>(config.useSignalNames, publisherFbGlobalId);
+            return std::make_unique<MultipleHandler>(config.useSignalNames,
+                                                     config.topicName.empty() ? publisherFbGlobalId : config.topicName);
         }
 
         return std::make_unique<SingleHandler>(config.useSignalNames);

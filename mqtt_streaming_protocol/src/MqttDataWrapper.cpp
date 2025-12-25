@@ -123,15 +123,18 @@ std::string MqttDataWrapper::buildSignalsTopic(const std::string& deviceId)
     return (TOPIC_ALL_SIGNALS_PREFIX + deviceId + "/" + DEVICE_SIGNAL_LIST);
 }
 
-bool MqttDataWrapper::validateTopic(const daq::StringPtr topic, const daq::LoggerComponentPtr loggerComponent)
+MqttDataWrapper::CmdResult MqttDataWrapper::validateTopic(const daq::StringPtr topic, const daq::LoggerComponentPtr loggerComponent)
 {
+
+    MqttDataWrapper::CmdResult result(true, "");
     if (!topic.assigned() || topic.getLength() == 0)
     {
+        result = MqttDataWrapper::CmdResult(false, "Empty topic is not allowed!");
         if (loggerComponent.assigned())
         {
-            LOG_W("Empty topic is not allowed!");
+            LOG_W("{}", result.msg);
         }
-        return false;
+        return result;
     }
 
     std::vector<std::string> list;
@@ -141,15 +144,18 @@ bool MqttDataWrapper::validateTopic(const daq::StringPtr topic, const daq::Logge
     {
         if (part == "#" || part == "+")
         {
+            result = MqttDataWrapper::CmdResult(false,
+                                                fmt::format("Wildcard characters '+' and '#' are not allowed in topic: {}",
+                                                            topic.toStdString()));
             if (loggerComponent.assigned())
             {
-                LOG_W("Wildcard characters '+' and '#' are not allowed in topic: {}", topic.toStdString());
+                LOG_W("{}", result.msg);
             }
-            return false;
+            return result;
         }
     }
 
-    return true;
+    return result;
 }
 
 void MqttDataWrapper::setConfig(const std::string& config)
@@ -179,7 +185,7 @@ std::vector<std::pair<mqtt::SignalId, daq::DataDescriptorPtr>> MqttDataWrapper::
     {
         const rapidjson::Value& array = it->value;
         const std::string topic = it->name.GetString();
-        if (!validateTopic(topic, loggerComponent))
+        if (validateTopic(topic, loggerComponent).success == false)
             continue;
         if (!array.IsArray())
         {

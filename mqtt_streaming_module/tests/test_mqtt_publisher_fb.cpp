@@ -1,5 +1,5 @@
 #include "MqttAsyncClientWrapper.h"
-#include "Timer.h"
+#include "mqtt_streaming_helper/timer.h"
 #include "mqtt_streaming_module/mqtt_publisher_fb_impl.h"
 #include "test_daq_test_helper.h"
 #include <coreobjects/property_factory.h>
@@ -209,8 +209,14 @@ public:
         fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME, config);
     }
 
-    void CreatePublisherFB(
-        bool multiTopic, bool sharedTs, bool groupV, bool useSignalNames, uint valuePackSize = 0, uint qos = 2, uint readPeriod = 20)
+    void CreatePublisherFB(bool multiTopic,
+                           bool sharedTs,
+                           bool groupV,
+                           bool useSignalNames,
+                           const std::string& topicName,
+                           uint valuePackSize = 0,
+                           uint qos = 2,
+                           uint readPeriod = 20)
     {
         auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, multiTopic ? 1 : 0);
@@ -220,6 +226,7 @@ public:
         config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, valuePackSize);
         config.setPropertyValue(PROPERTY_NAME_PUB_QOS, qos);
         config.setPropertyValue(PROPERTY_NAME_PUB_READ_PERIOD, readPeriod);
+        config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, topicName);
         fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME, config);
     }
 
@@ -405,7 +412,7 @@ public:
         std::atomic<bool> done{false};
         subscriber->expectMsgs(topic, messages, receivedPromise, done);
 
-        Timer receiveTimer(5000);
+        helper::utils::Timer receiveTimer(5000);
         bool ok = subscriber->subscribe(topic, 2);
         if (!ok)
             return false;
@@ -414,6 +421,11 @@ public:
         subscriber = nullptr;
         ok = (status == std::future_status::ready) && receivedFuture.get();
         return ok;
+    }
+
+    std::string buildTopicName(const std::string& postfix = "")
+    {
+        return std::string("test/topic/publisherFB/") + std::string(::testing::UnitTest::GetInstance()->current_test_info()->name()) + postfix;
     }
 
 private:
@@ -495,7 +507,7 @@ TEST_F(MqttPublisherFbTest, DefaultConfig)
 
     ASSERT_TRUE(defaultConfig.assigned());
 
-    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 7u);
+    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 8u);
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_TOPIC_MODE));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_MODE).getValueType(), CoreType::ctInt);
@@ -526,6 +538,11 @@ TEST_F(MqttPublisherFbTest, DefaultConfig)
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_READ_PERIOD));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_READ_PERIOD).getValueType(), CoreType::ctInt);
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_READ_PERIOD).asPtr<IInteger>(), DEFAULT_PUB_READ_PERIOD);
+
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_TOPIC_NAME));
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_NAME).getValueType(), CoreType::ctString);
+    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME).asPtr<IString>().toStdString(), std::string(DEFAULT_PUB_TOPIC_NAME));
+    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_NAME).getVisible());
 }
 
 TEST_F(MqttPublisherFbTest, PropertyVisibility)
@@ -551,6 +568,11 @@ TEST_F(MqttPublisherFbTest, PropertyVisibility)
     ASSERT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES).getVisible());
     defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1); // Set to Multi topic
     ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES).getVisible());
+
+    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0); // Set to Single topic
+    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_NAME).getVisible());
+    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1); // Set to Multi topic
+    ASSERT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_NAME).getVisible());
 }
 
 TEST_F(MqttPublisherFbTest, Config)
@@ -565,6 +587,7 @@ TEST_F(MqttPublisherFbTest, Config)
     config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, 3);
     config.setPropertyValue(PROPERTY_NAME_PUB_QOS, 2);
     config.setPropertyValue(PROPERTY_NAME_PUB_READ_PERIOD, 100);
+    config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, buildTopicName());
     daq::FunctionBlockPtr fb;
     ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME, config));
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
@@ -642,36 +665,53 @@ TEST_F(MqttPublisherFbTest, CreationWithPartialConfig)
 TEST_F(MqttPublisherFbTest, ConnectToPort)
 {
     StartUp();
+    MqttPublisherFbImpl::addTypesToTypeManager(rootMqttFb.getContext().getTypeManager());
+    const auto sigStValid = EnumerationWithIntValue(MQTT_PUB_FB_SIG_STATUS_TYPE,
+                                                    static_cast<Int>(MqttPublisherFbImpl::SignalStatus::Valid),
+                                                    daqInstance.getContext().getTypeManager());
+    const auto sigStInvalid = EnumerationWithIntValue(MQTT_PUB_FB_SIG_STATUS_TYPE,
+                                                      static_cast<Int>(MqttPublisherFbImpl::SignalStatus::Invalid),
+                                                      daqInstance.getContext().getTypeManager());
+    const auto sigStNotConnected = EnumerationWithIntValue(MQTT_PUB_FB_SIG_STATUS_TYPE,
+                                                           static_cast<Int>(MqttPublisherFbImpl::SignalStatus::NotConnected),
+                                                           daqInstance.getContext().getTypeManager());
+    const auto comStOk = Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager());
+    const auto comStError = Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager());
 
     {
         daq::FunctionBlockPtr fb;
         ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME));
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStNotConnected);
         auto help = SignalHelper<double>();
 
         ASSERT_EQ(fb.getInputPorts().getCount(), 1u);
         fb.getInputPorts()[0].connect(help.signal0);
         ASSERT_EQ(fb.getInputPorts().getCount(), 2u);
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStValid);
+
         fb.getInputPorts()[1].connect(help.signal0);
         ASSERT_EQ(fb.getInputPorts().getCount(), 3u);
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStValid);
         // disconnection
         fb.getInputPorts()[1].disconnect();
         ASSERT_EQ(fb.getInputPorts().getCount(), 2u);
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStValid);
         // connection without a domain signal
         fb.getInputPorts()[1].connect(help.signalWithoutDomain);
         ASSERT_EQ(fb.getInputPorts().getCount(), 3u);
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStValid);
         // disconnection
         fb.getInputPorts()[1].disconnect();
         ASSERT_EQ(fb.getInputPorts().getCount(), 2u);
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStValid);
+        fb.getInputPorts()[0].disconnect();
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStNotConnected);
     }
 
     {
@@ -686,8 +726,8 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
 
         fb.getInputPorts()[0].connect(signal0);
         fb.getInputPorts()[1].connect(signal1);
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStValid);
     }
 
     {
@@ -702,11 +742,11 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
 
         fb.getInputPorts()[0].connect(signal0);
         fb.getInputPorts()[1].connect(signal1);
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStError);
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStInvalid);
         fb.getInputPorts()[1].disconnect();
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStValid);
     }
 
     {
@@ -721,11 +761,11 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
 
         fb.getInputPorts()[0].connect(signal0);
         fb.getInputPorts()[1].connect(signal1);
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStError);
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStInvalid);
         fb.getInputPorts()[1].disconnect();
-        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStValid);
     }
 }
 
@@ -762,7 +802,7 @@ TEST_P(MqttPublisherFbPTest, TransferSingleGroupValues)
         {
             StartUp();
 
-            ASSERT_NO_THROW(CreatePublisherFB(false, false, true, false, packSize));
+            ASSERT_NO_THROW(CreatePublisherFB(false, false, true, false, buildTopicName(), packSize));
 
             fb.getInputPorts()[0].connect(help.signal0);
             ASSERT_TRUE(CreateSubscriber());
@@ -785,8 +825,8 @@ TEST_P(MqttPublisherFbPTest, TransferSharedTs)
         [&](auto& help)
         {
             StartUp();
-
-            ASSERT_NO_THROW(CreatePublisherFB(true, true, false, false));
+            const std::string topic = buildTopicName();
+            ASSERT_NO_THROW(CreatePublisherFB(true, true, false, false, topic));
 
             fb.getInputPorts()[0].connect(help.signal0);
             fb.getInputPorts()[1].connect(help.signal1);
@@ -795,7 +835,6 @@ TEST_P(MqttPublisherFbPTest, TransferSharedTs)
             const auto data = help.generateTestData(sampleCnt);
             const std::vector<std::string> messages =
                 expectedMsgsForSharedTs(help.signal0.getGlobalId().toStdString(), help.signal1.getGlobalId().toStdString(), data);
-            const std::string topic = fb.getGlobalId().toStdString();
             auto ok = transfer(topic, messages, help, data);
             ASSERT_TRUE(ok);
         },
@@ -810,8 +849,8 @@ TEST_P(MqttPublisherFbPTest, TransferMultimessage)
         [&](auto& help)
         {
             StartUp();
-
-            ASSERT_NO_THROW(CreatePublisherFB(true, false, false, false));
+            const std::string topic = buildTopicName();
+            ASSERT_NO_THROW(CreatePublisherFB(true, false, false, false, topic));
 
             fb.getInputPorts()[0].connect(help.signal0);
             fb.getInputPorts()[1].connect(help.signal1);
@@ -820,7 +859,6 @@ TEST_P(MqttPublisherFbPTest, TransferMultimessage)
             const auto data = help.generateTestData(sampleCnt);
             const std::vector<std::string> messages =
                 expectedMsgsForMultimsg(help.signal0.getGlobalId().toStdString(), help.signal1.getGlobalId().toStdString(), data);
-            const std::string topic = fb.getGlobalId().toStdString();
             auto ok = transfer(topic, messages, help, data);
             ASSERT_TRUE(ok);
         },
