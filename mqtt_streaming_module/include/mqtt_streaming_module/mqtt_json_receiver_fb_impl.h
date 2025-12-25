@@ -67,8 +67,6 @@ protected:
 
     bool setTopic(std::string topic);
 
-    // void createDataPacket(const std::string& topic, const std::string& json);
-
     DictPtr<IString, IFunctionBlockType> onGetAvailableFunctionBlockTypes() override;
     FunctionBlockPtr onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config) override;
     void onRemoveFunctionBlock(const FunctionBlockPtr& functionBlock) override;

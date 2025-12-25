@@ -20,8 +20,6 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-std::string buildSignalNameFromTopic(std::string topic, const std::string& signalName);
-std::string buildDomainSignalNameFromTopic(std::string topic, const std::string& signalName);
 PropertyObjectPtr populateDefaultConfig(const PropertyObjectPtr& defaultConfig, const PropertyObjectPtr& config);
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

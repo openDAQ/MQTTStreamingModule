@@ -24,8 +24,6 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
 class MqttJsonDecoderFbImpl final : public FunctionBlock
 {
-    // friend class MqttJsonFbHelper;
-
 public:
 
     enum class ParsingStatus : EnumType

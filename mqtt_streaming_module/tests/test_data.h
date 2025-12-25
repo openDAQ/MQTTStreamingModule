@@ -131,39 +131,6 @@ inline const std::string VALID_JSON_3_TOPIC_2 = R"json({
 }
 )json";
 
-
-
-// inline const std::string VALID_JSON_1_TOPIC_3 = R"json({
-//     "/mirip/UNet3AC2/sensor/data":[
-//         {
-//             "temp":{
-//                 "Value":"temp",
-//                 "Timestamp":"ts",
-//                 "Unit":[
-//                     "°C"
-//                 ]
-//             }
-//         }
-//     ]
-// }
-// )json";
-
-// inline const std::string VALID_JSON_1_TOPIC_4 = R"json({
-//     "/mirip/UNet3AC2/+/data0":[
-//     ]
-// }
-// )json";
-
-// inline const std::string VALID_JSON_1_TOPIC_5 = R"json({
-//     "/mirip/UNet3AC2/+/data0":[
-//         {
-//             "temp":{
-//             }
-//         }
-//     ]
-// }
-// )json";
-
 inline const std::string WILDCARD_JSON_0 = R"json({
     "/mirip/UNet3AC2/+/data0":[
         {
@@ -235,68 +202,13 @@ inline const std::string INVALID_JSON_3 = R"json({
 }
 )json";
 
-inline const std::string VALID_JSON_CONFIG_0 = R"json({
-    <placeholder_topic>:[
-        {
-            "temperature":{
-                "Value":"temp",
-                "Timestamp":"ts",
-                "Unit":[
-                    "°C"
-                ]
-            }
-        }
-    ]
-}
-)json";
-
 inline const std::string VALID_JSON_DATA_0 = R"json({
     "temp": <placeholder_value>, "ts": <placeholder_ts>
 }
 )json";
 
-inline const std::string VALID_JSON_CONFIG_1 = R"json({
-    <placeholder_topic>:[
-        {
-            "temperature":{
-                "Value":"temp",
-                "Unit":[
-                    "°C"
-                ]
-            }
-        }
-    ]
-}
-)json";
-
 inline const std::string VALID_JSON_DATA_1 = R"json({
     "temp": <placeholder_value>
-}
-)json";
-
-inline const std::string VALID_JSON_CONFIG_2 = R"json({
-    <placeholder_topic>:[
-        {
-            "temperature":{
-                "Value":"temperature",
-                "Timestamp":"timestamp",
-                "Unit":[
-                    "°C"
-                ]
-            }
-        },
-        {
-            "humi":{
-                "Value":"humi",
-                "Timestamp":"timestamp"
-            }
-        },
-        {
-            "pressure":{
-                "Value":"pr"
-            }
-        }
-    ]
 }
 )json";
 
@@ -307,51 +219,6 @@ inline const std::string VALID_JSON_DATA_2 = R"json({
 
 inline const std::string MISSING_FIELD_JSON_DATA_2 = R"json({
     "timestamp": <placeholder_ts>, "temperature": <placeholder_temperature>, "pr": <placeholder_pr>
-}
-)json";
-
-inline const std::string VALID_JSON_CONFIG_3 = R"json({
-    <placeholder_topic>:[
-        {
-            "temperature":{
-                "Value":"value",
-                "Unit":[
-                    "rpm"
-                ]
-            }
-        }
-    ]
-}
-)json";
-
-inline const std::string VALID_JSON_CONFIG_4 = R"json({
-    <placeholder_topic>:[
-        {
-            "temperature":{
-                "Value":"value",
-                "Unit":[
-                    "rpm",
-                    "rotations per minute"
-                ]
-            }
-        }
-    ]
-}
-)json";
-
-inline const std::string VALID_JSON_CONFIG_5 = R"json({
-    <placeholder_topic>:[
-        {
-            "temperature":{
-                "Value":"value",
-                "Unit":[
-                    "rpm",
-                    "rotations per minute",
-                    "rotational speed"
-                ]
-            }
-        }
-    ]
 }
 )json";
 
