@@ -42,6 +42,12 @@ public:
         SampleSkipped
     };
 
+    enum class SettingStatus : EnumType
+    {
+        Valid = 0,
+        Invalid
+    };
+
     explicit MqttPublisherFbImpl(const ContextPtr& ctx,
                                  const ComponentPtr& parent,
                                  const FunctionBlockTypePtr& type,
@@ -57,6 +63,7 @@ public:
 
     static const std::vector<std::pair<SignalStatus, std::string>> signalStatusMap;
     static const std::vector<std::pair<PublishingStatus, std::string>> publishingStatusMap;
+    static const std::vector<std::pair<SettingStatus, std::string>> settingStatusMap;
 
 private:
     static std::atomic<int> localIndex;
@@ -67,22 +74,27 @@ private:
     std::atomic<int> inputPortCount;
     std::thread readerThread;
     std::atomic<bool> running;
-    std::atomic<bool> hasError;
+    std::atomic<bool> hasSignalError;
+    std::atomic<bool> hasSettingError;
+    std::vector<std::string> signalErrors;
+    std::vector<std::string> settingErrors;
     std::unique_ptr<HandlerBase> handler;
     std::mutex statusMutex;
     StatusHelper<SignalStatus> signalStatus;
     StatusHelper<PublishingStatus> publishingStatus;
+    StatusHelper<SettingStatus> settingStatus;
     std::atomic<uint64_t> skippedMsgCnt;
     std::atomic<uint64_t> publishedMsgCnt;
     std::string lastSkippedReason;
     helper::utils::Timer publishingStatusTimer;
 
     static std::string generateLocalId();
-    void updatePublishingStatus();
+    void updatePublishingStatus(bool force);
     void initProperties(const PropertyObjectPtr& config);
     void readProperties();
     void propertyChanged();
     void updateInputPorts();
+    void updateStatuses();
     void validateInputPorts();
     template <typename retT, typename intfT>
     retT readProperty(const std::string& propertyName, const retT defaultValue);

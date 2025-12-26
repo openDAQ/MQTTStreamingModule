@@ -17,7 +17,6 @@ static constexpr uint32_t DEFAULT_INIT_TIMEOUT = 3000; // ms
 static constexpr uint32_t DEFAULT_PUB_READ_PERIOD = 20; // ms
 static constexpr uint32_t DEFAULT_PUB_QOS = 1;
 static constexpr uint32_t DEFAULT_PUB_PACK_SIZE = 1;
-static constexpr const char* DEFAULT_PUB_TOPIC_NAME = "";
 
 static constexpr const char* DEFAULT_SIGNAL_NAME = "mqttValueSignal";
 
@@ -63,11 +62,14 @@ static const char* MQTT_FB_SUB_STATUS_TYPE = "MqttSubscriptionStatusType";
 static const char* MQTT_PUB_FB_SIG_STATUS_TYPE = "MqttSignalStatusType";
 static const char* MQTT_PUB_FB_PUB_STATUS_TYPE = "MqttPublishingStatusType";
 static const char* MQTT_FB_PARSING_STATUS_TYPE = "MqttParsingStatusType";
+static const char* MQTT_PUB_FB_SET_STATUS_TYPE = "MqttSettingStatusType";
+
 
 static const char* MQTT_ROOT_FB_CON_STATUS_NAME = "ConnectionStatus";
 static const char* MQTT_PUB_FB_SIG_STATUS_NAME = "SignalStatus";
 static const char* MQTT_PUB_FB_PUB_STATUS_NAME = "PublishingStatus";
 static const char* MQTT_FB_SUB_STATUS_NAME = "SubscriptionStatus";
 static const char* MQTT_FB_PARSING_STATUS_NAME = "ParsingStatus";
+static const char* MQTT_PUB_FB_SET_STATUS_NAME = "SettingStatus";
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
