@@ -72,12 +72,12 @@ private:
     std::mutex statusMutex;
     StatusHelper<SignalStatus> signalStatus;
     StatusHelper<PublishingStatus> publishingStatus;
-    uint64_t skippedMsgCnt;
-    uint64_t publishedMsgCnt;
+    std::atomic<uint64_t> skippedMsgCnt;
+    std::atomic<uint64_t> publishedMsgCnt;
     std::string lastSkippedReason;
     helper::utils::Timer publishingStatusTimer;
 
-    static std::string getLocalId();
+    static std::string generateLocalId();
     void updatePublishingStatus();
     void initProperties(const PropertyObjectPtr& config);
     void readProperties();

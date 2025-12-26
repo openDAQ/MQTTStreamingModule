@@ -16,7 +16,7 @@ MqttRawReceiverFbImpl::MqttRawReceiverFbImpl(const ContextPtr& ctx,
                                              const FunctionBlockTypePtr& type,
                                              std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                              const PropertyObjectPtr& config)
-    : MqttBaseFb(ctx, parent, type, getLocalId(), subscriber, config)
+    : MqttBaseFb(ctx, parent, type, generateLocalId(), subscriber, config)
 {
     if (config.assigned())
         initProperties(populateDefaultConfig(type.createDefaultConfig(), config));
@@ -46,7 +46,7 @@ FunctionBlockTypePtr MqttRawReceiverFbImpl::CreateType()
     return fbType;
 }
 
-std::string MqttRawReceiverFbImpl::getLocalId()
+std::string MqttRawReceiverFbImpl::generateLocalId()
 {
     return std::string(MQTT_LOCAL_RAW_FB_ID_PREFIX + std::to_string(localIndex++));
 }

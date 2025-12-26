@@ -43,7 +43,7 @@ private:
     std::string topicForSubscribing;
     static std::atomic<int> localIndex;
 
-    static std::string getLocalId();
+    static std::string generateLocalId();
 
     void createSignals() override;
     void clearSubscribedTopic() override;

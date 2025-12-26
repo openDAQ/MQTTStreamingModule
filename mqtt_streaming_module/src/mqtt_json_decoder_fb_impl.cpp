@@ -16,7 +16,7 @@ MqttJsonDecoderFbImpl::MqttJsonDecoderFbImpl(const ContextPtr& ctx,
                                        const ComponentPtr& parent,
                                        const FunctionBlockTypePtr& type,
                                        const PropertyObjectPtr& config)
-    : FunctionBlock(type, ctx, parent, getLocalId()),
+    : FunctionBlock(type, ctx, parent, generateLocalId()),
       jsonDataWorker(loggerComponent),
       parsingStatus(MQTT_FB_PARSING_STATUS_TYPE,
                     MQTT_FB_PARSING_STATUS_NAME,
@@ -64,7 +64,7 @@ FunctionBlockTypePtr MqttJsonDecoderFbImpl::CreateType()
     return fbType;
 }
 
-std::string MqttJsonDecoderFbImpl::getLocalId()
+std::string MqttJsonDecoderFbImpl::generateLocalId()
 {
     return std::string(MQTT_LOCAL_JSON_DECODER_FB_ID_PREFIX + std::to_string(localIndex++));
 }

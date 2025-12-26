@@ -44,7 +44,7 @@ public:
 
 protected:
     static std::atomic<int> localIndex;
-    static std::string getLocalId();
+    static std::string generateLocalId();
     static std::vector<std::pair<MqttRootFbImpl::ConnectionStatus, std::string>> connectionStatusMap;
 
     void removed() override;

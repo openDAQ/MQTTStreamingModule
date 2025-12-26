@@ -67,7 +67,7 @@ protected:
     StatusHelper<ParsingStatus> parsingStatus;
     ConfigStatus configStatus;
 
-    static std::string getLocalId();
+    static std::string generateLocalId();
 
     void createSignal();
     void reconfigureSignal(const FbConfig& prevConfig);

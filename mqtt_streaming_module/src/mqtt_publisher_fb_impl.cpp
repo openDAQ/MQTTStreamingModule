@@ -23,7 +23,7 @@ MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
                                          const FunctionBlockTypePtr& type,
                                          std::shared_ptr<mqtt::MqttAsyncClient> mqttClient,
                                          const PropertyObjectPtr& config)
-    : FunctionBlock(type, ctx, parent, getLocalId()),
+    : FunctionBlock(type, ctx, parent, generateLocalId()),
       mqttClient(mqttClient),
       jsonDataWorker(loggerComponent),
       inputPortCount(0),
@@ -328,7 +328,7 @@ void MqttPublisherFbImpl::sendMessages(const MqttData& data)
     }
 }
 
-std::string MqttPublisherFbImpl::getLocalId()
+std::string MqttPublisherFbImpl::generateLocalId()
 {
     return std::string(MQTT_LOCAL_PUB_FB_ID_PREFIX + std::to_string(localIndex++));
 }
@@ -344,13 +344,13 @@ void MqttPublisherFbImpl::updatePublishingStatus()
                 setComponentStatusWithMessage(ComponentStatus::Warning, "Some messages were not published!");
             publishingStatus.setStatus(PublishingStatus::SampleSkipped,
                                 fmt::format("Published: {}; Skipped: {}; last reason - {}",
-                                            publishedMsgCnt,
-                                            skippedMsgCnt,
+                                            publishedMsgCnt.load(),
+                                            skippedMsgCnt.load(),
                                             lastSkippedReason));
         }
         else
         {
-            publishingStatus.setStatus(PublishingStatus::Ok, fmt::format("Published: {};", publishedMsgCnt));
+            publishingStatus.setStatus(PublishingStatus::Ok, fmt::format("Published: {};", publishedMsgCnt.load()));
         }
     }
 }

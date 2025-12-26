@@ -17,7 +17,7 @@ MqttJsonReceiverFbImpl::MqttJsonReceiverFbImpl(const ContextPtr& ctx,
                                        const FunctionBlockTypePtr& type,
                                        std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                        const PropertyObjectPtr& config)
-    : MqttBaseFb(ctx, parent, type, getLocalId(), subscriber, config),
+    : MqttBaseFb(ctx, parent, type, generateLocalId(), subscriber, config),
       jsonDataWorker(loggerComponent)
 {
     initBaseFunctionalBlocks();
@@ -105,7 +105,7 @@ FunctionBlockTypePtr MqttJsonReceiverFbImpl::CreateType()
     return fbType;
 }
 
-std::string MqttJsonReceiverFbImpl::getLocalId()
+std::string MqttJsonReceiverFbImpl::generateLocalId()
 {
     return std::string(MQTT_LOCAL_JSON_FB_ID_PREFIX + std::to_string(localIndex++));
 }

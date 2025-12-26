@@ -50,7 +50,7 @@ protected:
     DictObjectPtr<IDict, IString, IFunctionBlockType> baseFbTypes;
     std::vector<FunctionBlockPtr> nestedFunctionBlocks;
 
-    static std::string getLocalId();
+    static std::string generateLocalId();
 
     void initBaseFunctionalBlocks();
 

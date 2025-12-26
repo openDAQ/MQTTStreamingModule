@@ -17,7 +17,7 @@ std::vector<std::pair<MqttRootFbImpl::ConnectionStatus, std::string>> MqttRootFb
      {ConnectionStatus::Disconnected, "Disconnected"}};
 
 MqttRootFbImpl::MqttRootFbImpl(const ContextPtr& ctx, const ComponentPtr& parent, const PropertyObjectPtr& config)
-    : FunctionBlock(CreateType(), ctx, parent, getLocalId()),
+    : FunctionBlock(CreateType(), ctx, parent, generateLocalId()),
       subscriber(std::make_shared<mqtt::MqttAsyncClient>()),
       connectTimeout(0),
       connectionStatus(MQTT_ROOT_FB_CON_STATUS_TYPE,
@@ -230,7 +230,7 @@ FunctionBlockPtr MqttRootFbImpl::onAddFunctionBlock(const StringPtr& typeId, con
     return nestedFunctionBlock;
 }
 
-std::string MqttRootFbImpl::getLocalId()
+std::string MqttRootFbImpl::generateLocalId()
 {
     return std::string(MQTT_LOCAL_ROOT_FB_ID_PREFIX + std::to_string(localIndex++));
 }
