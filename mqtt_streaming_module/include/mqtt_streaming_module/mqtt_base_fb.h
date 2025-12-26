@@ -19,6 +19,7 @@
 #include <opendaq/function_block_impl.h>
 
 #include "MqttAsyncClient.h"
+#include "mqtt_streaming_module/constants.h"
 #include "mqtt_streaming_module/status_helper.h"
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
@@ -64,6 +65,7 @@ protected:
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
     StatusHelper<SubscriptionStatus> subscriptionStatus;
+    int qos = DEFAULT_SUB_QOS;
 
     virtual void createSignals() = 0;
     virtual void processMessage(const mqtt::MqttMessage& msg) = 0;

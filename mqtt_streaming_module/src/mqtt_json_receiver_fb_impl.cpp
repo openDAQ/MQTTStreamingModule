@@ -87,6 +87,18 @@ FunctionBlockTypePtr MqttJsonReceiverFbImpl::CreateType()
         defaultConfig.addProperty(builder.build());
     }
     {
+        auto builder =
+            IntPropertyBuilder(PROPERTY_NAME_SUB_QOS, DEFAULT_SUB_QOS)
+                .setMinValue(0)
+                .setMaxValue(2)
+                .setSuggestedValues(List<IInteger>(0, 1, 2))
+                .setDescription(
+                    fmt::format("MQTT Quality of Service level for subscribing. It can be 0 (at most once), 1 (at least once), or 2 "
+                                "(exactly once). By default it is set to {}.",
+                                DEFAULT_SUB_QOS));
+        defaultConfig.addProperty(builder.build());
+    }
+    {
         auto builder = StringPropertyBuilder(PROPERTY_NAME_JSON_CONFIG, String(""))
                            .setDescription(
                                "JSON configuration string that defines an MQTT topic and corresponding signals to subscribe to.");
@@ -145,6 +157,15 @@ void MqttJsonReceiverFbImpl::readProperties()
         {
             isPresent = true;
             setTopic(topicStr.toStdString());
+        }
+    }
+    if (objPtr.hasProperty(PROPERTY_NAME_SUB_QOS))
+    {
+        auto qosProp = objPtr.getPropertyValue(PROPERTY_NAME_SUB_QOS).asPtrOrNull<IInteger>();
+        if (qosProp.assigned())
+        {
+            const auto qos = qosProp.getValue(DEFAULT_SUB_QOS);
+            this->qos = (qos < 0 || qos > 2) ? DEFAULT_SUB_QOS : qos;
         }
     }
     if (!isPresent)

@@ -74,7 +74,7 @@ MqttBaseFb::CmdResult MqttBaseFb::subscribeToTopic()
         {
             LOG_I("Trying to subscribe to the topic : {}", topic);
             subscriber->setMessageArrivedCb(topic, lambda);
-            if (auto subRes = subscriber->subscribe(topic, 1); subRes.success == false)
+            if (auto subRes = subscriber->subscribe(topic, qos); subRes.success == false)
             {
                 LOG_W("Failed to subscribe to the topic: \"{}\"; reason: {}", topic, subRes.msg);
                 setComponentStatusWithMessage(ComponentStatus::Warning, "Some topics failed to subscribe!");

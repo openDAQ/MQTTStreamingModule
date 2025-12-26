@@ -58,12 +58,15 @@ TEST_F(MqttRawFbTest, DefaultRawFbConfig)
 
     ASSERT_TRUE(defaultConfig.assigned());
 
-    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 1u);
+    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 2u);
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_TOPIC));
-
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_TOPIC).getValueType(), CoreType::ctString);
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_TOPIC).asPtr<IString>().getLength(), 0u);
+
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_QOS));
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_QOS).getValueType(), CoreType::ctInt);
+    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_QOS).asPtr<IInteger>().getValue(DEFAULT_SUB_QOS), DEFAULT_SUB_QOS);
 }
 
 TEST_F(MqttRawFbTest, Creation)

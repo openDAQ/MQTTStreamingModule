@@ -71,7 +71,7 @@ TEST_F(MqttJsonFbTest, DefaultConfig)
 
     ASSERT_TRUE(defaultConfig.assigned());
 
-    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 3u);
+    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 4u);
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_JSON_CONFIG));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_JSON_CONFIG).getValueType(), CoreType::ctString);
@@ -84,6 +84,10 @@ TEST_F(MqttJsonFbTest, DefaultConfig)
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_TOPIC));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_TOPIC).getValueType(), CoreType::ctString);
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_TOPIC).asPtr<IString>().getLength(), 0u);
+
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_QOS));
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_QOS).getValueType(), CoreType::ctInt);
+    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_QOS).asPtr<IInteger>().getValue(DEFAULT_SUB_QOS), DEFAULT_SUB_QOS);
 }
 
 TEST_F(MqttJsonFbTest, Config)

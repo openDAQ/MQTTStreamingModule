@@ -35,14 +35,29 @@ MqttRawReceiverFbImpl::~MqttRawReceiverFbImpl()
 FunctionBlockTypePtr MqttRawReceiverFbImpl::CreateType()
 {
     auto defaultConfig = PropertyObject();
-    auto builder = StringPropertyBuilder(PROPERTY_NAME_TOPIC, "")
-                       .setDescription("An MQTT topic to subscribe to for receiving raw binary data.");
-    defaultConfig.addProperty(builder.build());
-    const auto fbType = FunctionBlockType(RAW_FB_NAME,
-                                          RAW_FB_NAME,
-                                          "The raw MQTT function block allows subscribing to an MQTT topic and converting MQTT payloads into "
-                                          "openDAQ signal binary data samples.",
-                                          defaultConfig);
+    {
+        auto builder =
+            IntPropertyBuilder(PROPERTY_NAME_SUB_QOS, DEFAULT_SUB_QOS)
+                .setMinValue(0)
+                .setMaxValue(2)
+                .setSuggestedValues(List<IInteger>(0, 1, 2))
+                .setDescription(
+                    fmt::format("MQTT Quality of Service level for subscribing. It can be 0 (at most once), 1 (at least once), or 2 "
+                                "(exactly once). By default it is set to {}.",
+                                DEFAULT_SUB_QOS));
+        defaultConfig.addProperty(builder.build());
+    }
+    {
+        auto builder =
+            StringPropertyBuilder(PROPERTY_NAME_TOPIC, "").setDescription("An MQTT topic to subscribe to for receiving raw binary data.");
+        defaultConfig.addProperty(builder.build());
+    }
+    const auto fbType =
+        FunctionBlockType(RAW_FB_NAME,
+                          RAW_FB_NAME,
+                          "The raw MQTT function block allows subscribing to an MQTT topic and converting MQTT payloads into "
+                          "openDAQ signal binary data samples.",
+                          defaultConfig);
     return fbType;
 }
 
@@ -77,6 +92,17 @@ void MqttRawReceiverFbImpl::readProperties()
             }
         }
     }
+
+    if (objPtr.hasProperty(PROPERTY_NAME_SUB_QOS))
+    {
+        auto qosProp = objPtr.getPropertyValue(PROPERTY_NAME_SUB_QOS).asPtrOrNull<IInteger>();
+        if (qosProp.assigned())
+        {
+            const auto qos = qosProp.getValue(DEFAULT_SUB_QOS);
+            this->qos = (qos < 0 || qos > 2) ? DEFAULT_SUB_QOS : qos;
+        }
+    }
+
     if (!isPresent)
     {
         LOG_W("\'{}\' property is missing!", PROPERTY_NAME_TOPIC);
