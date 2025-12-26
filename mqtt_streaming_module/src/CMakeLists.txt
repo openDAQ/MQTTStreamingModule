@@ -14,10 +14,10 @@ set(SRC_Include common.h
                 helper.h
                 handler_factory.h
                 handler_base.h
-                single_handler.h
-                multisingle_handler.h
-                multiple_shared_handler.h
-                multiple_handler.h
+                atomic_signal_atomic_sample_handler.h
+                atomic_signal_sample_arr_handler.h
+                group_signal_shared_ts_handler.h
+                signal_arr_atomic_sample_handler.h
                 types.h
                 status_helper.h
 )
@@ -31,10 +31,10 @@ set(SRC_Srcs module_dll.cpp
              mqtt_raw_receiver_fb_impl.cpp
              mqtt_publisher_fb_impl.cpp
              helper.cpp
-             single_handler.cpp
-             multisingle_handler.cpp
-             multiple_shared_handler.cpp
-             multiple_handler.cpp
+             atomic_signal_atomic_sample_handler.cpp
+             atomic_signal_sample_arr_handler.cpp
+             group_signal_shared_ts_handler.cpp
+             signal_arr_atomic_sample_handler.cpp
 )
 
 prepend_include(${TARGET_FOLDER_NAME} SRC_Include)
@@ -69,14 +69,14 @@ source_group("functionalBlock" FILES ${MODULE_HEADERS_DIR}/mqtt_json_receiver_fb
 
 source_group("handlers" FILES ${MODULE_HEADERS_DIR}/handler_base.h
                             ${MODULE_HEADERS_DIR}/handler_factory.h
-                            ${MODULE_HEADERS_DIR}/single_handler.h
-                            single_handler.cpp
-                            ${MODULE_HEADERS_DIR}/multisingle_handler.h
-                            multisingle_handler.cpp
-                            ${MODULE_HEADERS_DIR}/multiple_shared_handler.h
-                            multiple_shared_handler.cpp
-                            ${MODULE_HEADERS_DIR}/multiple_handler.h
-                            multiple_handler.cpp
+                            ${MODULE_HEADERS_DIR}/atomic_signal_atomic_sample_handler.h
+                            ${MODULE_HEADERS_DIR}/atomic_signal_sample_arr_handler.h
+                            ${MODULE_HEADERS_DIR}/group_signal_shared_ts_handler.h
+                            ${MODULE_HEADERS_DIR}/signal_arr_atomic_sample_handler.h
+                            atomic_signal_atomic_sample_handler.cpp
+                            atomic_signal_sample_arr_handler.cpp
+                            group_signal_shared_ts_handler.cpp
+                            signal_arr_atomic_sample_handler.cpp
 )
 
 find_package(Boost REQUIRED COMPONENTS algorithm)

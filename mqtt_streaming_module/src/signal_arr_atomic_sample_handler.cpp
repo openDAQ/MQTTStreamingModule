@@ -1,34 +1,67 @@
-#include <mqtt_streaming_module/single_handler.h>
+#include <mqtt_streaming_module/signal_arr_atomic_sample_handler.h>
 #include <opendaq/custom_log.h>
 #include <opendaq/event_packet_ids.h>
 #include <opendaq/event_packet_params.h>
 #include <opendaq/event_packet_ptr.h>
+#include <opendaq/reader_factory.h>
+#include <opendaq/reader_utils.h>
 #include <opendaq/sample_type_traits.h>
 #include <set>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-SingleHandler::SingleHandler(bool useSignalNames)
-    : useSignalNames(useSignalNames)
+SignalArrayAtomicSampleHandler::SignalArrayAtomicSampleHandler(bool useSignalNames, std::string topic)
+    : useSignalNames(useSignalNames),
+      topic(topic)
 {
 }
 
-MqttData SingleHandler::processSignalContexts(std::vector<SignalContext>& signalContexts)
+MqttData SignalArrayAtomicSampleHandler::processSignalContexts(std::vector<SignalContext>& signalContexts)
 {
     MqttData messages;
-    for (auto& sigCtx : signalContexts)
+    bool dataAvailable = true;
+    while (dataAvailable)
     {
-        auto msgs = processSignalContext(sigCtx);
-        messages.reserve(messages.size() + msgs.size());
-        messages.insert(messages.end(), std::make_move_iterator(msgs.begin()), std::make_move_iterator(msgs.end()));
+        dataAvailable = false;
+        std::vector<std::string> array;
+        for (const auto& signalContext : signalContexts)
+        {
+            const auto conn = signalContext.inputPort.getConnection();
+            if (!conn.assigned())
+                continue;
+            PacketPtr packet = conn.dequeue();
+            if (packet.assigned())
+            {
+                dataAvailable = true;
+                if (packet.getType() == PacketType::Event)
+                {
+                    auto eventPacket = packet.asPtr<IEventPacket>(true);
+                    LOG_T("Processing {} event", eventPacket.getEventId());
+                }
+                else if (packet.getType() == PacketType::Data)
+                {
+                    const auto signal = signalContext.inputPort.getSignal();
+                    std::string valueFieldName = (useSignalNames ? signal.getName() : signal.getGlobalId()).toStdString();
+                    array.emplace_back(toString(valueFieldName, packet));
+                }
+            }
+        }
+        if (array.empty())
+            continue;
+        std::string topic = buildTopicName();
+        std::string msg = messageFromArray(array);
+        messages.emplace_back(std::move(topic), std::move(msg));
     }
     return messages;
 }
 
-ProcedureStatus SingleHandler::validateSignalContexts(const std::vector<SignalContext>& signalContexts) const
+ProcedureStatus SignalArrayAtomicSampleHandler::validateSignalContexts(const std::vector<SignalContext>& signalContexts) const
 {
+
     static const std::set<SampleType> allowedSampleTypes{SampleType::Float64,
                                                          SampleType::Float32,
+                                                         SampleType::Float32,
+                                                         SampleType::Float64,
                                                          SampleType::UInt8,
                                                          SampleType::Int8,
                                                          SampleType::UInt16,
@@ -84,44 +117,12 @@ ProcedureStatus SingleHandler::validateSignalContexts(const std::vector<SignalCo
     return status;
 }
 
-MqttData SingleHandler::processSignalContext(SignalContext& signalContext)
+ProcedureStatus SignalArrayAtomicSampleHandler::signalListChanged(std::vector<SignalContext>& signalContexts)
 {
-    MqttData messages;
-    const auto conn = signalContext.inputPort.getConnection();
-    if (!conn.assigned())
-        return messages;
-
-    PacketPtr packet = conn.dequeue();
-    while (packet.assigned())
-    {
-        if (packet.getType() == PacketType::Event)
-        {
-            auto eventPacket = packet.asPtr<IEventPacket>(true);
-            LOG_T("Processing {} event", eventPacket.getEventId())
-            if (eventPacket.getEventId() == event_packet_id::DATA_DESCRIPTOR_CHANGED)
-            {
-                DataDescriptorPtr valueSignalDescriptor = eventPacket.getParameters().get(event_packet_param::DATA_DESCRIPTOR);
-                DataDescriptorPtr domainSignalDescriptor = eventPacket.getParameters().get(event_packet_param::DOMAIN_DATA_DESCRIPTOR);
-                processSignalDescriptorChanged(signalContext, valueSignalDescriptor, domainSignalDescriptor);
-            }
-        }
-        else if (packet.getType() == PacketType::Data)
-        {
-            messages.emplace_back(processDataPacket(signalContext, packet.asPtr<IDataPacket>()));
-        }
-
-        packet = conn.dequeue();
-    }
-    return messages;
+    return ProcedureStatus{true, {}};
 }
 
-void SingleHandler::processSignalDescriptorChanged(SignalContext& signalCtx,
-                                                   const DataDescriptorPtr& valueSigDesc,
-                                                   const DataDescriptorPtr& domainSigDesc)
-{
-}
-
-std::string SingleHandler::toString(const std::string valueFieldName, daq::DataPacketPtr packet)
+std::string SignalArrayAtomicSampleHandler::toString(const std::string valueFieldName, daq::DataPacketPtr packet)
 {
     std::string result;
     std::string data = HandlerBase::toString(packet);
@@ -138,18 +139,23 @@ std::string SingleHandler::toString(const std::string valueFieldName, daq::DataP
     return result;
 }
 
-std::string SingleHandler::buildTopicName(const SignalContext& signalContext)
+std::string SignalArrayAtomicSampleHandler::buildTopicName()
 {
-    return signalContext.inputPort.getSignal().getGlobalId().toStdString();
+    return topic;
 }
 
-MqttDataSample SingleHandler::processDataPacket(SignalContext& signalContext, const DataPacketPtr& dataPacket)
+std::string SignalArrayAtomicSampleHandler::messageFromArray(const std::vector<std::string>& array)
 {
-    const auto signal = signalContext.inputPort.getSignal();
-    std::string valueFieldName = useSignalNames ? signal.getName().toStdString() : signal.getGlobalId().toStdString();
-    auto msg = toString(valueFieldName, dataPacket);
-    std::string topic = buildTopicName(signalContext);
-    return MqttDataSample{topic, msg};
+    std::ostringstream oss;
+    oss << "[";
+    for (size_t i = 0; i < array.size(); ++i)
+    {
+        if (i > 0)
+            oss << ", ";
+        oss << std::move(array[i]);
+    }
+    oss << "]";
+    return oss.str();
 }
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

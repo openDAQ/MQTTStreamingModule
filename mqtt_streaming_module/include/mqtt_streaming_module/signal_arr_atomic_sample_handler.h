@@ -17,30 +17,26 @@
 #pragma once
 
 #include <mqtt_streaming_module/handler_base.h>
+#include <opendaq/multi_reader_ptr.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-class SingleHandler : public HandlerBase
+class SignalArrayAtomicSampleHandler : public HandlerBase
 {
 public:
-    explicit SingleHandler(bool useSignalNames);
+    explicit SignalArrayAtomicSampleHandler(bool useSignalNames, std::string topic);
 
     MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) override;
     ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const override;
-    ProcedureStatus signalListChanged(std::vector<SignalContext>& signalContexts) override
-    {
-        return ProcedureStatus{true, {}};
-    };
+    ProcedureStatus signalListChanged(std::vector<SignalContext>& signalContexts) override;
 
 protected:
     bool useSignalNames;
+    const std::string topic;
 
-    virtual MqttData processSignalContext(SignalContext& signalContext);
-    void
-    processSignalDescriptorChanged(SignalContext& signalCtx, const DataDescriptorPtr& valueSigDesc, const DataDescriptorPtr& domainSigDesc);
-    MqttDataSample processDataPacket(SignalContext& signalContext, const DataPacketPtr& dataPacket);
     std::string toString(const std::string valueFieldName, daq::DataPacketPtr packet);
-    std::string buildTopicName(const SignalContext& signalContext);
+    std::string buildTopicName();
+    static std::string messageFromArray(const std::vector<std::string>& array);
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

@@ -17,10 +17,10 @@
 #pragma once
 
 #include "mqtt_streaming_module/types.h"
-#include <mqtt_streaming_module/multiple_handler.h>
-#include <mqtt_streaming_module/multiple_shared_handler.h>
-#include <mqtt_streaming_module/multisingle_handler.h>
-#include <mqtt_streaming_module/single_handler.h>
+#include <mqtt_streaming_module/atomic_signal_atomic_sample_handler.h>
+#include <mqtt_streaming_module/atomic_signal_sample_arr_handler.h>
+#include <mqtt_streaming_module/group_signal_shared_ts_handler.h>
+#include <mqtt_streaming_module/signal_arr_atomic_sample_handler.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -31,23 +31,23 @@ public:
     {
         if (config.sharedTs)
         {
-            return std::make_unique<MultipleSharedHandler>(config.useSignalNames,
+            return std::make_unique<GroupSignalSharedTsHandler>(config.useSignalNames,
                                                            config.topicName.empty() ? publisherFbGlobalId : config.topicName);
         }
         else if (config.topicMode == TopicMode::Single)
         {
             if (config.groupValues)
-                return std::make_unique<MultisingleHandler>(config.useSignalNames, config.groupValuesPackSize);
+                return std::make_unique<AtomicSignalSampleArrayHandler>(config.useSignalNames, config.groupValuesPackSize);
             else
-                return std::make_unique<SingleHandler>(config.useSignalNames);
+                return std::make_unique<AtomicSignalAtomicSampleHandler>(config.useSignalNames);
         }
         else if (config.topicMode == TopicMode::Multi)
         {
-            return std::make_unique<MultipleHandler>(config.useSignalNames,
+            return std::make_unique<SignalArrayAtomicSampleHandler>(config.useSignalNames,
                                                      config.topicName.empty() ? publisherFbGlobalId : config.topicName);
         }
 
-        return std::make_unique<SingleHandler>(config.useSignalNames);
+        return std::make_unique<AtomicSignalAtomicSampleHandler>(config.useSignalNames);
     }
 };
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

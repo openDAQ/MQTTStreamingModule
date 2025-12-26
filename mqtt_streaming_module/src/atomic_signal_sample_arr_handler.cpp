@@ -1,4 +1,4 @@
-#include <mqtt_streaming_module/multisingle_handler.h>
+#include <mqtt_streaming_module/atomic_signal_sample_arr_handler.h>
 #include <opendaq/custom_log.h>
 #include <opendaq/event_packet_ids.h>
 #include <opendaq/event_packet_params.h>
@@ -7,13 +7,13 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-MultisingleHandler::MultisingleHandler(bool useSignalNames, size_t packSize)
-    : SingleHandler(useSignalNames),
+AtomicSignalSampleArrayHandler::AtomicSignalSampleArrayHandler(bool useSignalNames, size_t packSize)
+    : AtomicSignalAtomicSampleHandler(useSignalNames),
       packSize(packSize > 0 ? packSize : 1)
 {
 }
 
-MqttData MultisingleHandler::processSignalContext(SignalContext& signalContext)
+MqttData AtomicSignalSampleArrayHandler::processSignalContext(SignalContext& signalContext)
 {
     MqttData messages;
     const auto conn = signalContext.inputPort.getConnection();
@@ -49,7 +49,7 @@ MqttData MultisingleHandler::processSignalContext(SignalContext& signalContext)
     return messages;
 }
 
-std::string MultisingleHandler::toString(const std::string valueFieldName, const std::vector<DataPacketPtr>& dataPackets)
+std::string AtomicSignalSampleArrayHandler::toString(const std::string valueFieldName, const std::vector<DataPacketPtr>& dataPackets)
 {
     std::ostringstream dataOss;
     std::ostringstream tsOss;
@@ -87,7 +87,7 @@ std::string MultisingleHandler::toString(const std::string valueFieldName, const
     return result;
 }
 
-MqttDataSample MultisingleHandler::processDataPackets(SignalContext& signalContext, const std::vector<DataPacketPtr>& dataPacket)
+MqttDataSample AtomicSignalSampleArrayHandler::processDataPackets(SignalContext& signalContext, const std::vector<DataPacketPtr>& dataPacket)
 {
     if (dataPacket.empty())
         return MqttDataSample{"", ""};

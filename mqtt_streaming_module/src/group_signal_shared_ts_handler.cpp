@@ -1,4 +1,4 @@
-#include <mqtt_streaming_module/multiple_shared_handler.h>
+#include <mqtt_streaming_module/group_signal_shared_ts_handler.h>
 #include <opendaq/custom_log.h>
 #include <opendaq/event_packet_ids.h>
 #include <opendaq/event_packet_params.h>
@@ -11,14 +11,14 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-MultipleSharedHandler::MultipleSharedHandler(bool useSignalNames, std::string topic)
+GroupSignalSharedTsHandler::GroupSignalSharedTsHandler(bool useSignalNames, std::string topic)
     : useSignalNames(useSignalNames),
       buffersSize(1000),
       topic(topic)
 {
 }
 
-MqttData MultipleSharedHandler::processSignalContexts(std::vector<SignalContext>& signalContexts)
+MqttData GroupSignalSharedTsHandler::processSignalContexts(std::vector<SignalContext>& signalContexts)
 {
     MqttData messages;
     if (!reader.assigned())
@@ -49,7 +49,7 @@ MqttData MultipleSharedHandler::processSignalContexts(std::vector<SignalContext>
     return messages;
 }
 
-ProcedureStatus MultipleSharedHandler::validateSignalContexts(const std::vector<SignalContext>& signalContexts) const
+ProcedureStatus GroupSignalSharedTsHandler::validateSignalContexts(const std::vector<SignalContext>& signalContexts) const
 {
 
     static const std::set<SampleType> allowedSampleTypes{SampleType::Float64,
@@ -145,7 +145,7 @@ ProcedureStatus MultipleSharedHandler::validateSignalContexts(const std::vector<
     return status;
 }
 
-TimestampTickStruct MultipleSharedHandler::domainToTs(const MultiReaderStatusPtr status)
+TimestampTickStruct GroupSignalSharedTsHandler::domainToTs(const MultiReaderStatusPtr status)
 {
     TimestampTickStruct res;
     const auto descriptor =
@@ -162,14 +162,14 @@ TimestampTickStruct MultipleSharedHandler::domainToTs(const MultiReaderStatusPtr
     return res;
 }
 
-ProcedureStatus MultipleSharedHandler::signalListChanged(std::vector<SignalContext>& signalContexts)
+ProcedureStatus GroupSignalSharedTsHandler::signalListChanged(std::vector<SignalContext>& signalContexts)
 {
     ProcedureStatus status{true, {}};
     createReader(signalContexts);
     return status;
 }
 
-std::string MultipleSharedHandler::toString(const SampleType sampleType, const std::string& valueFieldName, void* data, SizeT offset)
+std::string GroupSignalSharedTsHandler::toString(const SampleType sampleType, const std::string& valueFieldName, void* data, SizeT offset)
 {
     switch (sampleType)
     {
@@ -220,12 +220,12 @@ std::string MultipleSharedHandler::toString(const SampleType sampleType, const s
 }
 
 template <typename T>
-std::string MultipleSharedHandler::toString(const std::string& valueFieldName, void* data, SizeT offset)
+std::string GroupSignalSharedTsHandler::toString(const std::string& valueFieldName, void* data, SizeT offset)
 {
     return fmt::format("\"{}\" : {}", valueFieldName, std::to_string(*(static_cast<T*>(data) + offset)));
 }
 
-std::string MultipleSharedHandler::tsToString(TimestampTickStruct tsStruct, SizeT offset)
+std::string GroupSignalSharedTsHandler::tsToString(TimestampTickStruct tsStruct, SizeT offset)
 {
     // const uint64_t epochTime = (firstTick + delta * offset) * ratioNum * US_IN_S / ratioDen;    // us
     const uint64_t g = std::gcd(tsStruct.multiplier, tsStruct.ratioDen);
@@ -236,12 +236,12 @@ std::string MultipleSharedHandler::tsToString(TimestampTickStruct tsStruct, Size
                                       tsStruct.ratioDen));
 }
 
-std::string MultipleSharedHandler::buildTopicName()
+std::string GroupSignalSharedTsHandler::buildTopicName()
 {
     return topic;
 }
 
-void MultipleSharedHandler::createReader(const std::vector<SignalContext>& signalContexts)
+void GroupSignalSharedTsHandler::createReader(const std::vector<SignalContext>& signalContexts)
 {
     // signalContexts always contain an unconnected input port
     if (signalContexts.size() <= 1)
@@ -261,7 +261,7 @@ void MultipleSharedHandler::createReader(const std::vector<SignalContext>& signa
     allocateBuffers(signalContexts);
 }
 
-void MultipleSharedHandler::allocateBuffers(const std::vector<SignalContext>& signalContexts)
+void GroupSignalSharedTsHandler::allocateBuffers(const std::vector<SignalContext>& signalContexts)
 {
     // Allocate buffers for each signal
     auto signalsCount = signalContexts.size() - 1;
@@ -278,7 +278,7 @@ void MultipleSharedHandler::allocateBuffers(const std::vector<SignalContext>& si
     }
 }
 
-std::string MultipleSharedHandler::messageFromFields(const std::vector<std::string>& fields)
+std::string GroupSignalSharedTsHandler::messageFromFields(const std::vector<std::string>& fields)
 {
     std::ostringstream oss;
     oss << "{";
