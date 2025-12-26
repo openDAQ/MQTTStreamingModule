@@ -45,11 +45,11 @@ static constexpr const char* PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE = "GroupVa
 static constexpr const char* PROPERTY_NAME_PUB_QOS = "MqttQoS";
 static constexpr const char* PROPERTY_NAME_PUB_READ_PERIOD = "ReaderPeriod";
 
-static constexpr const char* RAW_FB_NAME = "@rawMqttFb";
-static constexpr const char* JSON_FB_NAME = "@jsonMqttFb";
-static constexpr const char* PUB_FB_NAME = "@publisherMqttFb";
-static constexpr const char* ROOT_FB_NAME = "@rootMqttFb";
-static constexpr const char* JSON_DECODER_FB_NAME = "@jsonDecoderMqttFb";
+static constexpr const char* RAW_FB_NAME = "rawMqttFb";
+static constexpr const char* JSON_FB_NAME = "jsonMqttFb";
+static constexpr const char* PUB_FB_NAME = "publisherMqttFb";
+static constexpr const char* ROOT_FB_NAME = "rootMqttFb";
+static constexpr const char* JSON_DECODER_FB_NAME = "jsonDecoderMqttFb";
 
 static const char* MQTT_LOCAL_ROOT_FB_ID_PREFIX = "rootMqttFb";
 static const char* MQTT_LOCAL_PUB_FB_ID_PREFIX = "publisherMqttFb";

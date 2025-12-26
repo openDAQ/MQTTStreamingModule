@@ -55,13 +55,13 @@ int main(int argc, char* argv[])
 
     // Create OpenDAQ instance and add MQTT broker FB
     const InstancePtr instance = InstanceBuilder().addModulePath(MODULE_PATH).build();
-    const std::string rootFbName = "@rootMqttFb";
+    const std::string rootFbName = "rootMqttFb";
     auto rootFbConfig = instance.getAvailableFunctionBlockTypes().get(rootFbName).createDefaultConfig();
     rootFbConfig.setPropertyValue("MqttBrokerAddress", appConfig.brokerAddress);
     auto brokerFB = instance.addFunctionBlock(rootFbName, rootFbConfig);
     auto availableFbs = brokerFB.getAvailableFunctionBlockTypes();
 
-    const std::string fbName = "@rawMqttFb";
+    const std::string fbName = "rawMqttFb";
     std::cout << "Try to add the " << fbName << std::endl;
 
     // Create RAW function block configuration
