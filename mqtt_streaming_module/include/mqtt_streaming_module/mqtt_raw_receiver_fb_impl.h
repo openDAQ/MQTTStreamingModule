@@ -45,7 +45,7 @@ private:
 
     static std::string generateLocalId();
 
-    void createSignals() override;
+    void createSignals();
     void clearSubscribedTopic() override;
 
     void processMessage(const mqtt::MqttMessage& msg) override;

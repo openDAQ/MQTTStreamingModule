@@ -67,17 +67,16 @@ protected:
     StatusHelper<SubscriptionStatus> subscriptionStatus;
     int qos = DEFAULT_SUB_QOS;
 
-    virtual void createSignals() = 0;
     virtual void processMessage(const mqtt::MqttMessage& msg) = 0;
 
-    virtual void initProperties(const PropertyObjectPtr& config);
+    void initProperties(const PropertyObjectPtr& config);
     virtual void readProperties() = 0;
 
     void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg);
 
     virtual void clearSubscribedTopic() = 0;
-    virtual  CmdResult subscribeToTopic();
-    virtual  CmdResult unsubscribeFromTopic();
+    CmdResult subscribeToTopic();
+    CmdResult unsubscribeFromTopic();
 
     virtual void propertyChanged() = 0;
 

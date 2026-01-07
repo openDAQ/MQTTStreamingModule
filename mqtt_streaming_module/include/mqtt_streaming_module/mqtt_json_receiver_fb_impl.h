@@ -53,11 +53,11 @@ protected:
 
     void initNestedFbTypes();
 
-    void createSignals() override;
+    void createSignals();
     void clearSubscribedTopic() override;
 
     void processMessage(const mqtt::MqttMessage& msg) override;
-    void initProperties(const PropertyObjectPtr& config) override;
+    void initProperties(const PropertyObjectPtr& config);
     void readProperties() override;
     void readJsonConfig();
     std::pair<bool, std::string> readFileToString(const std::string& filePath);
