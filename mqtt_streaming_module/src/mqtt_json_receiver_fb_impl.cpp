@@ -20,7 +20,7 @@ MqttJsonReceiverFbImpl::MqttJsonReceiverFbImpl(const ContextPtr& ctx,
     : MqttBaseFb(ctx, parent, type, generateLocalId(), subscriber, config),
       jsonDataWorker(loggerComponent)
 {
-    initBaseFunctionalBlocks();
+    initNestedFbTypes();
     if (config.assigned())
         initProperties(populateDefaultConfig(type.createDefaultConfig(), config));
     else
@@ -122,13 +122,13 @@ std::string MqttJsonReceiverFbImpl::generateLocalId()
     return std::string(MQTT_LOCAL_JSON_FB_ID_PREFIX + std::to_string(localIndex++));
 }
 
-void MqttJsonReceiverFbImpl::initBaseFunctionalBlocks()
+void MqttJsonReceiverFbImpl::initNestedFbTypes()
 {
-    baseFbTypes = Dict<IString, IFunctionBlockType>();
+    nestedFbTypes = Dict<IString, IFunctionBlockType>();
     // Add a function block type for manual JSON configuration
     {
         const auto fbType = MqttJsonDecoderFbImpl::CreateType();
-        baseFbTypes.set(fbType.getId(), fbType);
+        nestedFbTypes.set(fbType.getId(), fbType);
     }
 }
 
@@ -290,16 +290,16 @@ bool MqttJsonReceiverFbImpl::setTopic(std::string topic)
 
 DictPtr<IString, IFunctionBlockType> MqttJsonReceiverFbImpl::onGetAvailableFunctionBlockTypes()
 {
-    return baseFbTypes;
+    return nestedFbTypes;
 }
 
 FunctionBlockPtr MqttJsonReceiverFbImpl::onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config)
 {
 
     FunctionBlockPtr nestedFunctionBlock;
-    if (baseFbTypes.hasKey(typeId))
+    if (nestedFbTypes.hasKey(typeId))
     {
-        auto fbTypePtr = baseFbTypes.getOrDefault(typeId);
+        auto fbTypePtr = nestedFbTypes.getOrDefault(typeId);
         if (fbTypePtr.getName() == JSON_DECODER_FB_NAME)
         {
             nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttJsonDecoderFbImpl>(context, functionBlocks, fbTypePtr, config);

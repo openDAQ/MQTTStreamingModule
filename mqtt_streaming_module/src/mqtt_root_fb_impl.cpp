@@ -30,7 +30,7 @@ MqttRootFbImpl::MqttRootFbImpl(const ContextPtr& ctx, const ComponentPtr& parent
     initComponentStatus();
     initConnectionStatus();
     initProperties(config);
-    initBaseFunctionalBlocks();
+    initNestedFbTypes();
     initMqttSubscriber();
 
     if (!waitForConnection(connectTimeout))
@@ -58,24 +58,24 @@ void MqttRootFbImpl::removed()
     }
 }
 
-void MqttRootFbImpl::initBaseFunctionalBlocks()
+void MqttRootFbImpl::initNestedFbTypes()
 {
-    baseFbTypes = Dict<IString, IFunctionBlockType>();
+    nestedFbTypes = Dict<IString, IFunctionBlockType>();
     // Add a function block type for manual JSON configuration
     {
         const auto fbType = MqttJsonReceiverFbImpl::CreateType();
-        baseFbTypes.set(fbType.getId(), fbType);
+        nestedFbTypes.set(fbType.getId(), fbType);
     }
     // Add a function block type for raw MQTT messages
     {
         const auto fbType = MqttRawReceiverFbImpl::CreateType();
-        baseFbTypes.set(fbType.getId(), fbType);
+        nestedFbTypes.set(fbType.getId(), fbType);
     }
 
     // Add a function block type for MQTT publisher
     {
         const auto fbType = MqttPublisherFbImpl::CreateType();
-        baseFbTypes.set(fbType.getId(), fbType);
+        nestedFbTypes.set(fbType.getId(), fbType);
     }
 }
 
@@ -176,16 +176,16 @@ bool MqttRootFbImpl::waitForConnection(const int timeoutMs)
 
 DictPtr<IString, IFunctionBlockType> MqttRootFbImpl::onGetAvailableFunctionBlockTypes()
 {
-    return baseFbTypes;
+    return nestedFbTypes;
 }
 
 FunctionBlockPtr MqttRootFbImpl::onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config)
 {
     FunctionBlockPtr nestedFunctionBlock;
     {
-        if (baseFbTypes.hasKey(typeId))
+        if (nestedFbTypes.hasKey(typeId))
         {
-            auto fbTypePtr = baseFbTypes.getOrDefault(typeId);
+            auto fbTypePtr = nestedFbTypes.getOrDefault(typeId);
             if (fbTypePtr.getName() == RAW_FB_NAME)
             {
                 nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttRawReceiverFbImpl>(context, functionBlocks, fbTypePtr, subscriber, config);

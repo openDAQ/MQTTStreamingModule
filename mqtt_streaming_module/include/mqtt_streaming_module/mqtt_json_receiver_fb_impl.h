@@ -46,12 +46,12 @@ protected:
     std::string topicForSubscribing;
     static std::atomic<int> localIndex;
 
-    DictObjectPtr<IDict, IString, IFunctionBlockType> baseFbTypes;
+    DictObjectPtr<IDict, IString, IFunctionBlockType> nestedFbTypes;
     std::vector<FunctionBlockPtr> nestedFunctionBlocks;
 
     static std::string generateLocalId();
 
-    void initBaseFunctionalBlocks();
+    void initNestedFbTypes();
 
     void createSignals() override;
     void clearSubscribedTopic() override;

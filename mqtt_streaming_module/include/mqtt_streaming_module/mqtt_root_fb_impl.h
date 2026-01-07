@@ -52,14 +52,14 @@ protected:
     DictPtr<IString, IFunctionBlockType> onGetAvailableFunctionBlockTypes() override;
     FunctionBlockPtr onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config) override;
 
-    void initBaseFunctionalBlocks();
+    void initNestedFbTypes();
     void initMqttSubscriber();
     void initConnectionStatus();
     void initProperties(const PropertyObjectPtr& config);
     void readProperties();
     bool waitForConnection(const int timeoutMs);
 
-    DictObjectPtr<IDict, IString, IFunctionBlockType> baseFbTypes;
+    DictObjectPtr<IDict, IString, IFunctionBlockType> nestedFbTypes;
 
     StatusHelper<ConnectionStatus> connectionStatus;
 
