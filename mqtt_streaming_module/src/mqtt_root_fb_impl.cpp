@@ -77,19 +77,6 @@ void MqttRootFbImpl::initBaseFunctionalBlocks()
         const auto fbType = MqttPublisherFbImpl::CreateType();
         baseFbTypes.set(fbType.getId(), fbType);
     }
-    if (baseFbTypes.getCount() != 0)
-    {
-        LOG_I("Function block types available:");
-    }
-    else
-    {
-        LOG_I("No function block types available");
-    }
-
-    for (const auto& [fbName, _] : baseFbTypes)
-    {
-        LOG_I("\t{}", fbName.toStdString());
-    }
 }
 
 void MqttRootFbImpl::initMqttSubscriber()

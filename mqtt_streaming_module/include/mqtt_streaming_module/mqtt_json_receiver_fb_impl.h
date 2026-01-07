@@ -26,7 +26,6 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 class MqttJsonReceiverFbImpl final : public MqttBaseFb
 {
     friend class MqttJsonFbHelper;
-    friend class MqttJsonFbTest;
     friend class MqttJsonDecoderFbHelper;
 
 public:

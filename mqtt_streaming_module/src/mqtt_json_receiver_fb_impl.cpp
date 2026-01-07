@@ -130,19 +130,6 @@ void MqttJsonReceiverFbImpl::initBaseFunctionalBlocks()
         const auto fbType = MqttJsonDecoderFbImpl::CreateType();
         baseFbTypes.set(fbType.getId(), fbType);
     }
-    if (baseFbTypes.getCount() != 0)
-    {
-        LOG_I("Function block types available:");
-    }
-    else
-    {
-        LOG_I("No function block types available");
-    }
-
-    for (const auto& [fbName, _] : baseFbTypes)
-    {
-        LOG_I("\t{}", fbName.toStdString());
-    }
 }
 
 void MqttJsonReceiverFbImpl::readProperties()
