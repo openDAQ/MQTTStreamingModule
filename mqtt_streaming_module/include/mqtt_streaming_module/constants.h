@@ -46,17 +46,17 @@ static constexpr const char* PROPERTY_NAME_PUB_QOS = "MqttQoS";
 static constexpr const char* PROPERTY_NAME_SUB_QOS = "MqttQoS";
 static constexpr const char* PROPERTY_NAME_PUB_READ_PERIOD = "ReaderPeriod";
 
-static constexpr const char* RAW_FB_NAME = "rawMqttFb";
-static constexpr const char* JSON_FB_NAME = "jsonMqttFb";
-static constexpr const char* PUB_FB_NAME = "publisherMqttFb";
-static constexpr const char* ROOT_FB_NAME = "rootMqttFb";
-static constexpr const char* JSON_DECODER_FB_NAME = "jsonDecoderMqttFb";
+static constexpr const char* RAW_FB_NAME = "RawSubscriberMqttFb";
+static constexpr const char* JSON_FB_NAME = "JsonSubscriberMqttFb";
+static constexpr const char* PUB_FB_NAME = "PublisherMqttFb";
+static constexpr const char* ROOT_FB_NAME = "RootMqttFb";
+static constexpr const char* JSON_DECODER_FB_NAME = "JsonDecoderMqttFb";
 
-static const char* MQTT_LOCAL_ROOT_FB_ID_PREFIX = "rootMqttFb";
-static const char* MQTT_LOCAL_PUB_FB_ID_PREFIX = "publisherMqttFb";
-static const char* MQTT_LOCAL_RAW_FB_ID_PREFIX = "rawMqttFb";
-static const char* MQTT_LOCAL_JSON_FB_ID_PREFIX = "jsonMqttFb";
-static const char* MQTT_LOCAL_JSON_DECODER_FB_ID_PREFIX = "jsonDecoderMqttFb";
+static const char* MQTT_LOCAL_ROOT_FB_ID_PREFIX = "RootMqttFb";
+static const char* MQTT_LOCAL_PUB_FB_ID_PREFIX = "PublisherMqttFb";
+static const char* MQTT_LOCAL_RAW_FB_ID_PREFIX = "RawSubscriberMqttFb";
+static const char* MQTT_LOCAL_JSON_FB_ID_PREFIX = "JsonSubscriberMqttFb";
+static const char* MQTT_LOCAL_JSON_DECODER_FB_ID_PREFIX = "JsonDecoderMqttFb";
 
 
 static const char* MQTT_ROOT_FB_CON_STATUS_TYPE = "BrokerConnectionStatusType";
