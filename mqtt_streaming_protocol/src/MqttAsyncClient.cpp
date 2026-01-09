@@ -122,7 +122,7 @@ bool MqttAsyncClient::syncDisconnect(int timeoutMs)
         }
         if (disconnect().success)
         {
-            auto status = disconnectedFuture.wait_for(std::chrono::milliseconds(timeoutMs));
+            disconnectedFuture.wait_for(std::chrono::milliseconds(timeoutMs));
         }
         {
             auto lock = getCbLock();
@@ -219,13 +219,25 @@ CmdResult MqttAsyncClient::unsubscribe(const std::vector<std::string>& topics)
     opts.onSuccess = (MQTTAsync_onSuccess*)&MqttAsyncClient::onUnsubscribeSuccess;
     opts.onFailure = (MQTTAsync_onFailure*)&MqttAsyncClient::onUnsubscribeFailure;
     opts.context = this;
-    const char* topicArray[topics.size()];
-    for (size_t i = 0; i < topics.size(); ++i)
+
+    std::vector<const char*> topicArray;
+    topicArray.reserve(topics.size());
+
+    for (const auto& topic : topics)
     {
-        topicArray[i] = topics[i].c_str();
+        topicArray.push_back(topic.c_str());
     }
-    int rc = MQTTAsync_unsubscribeMany(client, topics.size(), (char* const*)topicArray, &opts);
-    return CmdResult(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc), opts.token);
+
+    int rc = MQTTAsync_unsubscribeMany(
+        client,
+        static_cast<int>(topicArray.size()),
+        const_cast<char* const*>(topicArray.data()),
+        &opts
+    );
+
+    return CmdResult(rc == MQTTASYNC_SUCCESS,
+                     MQTTAsync_strerror(rc),
+                     opts.token);
 }
 
 CmdResult MqttAsyncClient::waitForCompletion(int token, unsigned long toutMs)

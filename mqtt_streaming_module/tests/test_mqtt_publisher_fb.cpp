@@ -174,7 +174,7 @@ protected:
             {
                 if constexpr (std::is_integral_v<T>)
                 {
-                    sampleData = i;
+                    sampleData = static_cast<T>(i);
                     if constexpr (std::is_signed_v<T>)
                     {
                         sampleData *= ((i % 2 == 0) ? 1 : -1);
@@ -214,9 +214,9 @@ public:
                            bool groupV,
                            bool useSignalNames,
                            const std::string& topicName,
-                           uint valuePackSize = 0,
-                           uint qos = 2,
-                           uint readPeriod = 20)
+                           size_t valuePackSize = 0,
+                           int qos = 2,
+                           uint32_t readPeriod = 20)
     {
         auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, multiTopic ? 1 : 0);
@@ -1104,18 +1104,18 @@ TEST_F(MqttPublisherFbTest, DISABLED_MultiReaderTest)
         if (status.getReadStatus() == ReadStatus::Ok && count > 0)
         {
             sampleCnt += count;
-            for (SizeT sampleCnt = 0; sampleCnt < count; ++sampleCnt)
+            for (SizeT cnt = 0; cnt < count; ++cnt)
             {
                 std::vector<std::string> fields;
                 for (size_t signalCnt = 0; signalCnt < signalNum; ++signalCnt)
                 {
                     std::string valueFieldName = "Signal" + std::to_string(signalCnt);
-                    fields.emplace_back(toString(valueFieldName, dataBuffers[signalCnt], sampleCnt));
+                    fields.emplace_back(toString(valueFieldName, dataBuffers[signalCnt], cnt));
                 }
                 for (size_t signalCnt = 0; signalCnt < signalNum; ++signalCnt)
                 {
                     std::string valueFieldName = "TS" + std::to_string(signalCnt);
-                    fields.emplace_back(toString(valueFieldName, domainBuffers[signalCnt], sampleCnt));
+                    fields.emplace_back(toString(valueFieldName, domainBuffers[signalCnt], cnt));
                 }
                 std::string msg;
                 for (size_t i = 0; i < fields.size(); ++i)

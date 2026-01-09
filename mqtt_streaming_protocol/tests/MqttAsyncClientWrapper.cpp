@@ -129,7 +129,7 @@ bool MqttAsyncClientWrapper::publishMsg(const mqtt::MqttMessage& msg)
     return (status == std::future_status::ready && deliveryFuture.get() == result.token);
 }
 
-bool MqttAsyncClientWrapper::subscribe(const std::string& topic, uint qos)
+bool MqttAsyncClientWrapper::subscribe(const std::string& topic, int qos)
 {
     auto status = instance->subscribe(topic, qos);
     if (status.success)

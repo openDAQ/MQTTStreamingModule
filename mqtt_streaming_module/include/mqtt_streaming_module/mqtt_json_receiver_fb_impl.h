@@ -29,16 +29,16 @@ class MqttJsonReceiverFbImpl final : public MqttBaseFb
     friend class MqttJsonDecoderFbHelper;
 
 public:
-    explicit MqttJsonReceiverFbImpl(const ContextPtr& ctx,
+    explicit DAQ_MQTT_STREAM_MODULE_API MqttJsonReceiverFbImpl(const ContextPtr& ctx,
                                 const ComponentPtr& parent,
                                 const FunctionBlockTypePtr& type,
                                 std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                 const PropertyObjectPtr& config = nullptr);
-    ~MqttJsonReceiverFbImpl() override;
+    DAQ_MQTT_STREAM_MODULE_API ~MqttJsonReceiverFbImpl() override;
 
-    static FunctionBlockTypePtr CreateType();
+    DAQ_MQTT_STREAM_MODULE_API static FunctionBlockTypePtr CreateType();
 
-    std::string getSubscribedTopic() const override;
+    DAQ_MQTT_STREAM_MODULE_API std::string getSubscribedTopic() const override;
 
 protected:
     mqtt::MqttDataWrapper jsonDataWorker;

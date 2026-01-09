@@ -22,28 +22,37 @@ endif()
 set(PAHO_BUILD_STATIC ON CACHE BOOL "Build static paho library" FORCE)
 set(PAHO_BUILD_SHARED OFF CACHE BOOL "Build dynamic paho library" FORCE)
 set(CMAKE_POSITION_INDEPENDENT_CODE ${PAHO_BUILD_STATIC} CACHE BOOL "" FORCE)
-set(PAHO_ENABLE_TESTING ON CACHE BOOL "" FORCE)
+set(PAHO_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 
 set(CMAKE_FOLDER "${CMAKE_FOLDER}/mqtt")
+
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 
 add_subdirectory(${paho_mqtt_c_SOURCE_DIR} ${paho_mqtt_c_BINARY_DIR})
 
 # Apply WIN32_LEAN_AND_MEAN to the Paho MQTT C library as well
 if(WIN32)
     # Add global compile definition to prevent inclusion of winsock.h and force winsock2.h
-    if(PAHO_WITH_SSL)
-		target_compile_definitions(paho-mqtt3as PRIVATE _WINSOCKAPI_)
-		target_compile_definitions(paho-mqtt3as PRIVATE NOMINMAX)
-		target_compile_definitions(paho-mqtt3as PRIVATE WIN32_LEAN_AND_MEAN)
-    	target_compile_definitions(common_ssl_obj PRIVATE _WINSOCKAPI_)
-    	target_compile_definitions(common_ssl_obj PRIVATE NOMINMAX)
-    	target_compile_definitions(common_ssl_obj PRIVATE WIN32_LEAN_AND_MEAN)
-    else()
-    	target_compile_definitions(paho-mqtt3a PRIVATE _WINSOCKAPI_)
-    	target_compile_definitions(paho-mqtt3a PRIVATE NOMINMAX)
-    	target_compile_definitions(paho-mqtt3a PRIVATE WIN32_LEAN_AND_MEAN)
-    	target_compile_definitions(common_obj PRIVATE _WINSOCKAPI_)
-    	target_compile_definitions(common_obj PRIVATE NOMINMAX)
-    	target_compile_definitions(common_obj PRIVATE WIN32_LEAN_AND_MEAN)
-    endif()
+    foreach(tgt
+        paho-mqtt3a
+        paho-mqtt3a-static
+        paho-mqtt3c
+        paho-mqtt3c-static
+        paho-mqtt3as
+        paho-mqtt3as-static
+        common_obj
+        common_ssl_obj
+        common_obj_static
+        common_ssl_obj_static
+    )
+        if(TARGET ${tgt})
+            target_compile_definitions("${tgt}" PRIVATE _WINSOCKAPI_ NOMINMAX WIN32_LEAN_AND_MEAN)
+            if(MSVC)
+                target_compile_options(${tgt} PRIVATE /WX-)
+            endif()
+        endif()
+    endforeach()
+    target_compile_options(Base64Test PRIVATE /WX-)
+    target_compile_options(Sha1Test PRIVATE /WX-)
 endif()

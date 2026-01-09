@@ -11,6 +11,7 @@
 #include <mqtt_streaming_module/constants.h>
 #include <opendaq/reader_factory.h>
 #include <testutils/testutils.h>
+#include <chrono>
 
 using namespace daq;
 using namespace daq::modules::mqtt_streaming_module;
@@ -310,7 +311,6 @@ public:
             if (packet.getType() == PacketType::Data)
             {
                 const auto dataPacket = packet.asPtr<IDataPacket>();
-                const auto dataType = dataPacket.getDataDescriptor().getSampleType();
                 if constexpr (is_pair<T>::value)
                 {
                     T dataToReceiveEntry;

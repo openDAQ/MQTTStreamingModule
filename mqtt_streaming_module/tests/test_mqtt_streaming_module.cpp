@@ -77,20 +77,22 @@ TEST_F(MqttStreamingClientModuleTest, GetAvailableComponentTypes)
     ASSERT_NO_THROW(serverTypes = module.getAvailableServerTypes());
     ASSERT_EQ(serverTypes.getCount(), 0u);
 
-    // Check module info for module
-    ModuleInfoPtr moduleInfo;
-    ASSERT_NO_THROW(moduleInfo = module.getModuleInfo());
-    ASSERT_NE(moduleInfo, nullptr);
-    ASSERT_EQ(moduleInfo.getName(), MODULE_NAME);
-    ASSERT_EQ(moduleInfo.getId(), MODULE_ID);
+    {
+        // Check module info for module
+        ModuleInfoPtr moduleInfo;
+        ASSERT_NO_THROW(moduleInfo = module.getModuleInfo());
+        ASSERT_NE(moduleInfo, nullptr);
+        ASSERT_EQ(moduleInfo.getName(), MODULE_NAME);
+        ASSERT_EQ(moduleInfo.getId(), MODULE_ID);
 
-    // Check version info for module
-    VersionInfoPtr versionInfoModule;
-    ASSERT_NO_THROW(versionInfoModule = moduleInfo.getVersionInfo());
-    ASSERT_NE(versionInfoModule, nullptr);
-    ASSERT_EQ(versionInfoModule.getMajor(), MQTT_STREAM_MODULE_MAJOR_VERSION);
-    ASSERT_EQ(versionInfoModule.getMinor(), MQTT_STREAM_MODULE_MINOR_VERSION);
-    ASSERT_EQ(versionInfoModule.getPatch(), MQTT_STREAM_MODULE_PATCH_VERSION);
+        // Check version info for module
+        VersionInfoPtr versionInfoModule;
+        ASSERT_NO_THROW(versionInfoModule = moduleInfo.getVersionInfo());
+        ASSERT_NE(versionInfoModule, nullptr);
+        ASSERT_EQ(versionInfoModule.getMajor(), MQTT_STREAM_MODULE_MAJOR_VERSION);
+        ASSERT_EQ(versionInfoModule.getMinor(), MQTT_STREAM_MODULE_MINOR_VERSION);
+        ASSERT_EQ(versionInfoModule.getPatch(), MQTT_STREAM_MODULE_PATCH_VERSION);
+    }
 
     // Check module and version info for fb types
     for (const auto& fbt : functionBlockTypes)

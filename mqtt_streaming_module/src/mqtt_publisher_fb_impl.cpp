@@ -9,19 +9,6 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
 std::atomic<int> MqttPublisherFbImpl::localIndex = 0;
 
-const std::vector<std::pair<MqttPublisherFbImpl::SignalStatus, std::string>> MqttPublisherFbImpl::signalStatusMap =
-    {{SignalStatus::NotConnected, "NotConnected"},
-     {SignalStatus::Invalid, "Invalid"},
-     {SignalStatus::Valid, "Valid"}};
-
-const std::vector<std::pair<MqttPublisherFbImpl::PublishingStatus, std::string>> MqttPublisherFbImpl::publishingStatusMap =
-    {{PublishingStatus::Ok, "Ok"},
-     {PublishingStatus::SampleSkipped, "SampleSkipped"}};
-
-const std::vector<std::pair<MqttPublisherFbImpl::SettingStatus, std::string>> MqttPublisherFbImpl::settingStatusMap =
-    {{SettingStatus::Valid, "Valid"},
-     {SettingStatus::Invalid, "Invalid"}};
-
 MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
                                          const ComponentPtr& parent,
                                          const FunctionBlockTypePtr& type,
@@ -34,8 +21,6 @@ MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
       running(true),
       hasSignalError(false),
       hasSettingError(false),
-      skippedMsgCnt(0),
-      publishingStatusTimer(helper::utils::Timer(1000, false)),
       signalStatus(MQTT_PUB_FB_SIG_STATUS_TYPE,
                    MQTT_PUB_FB_SIG_STATUS_NAME,
                    statusContainer,
@@ -53,7 +38,9 @@ MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
                     statusContainer,
                     settingStatusMap,
                     SettingStatus::Valid,
-                    context.getTypeManager())
+                    context.getTypeManager()),
+      skippedMsgCnt(0),
+      publishingStatusTimer(helper::utils::Timer(1000, false))
 {
     initComponentStatus();
     if (config.assigned())
@@ -195,7 +182,7 @@ void MqttPublisherFbImpl::updateInputPorts()
 
     const auto inputPort = createAndAddInputPort(fmt::format("Input{}", inputPortCount++), PacketReadyNotification::SameThread);
 
-    signalContexts.emplace_back(SignalContext{0, inputPort});
+    signalContexts.emplace_back(SignalContext{0, inputPort, {}});
     for (size_t i = 0; i < signalContexts.size(); i++)
         signalContexts[i].index = i;
 }

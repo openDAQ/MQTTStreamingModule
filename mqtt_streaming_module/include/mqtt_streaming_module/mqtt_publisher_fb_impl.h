@@ -55,15 +55,22 @@ public:
                                  const PropertyObjectPtr& config = nullptr);
     ~MqttPublisherFbImpl();
 
-    static FunctionBlockTypePtr CreateType();
-    PublisherFbConfig getFbConfig() const;
+    DAQ_MQTT_STREAM_MODULE_API static FunctionBlockTypePtr CreateType();
+    DAQ_MQTT_STREAM_MODULE_API PublisherFbConfig getFbConfig() const;
 
     void onConnected(const InputPortPtr& port) override;
     void onDisconnected(const InputPortPtr& port) override;
 
-    static const std::vector<std::pair<SignalStatus, std::string>> signalStatusMap;
-    static const std::vector<std::pair<PublishingStatus, std::string>> publishingStatusMap;
-    static const std::vector<std::pair<SettingStatus, std::string>> settingStatusMap;
+    inline static const std::vector<std::pair<SignalStatus, std::string>> signalStatusMap =
+		{{SignalStatus::NotConnected, "NotConnected"},
+		 {SignalStatus::Invalid, "Invalid"},
+		 {SignalStatus::Valid, "Valid"}};
+    inline static const std::vector<std::pair<PublishingStatus, std::string>> publishingStatusMap =
+		{{PublishingStatus::Ok, "Ok"},
+		 {PublishingStatus::SampleSkipped, "SampleSkipped"}};
+    inline static const std::vector<std::pair<SettingStatus, std::string>> settingStatusMap =
+		{{SettingStatus::Valid, "Valid"},
+		 {SettingStatus::Invalid, "Invalid"}};
 
 private:
     static std::atomic<int> localIndex;

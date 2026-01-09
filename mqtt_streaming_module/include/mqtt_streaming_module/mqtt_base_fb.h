@@ -50,13 +50,13 @@ public:
     };
 
 
-    explicit MqttBaseFb(const ContextPtr& ctx,
+    explicit DAQ_MQTT_STREAM_MODULE_API MqttBaseFb(const ContextPtr& ctx,
                                 const ComponentPtr& parent,
                                 const FunctionBlockTypePtr& type,
                                 const StringPtr& localId,
                                 std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                 const PropertyObjectPtr& config = nullptr);
-    ~MqttBaseFb() = default;
+    virtual ~MqttBaseFb() = default;
 
     virtual std::string getSubscribedTopic() const = 0;
 
@@ -72,7 +72,7 @@ protected:
     void initProperties(const PropertyObjectPtr& config);
     virtual void readProperties() = 0;
 
-    void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg);
+    DAQ_MQTT_STREAM_MODULE_API void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg);
 
     virtual void clearSubscribedTopic() = 0;
     CmdResult subscribeToTopic();

@@ -245,7 +245,7 @@ std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper:
                     if (jsonDocument[name].IsInt() || jsonDocument[name].IsUint64() ||
                         jsonDocument[name].IsInt64())
                     {
-                        ts = utils::numericToMicroseconds(jsonDocument[name].GetUint64());
+                        ts = mqtt::utils::numericToMicroseconds(jsonDocument[name].GetUint64());
                         hasTS = true;
                     }
                     else if (jsonDocument[name].IsString())
