@@ -30,10 +30,10 @@ struct TimestampTickStruct
     uint64_t multiplier;
 };
 
-class MultipleSharedHandler : public HandlerBase
+class GroupSignalSharedTsHandler : public HandlerBase
 {
 public:
-    explicit MultipleSharedHandler(bool useSignalNames, std::string topic);
+    explicit GroupSignalSharedTsHandler(bool useSignalNames, std::string topic);
 
     MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) override;
     ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const override;

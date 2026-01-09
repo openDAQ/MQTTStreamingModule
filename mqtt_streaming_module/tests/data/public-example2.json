@@ -1,0 +1,14 @@
+{
+    "/hakimfrh/swm-raw/USGC00":[
+        {
+            "time":{
+                "Value":"datetime"
+            }
+        },
+        {
+            "voltage":{
+                "Value":"voltage"
+            }
+        }
+    ]
+}

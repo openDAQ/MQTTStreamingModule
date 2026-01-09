@@ -541,7 +541,7 @@ TEST_F(MqttPublisherFbTest, DefaultConfig)
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_TOPIC_NAME));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_NAME).getValueType(), CoreType::ctString);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME).asPtr<IString>().toStdString(), std::string(DEFAULT_PUB_TOPIC_NAME));
+    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME).asPtr<IString>().toStdString(), "");
     ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_NAME).getVisible());
 }
 
@@ -592,6 +592,10 @@ TEST_F(MqttPublisherFbTest, Config)
     ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME, config));
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+    ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+              EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                      static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
+                                      daqInstance.getContext().getTypeManager()));
     const auto allProperties = fb.getAllProperties();
     ASSERT_EQ(allProperties.getCount(), config.getAllProperties().getCount());
 
@@ -619,6 +623,10 @@ TEST_F(MqttPublisherFbTest, Creation)
     ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME));
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+    ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+              EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                      static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
+                                      daqInstance.getContext().getTypeManager()));
 }
 
 TEST_F(MqttPublisherFbTest, TwoFbCreation)
@@ -629,12 +637,20 @@ TEST_F(MqttPublisherFbTest, TwoFbCreation)
         ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME));
         ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
                   Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+                  EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                          static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
+                                          daqInstance.getContext().getTypeManager()));
     }
     {
         daq::FunctionBlockPtr fb;
         ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME));
         ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
                   Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+                  EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                          static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
+                                          daqInstance.getContext().getTypeManager()));
     }
     auto fbs = rootMqttFb.getFunctionBlocks();
     ASSERT_EQ(fbs.getCount(), 2u);
@@ -649,6 +665,10 @@ TEST_F(MqttPublisherFbTest, CreationWithDefaultConfig)
     ASSERT_EQ(signals.getCount(), 0u);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+    ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+              EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                      static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
+                                      daqInstance.getContext().getTypeManager()));
 }
 
 TEST_F(MqttPublisherFbTest, CreationWithPartialConfig)
@@ -660,12 +680,23 @@ TEST_F(MqttPublisherFbTest, CreationWithPartialConfig)
     ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME, config));
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+    ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+              EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                      static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
+                                      daqInstance.getContext().getTypeManager()));
 }
 
 TEST_F(MqttPublisherFbTest, ConnectToPort)
 {
     StartUp();
-    MqttPublisherFbImpl::addTypesToTypeManager(rootMqttFb.getContext().getTypeManager());
+    StatusHelper<MqttPublisherFbImpl::SignalStatus>::addTypesToTypeManager(MQTT_PUB_FB_SIG_STATUS_TYPE,
+                                                                           MQTT_PUB_FB_SIG_STATUS_NAME,
+                                                                           MqttPublisherFbImpl::signalStatusMap,
+                                                                           rootMqttFb.getContext().getTypeManager());
+    StatusHelper<MqttPublisherFbImpl::PublishingStatus>::addTypesToTypeManager(MQTT_PUB_FB_PUB_STATUS_TYPE,
+                                                                               MQTT_PUB_FB_PUB_STATUS_NAME,
+                                                                               MqttPublisherFbImpl::publishingStatusMap,
+                                                                               rootMqttFb.getContext().getTypeManager());
     const auto sigStValid = EnumerationWithIntValue(MQTT_PUB_FB_SIG_STATUS_TYPE,
                                                     static_cast<Int>(MqttPublisherFbImpl::SignalStatus::Valid),
                                                     daqInstance.getContext().getTypeManager());
@@ -769,6 +800,48 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
     }
 }
 
+
+TEST_F(MqttPublisherFbTest, WrongConfig)
+{
+    StartUp();
+    daq::FunctionBlockPtr fb;
+    auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+    config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, True);
+    config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, String("/test/#"));
+    ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME, config));
+    ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager()));
+    ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+              EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                      static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Invalid),
+                                      daqInstance.getContext().getTypeManager()));
+
+    fb.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, False);
+    ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+    ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+              EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                      static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
+                                      daqInstance.getContext().getTypeManager()));
+
+    fb.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, True);
+    fb.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, String("/test/+/test"));
+    ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager()));
+    ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+              EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                      static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Invalid),
+                                      daqInstance.getContext().getTypeManager()));
+
+    fb.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, String("/test/value/test"));
+    ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+    ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+              EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                      static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
+                                      daqInstance.getContext().getTypeManager()));
+}
+
 TEST_P(MqttPublisherFbPTest, TransferSingle)
 {
     const size_t sampleCnt = 15;
@@ -788,6 +861,16 @@ TEST_P(MqttPublisherFbPTest, TransferSingle)
             const std::string topic = help.signal0.getGlobalId().toStdString();
             auto ok = transfer(topic, messages, help, data);
             ASSERT_TRUE(ok);
+            ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+                      Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+            ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+                      EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                              static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
+                                              daqInstance.getContext().getTypeManager()));
+            ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_PUB_STATUS_NAME),
+                      EnumerationWithIntValue(MQTT_PUB_FB_PUB_STATUS_TYPE,
+                                              static_cast<Int>(MqttPublisherFbImpl::PublishingStatus::Ok),
+                                              daqInstance.getContext().getTypeManager()));
         },
         param);
 }
@@ -813,6 +896,16 @@ TEST_P(MqttPublisherFbPTest, TransferSingleGroupValues)
             const std::string topic = help.signal0.getGlobalId().toStdString();
             auto ok = transfer(topic, messages, help, data);
             ASSERT_TRUE(ok);
+            ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+                      Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+            ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+                      EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                              static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
+                                              daqInstance.getContext().getTypeManager()));
+            ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_PUB_STATUS_NAME),
+                      EnumerationWithIntValue(MQTT_PUB_FB_PUB_STATUS_TYPE,
+                                              static_cast<Int>(MqttPublisherFbImpl::PublishingStatus::Ok),
+                                              daqInstance.getContext().getTypeManager()));
         },
         param);
 }
@@ -837,6 +930,16 @@ TEST_P(MqttPublisherFbPTest, TransferSharedTs)
                 expectedMsgsForSharedTs(help.signal0.getGlobalId().toStdString(), help.signal1.getGlobalId().toStdString(), data);
             auto ok = transfer(topic, messages, help, data);
             ASSERT_TRUE(ok);
+            ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+                      Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+            ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+                      EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                              static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
+                                              daqInstance.getContext().getTypeManager()));
+            ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_PUB_STATUS_NAME),
+                      EnumerationWithIntValue(MQTT_PUB_FB_PUB_STATUS_TYPE,
+                                              static_cast<Int>(MqttPublisherFbImpl::PublishingStatus::Ok),
+                                              daqInstance.getContext().getTypeManager()));
         },
         param);
 }
@@ -861,6 +964,16 @@ TEST_P(MqttPublisherFbPTest, TransferMultimessage)
                 expectedMsgsForMultimsg(help.signal0.getGlobalId().toStdString(), help.signal1.getGlobalId().toStdString(), data);
             auto ok = transfer(topic, messages, help, data);
             ASSERT_TRUE(ok);
+            ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+                      Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+            ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+                      EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                              static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
+                                              daqInstance.getContext().getTypeManager()));
+            ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_PUB_STATUS_NAME),
+                      EnumerationWithIntValue(MQTT_PUB_FB_PUB_STATUS_TYPE,
+                                              static_cast<Int>(MqttPublisherFbImpl::PublishingStatus::Ok),
+                                              daqInstance.getContext().getTypeManager()));
         },
         param);
 }

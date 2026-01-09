@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include <mqtt_streaming_module/single_handler.h>
+#include <mqtt_streaming_module/atomic_signal_atomic_sample_handler.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-class MultisingleHandler : public SingleHandler
+class AtomicSignalSampleArrayHandler : public AtomicSignalAtomicSampleHandler
 {
 public:
-    explicit MultisingleHandler(bool useSignalNames, size_t packSize);
+    explicit AtomicSignalSampleArrayHandler(bool useSignalNames, size_t packSize);
 
 protected:
     size_t packSize;

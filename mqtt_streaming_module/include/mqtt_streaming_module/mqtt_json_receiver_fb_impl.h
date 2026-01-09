@@ -26,6 +26,7 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 class MqttJsonReceiverFbImpl final : public MqttBaseFb
 {
     friend class MqttJsonFbHelper;
+    friend class MqttJsonDecoderFbHelper;
 
 public:
     explicit MqttJsonReceiverFbImpl(const ContextPtr& ctx,
@@ -37,25 +38,37 @@ public:
 
     static FunctionBlockTypePtr CreateType();
 
-private:
-    mutable std::mutex sync;
+    std::string getSubscribedTopic() const override;
+
+protected:
     mqtt::MqttDataWrapper jsonDataWorker;
     std::unordered_map<mqtt::SignalId, SignalConfigPtr> outputSignals;
-    std::vector<std::string> signalNameList;
-    std::unordered_map<std::string, DataDescriptorPtr> subscribedSignals;
     std::string topicForSubscribing;
     static std::atomic<int> localIndex;
 
-    static std::string getLocalId();
+    DictObjectPtr<IDict, IString, IFunctionBlockType> nestedFbTypes;
+    std::vector<FunctionBlockPtr> nestedFunctionBlocks;
 
-    void createSignals() override;
+    static std::string generateLocalId();
+
+    void initNestedFbTypes();
+
+    void createSignals();
     void clearSubscribedTopic() override;
-    std::string getSubscribedTopic() const override;
+
     void processMessage(const mqtt::MqttMessage& msg) override;
+    void initProperties(const PropertyObjectPtr& config);
     void readProperties() override;
+    void readJsonConfig();
+    std::pair<bool, std::string> readFileToString(const std::string& filePath);
+    void setJsonConfig(const std::string config);
     void propertyChanged() override;
 
-    void createDataPacket(const std::string& topic, const std::string& json);
+    bool setTopic(std::string topic);
+
+    DictPtr<IString, IFunctionBlockType> onGetAvailableFunctionBlockTypes() override;
+    FunctionBlockPtr onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config) override;
+    void onRemoveFunctionBlock(const FunctionBlockPtr& functionBlock) override;
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

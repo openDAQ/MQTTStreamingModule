@@ -12,24 +12,27 @@ std::vector<std::pair<MqttBaseFb::SubscriptionStatus, std::string>> MqttBaseFb::
      {SubscriptionStatus::HasData, "HasData"}};
 
 MqttBaseFb::MqttBaseFb(const ContextPtr& ctx,
-                                       const ComponentPtr& parent,
-                                       const FunctionBlockTypePtr& type,
-                                       const StringPtr& localId,
-                                       std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
-                                       const PropertyObjectPtr& config)
-    : FunctionBlock(type, ctx, parent, localId)
-    , subscriber(subscriber)
+                       const ComponentPtr& parent,
+                       const FunctionBlockTypePtr& type,
+                       const StringPtr& localId,
+                       std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
+                       const PropertyObjectPtr& config)
+    : FunctionBlock(type, ctx, parent, localId),
+      subscriber(subscriber),
+      subscriptionStatus(MQTT_FB_SUB_STATUS_TYPE,
+                         MQTT_FB_SUB_STATUS_NAME,
+                         statusContainer,
+                         subscriptionStatusMap,
+                         SubscriptionStatus::InvalidTopicName,
+                         context.getTypeManager())
 {
     initComponentStatus();
-    initSubscriptionStatus();
 }
 
 void MqttBaseFb::removed()
 {
     FunctionBlock::removed();
     unsubscribeFromTopic();
-    setSubscriptionStatus(SubscriptionStatus::InvalidTopicName, "Function block removed");
-    setComponentStatusWithMessage(ComponentStatus::Error, "Function block removed");
 }
 
 void MqttBaseFb::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg)
@@ -47,11 +50,15 @@ void MqttBaseFb::initProperties(const PropertyObjectPtr& config)
             if (const auto internalProp = prop.asPtrOrNull<IPropertyInternal>(true); internalProp.assigned())
             {
                 objPtr.addProperty(internalProp.clone());
+                objPtr.setPropertyValue(propName, prop.getValue());
                 objPtr.getOnPropertyValueWrite(prop.getName()) +=
                     [this](PropertyObjectPtr& obj, PropertyValueEventArgsPtr& args) { propertyChanged(); };
             }
         }
-        objPtr.setPropertyValue(propName, prop.getValue());
+        else
+        {
+            objPtr.setPropertyValue(propName, prop.getValue());
+        }
     }
     readProperties();
 }
@@ -67,11 +74,11 @@ MqttBaseFb::CmdResult MqttBaseFb::subscribeToTopic()
         {
             LOG_I("Trying to subscribe to the topic : {}", topic);
             subscriber->setMessageArrivedCb(topic, lambda);
-            if (auto subRes = subscriber->subscribe(topic, 1); subRes.success == false)
+            if (auto subRes = subscriber->subscribe(topic, qos); subRes.success == false)
             {
                 LOG_W("Failed to subscribe to the topic: \"{}\"; reason: {}", topic, subRes.msg);
                 setComponentStatusWithMessage(ComponentStatus::Warning, "Some topics failed to subscribe!");
-                setSubscriptionStatus(SubscriptionStatus::SubscribingError, "The reason: " + subRes.msg);
+                subscriptionStatus.setStatus(SubscriptionStatus::SubscribingError, "The reason: " + subRes.msg);
                 result = {false, "Failed to subscribe to the topic: \"" + topic + "\"; reason: " + subRes.msg};
             }
             else
@@ -79,20 +86,21 @@ MqttBaseFb::CmdResult MqttBaseFb::subscribeToTopic()
                 // subscriber->subscribe(...) is asynchronous. It puts command in queue and returns immediately.
                 LOG_D("Trying to subscribe to the topic: {}", topic);
                 setComponentStatus(ComponentStatus::Ok);
-                setSubscriptionStatus(SubscriptionStatus::WaitingForData, "Topic: " + topic);
+                subscriptionStatus.setStatus(SubscriptionStatus::WaitingForData, "Topic: " + topic);
                 result = {true, "", result.token};
             }
         }
         else
         {
             result = {false, "Couldn't subscribe to an empty topic"};
+            LOG_W("{}", result.msg);
         }
     }
     else
     {
         const std::string msg = "MQTT subscriber client is not set!";
         setComponentStatusWithMessage(ComponentStatus::Error, msg);
-        setSubscriptionStatus(SubscriptionStatus::SubscribingError, msg);
+        subscriptionStatus.setStatus(SubscriptionStatus::SubscribingError, msg);
         result = {false, msg};
     }
     return result;
@@ -122,7 +130,7 @@ MqttBaseFb::CmdResult MqttBaseFb::unsubscribeFromTopic()
                 const auto msg = fmt::format("Failed to unsubscribe from the topic \'{}\'; reason: {}", topic, unsubRes.msg);
                 LOG_W("{}", msg);
                 setComponentStatus(ComponentStatus::Warning);
-                setSubscriptionStatus(SubscriptionStatus::SubscribingError, msg);
+                subscriptionStatus.setStatus(SubscriptionStatus::SubscribingError, msg);
                 result = {false, msg};
             }
         }
@@ -131,36 +139,10 @@ MqttBaseFb::CmdResult MqttBaseFb::unsubscribeFromTopic()
     {
         const std::string msg = "MQTT subscriber client is not set!";
         setComponentStatusWithMessage(ComponentStatus::Error, msg);
-        setSubscriptionStatus(SubscriptionStatus::SubscribingError, msg);
+        subscriptionStatus.setStatus(SubscriptionStatus::SubscribingError, msg);
         result = {false, msg};
     }
     return result;
-}
-
-void MqttBaseFb::initSubscriptionStatus()
-{
-    if (!context.getTypeManager().hasType(MQTT_RAW_FB_SUB_STATUS_TYPE))
-    {
-        auto list = List<IString>();
-        for (const auto& [_, st] : subscriptionStatusMap)
-            list.pushBack(st);
-
-        context.getTypeManager().addType(EnumerationType(MQTT_RAW_FB_SUB_STATUS_TYPE, list));
-    }
-
-    subscriptionStatus = EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
-                                                 static_cast<Int>(SubscriptionStatus::InvalidTopicName),
-                                                 this->context.getTypeManager());
-    statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).addStatus("SubscriptionStatus",
-                                                                                     subscriptionStatus);
-}
-
-void MqttBaseFb::setSubscriptionStatus(const SubscriptionStatus status, std::string message)
-{
-    subscriptionStatus = EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE, static_cast<Int>(status), this->context.getTypeManager());
-    statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).setStatusWithMessage("SubscriptionStatus",
-                                                                                                subscriptionStatus,
-                                                                                                message);
 }
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

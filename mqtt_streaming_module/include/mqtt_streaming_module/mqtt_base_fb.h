@@ -19,6 +19,8 @@
 #include <opendaq/function_block_impl.h>
 
 #include "MqttAsyncClient.h"
+#include "mqtt_streaming_module/constants.h"
+#include "mqtt_streaming_module/status_helper.h"
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
     
@@ -56,31 +58,29 @@ public:
                                 const PropertyObjectPtr& config = nullptr);
     ~MqttBaseFb() = default;
 
+    virtual std::string getSubscribedTopic() const = 0;
+
 protected:
     static std::vector<std::pair<SubscriptionStatus, std::string>> subscriptionStatusMap;
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
-    EnumerationPtr subscriptionStatus;
+    StatusHelper<SubscriptionStatus> subscriptionStatus;
+    int qos = DEFAULT_SUB_QOS;
 
-    virtual void createSignals() = 0;
     virtual void processMessage(const mqtt::MqttMessage& msg) = 0;
 
-    virtual void initProperties(const PropertyObjectPtr& config);
+    void initProperties(const PropertyObjectPtr& config);
     virtual void readProperties() = 0;
 
     void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg);
 
-    virtual std::string getSubscribedTopic() const = 0;
     virtual void clearSubscribedTopic() = 0;
-    virtual  CmdResult subscribeToTopic();
-    virtual  CmdResult unsubscribeFromTopic();
+    CmdResult subscribeToTopic();
+    CmdResult unsubscribeFromTopic();
 
     virtual void propertyChanged() = 0;
 
     void removed() override;
-
-    void initSubscriptionStatus();
-    void setSubscriptionStatus(const SubscriptionStatus status, std::string message = "");
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

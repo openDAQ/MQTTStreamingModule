@@ -5,20 +5,6 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-std::string buildSignalNameFromTopic(std::string topic, const std::string& signalName)
-{
-    boost::replace_all(topic, "/", "_");
-    topic += "_Mqtt_" + signalName;
-    return topic;
-}
-
-std::string buildDomainSignalNameFromTopic(std::string topic, const std::string& signalName)
-{
-    boost::replace_all(topic, "/", "_");
-    topic += std::string("_Mqtt") + "_domain_" + signalName;
-    return topic;
-}
-
 PropertyObjectPtr populateDefaultConfig(const PropertyObjectPtr& defaultConfig, const PropertyObjectPtr& config)
 {
     auto newConfig = PropertyObject();

@@ -18,109 +18,10 @@ namespace mqtt
 {
 
 static const char* TOPIC_ALL_SIGNALS_PREFIX = "openDAQ";
-static const char* DEVICE_SIGNAL_LIST = "$signals";
 
 MqttDataWrapper::MqttDataWrapper(daq::LoggerComponentPtr loggerComponent)
     : loggerComponent(loggerComponent)
 {
-}
-
-std::string MqttDataWrapper::serializeSampleData(const SampleData& data)
-{
-    std::string result;
-
-    rapidjson::Document doc;
-    doc.SetObject();
-    doc.AddMember("value", rapidjson::Value(data.value), doc.GetAllocator());
-    doc.AddMember("timestamp", rapidjson::Value(data.timestamp), doc.GetAllocator());
-
-    // Serialize to string
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    doc.Accept(writer);
-
-    result = buffer.GetString();
-
-    return result;
-}
-
-std::string MqttDataWrapper::serializeSignalDescriptors(daq::ListPtr<daq::ISignal> signals)
-{
-    std::string result;
-    rapidjson::Document doc;
-    doc.SetObject();
-
-    auto& alc = doc.GetAllocator();
-
-    for (const auto& signal : signals)
-    {
-
-        rapidjson::Value signalValueObj(rapidjson::kObjectType);
-        signalValueObj.AddMember("Value", rapidjson::Value("value", alc), alc);
-        signalValueObj.AddMember("Timestamp", rapidjson::Value("timestamp", alc), alc);
-        // unit
-        rapidjson::Value unitArray(rapidjson::kArrayType);
-        {
-            auto unit = signal.getDescriptor().getUnit();
-            if (unit.assigned())
-            {
-                auto addUnitInfo = [&unitArray, &alc](daq::StringPtr unitInfo)
-                {
-                    if (unitInfo.assigned())
-                        unitArray.PushBack(rapidjson::Value(unitInfo.toStdString().c_str(), alc),
-                                           alc);
-                };
-                addUnitInfo(unit.getSymbol());
-                addUnitInfo(unit.getName());
-                addUnitInfo(unit.getQuantity());
-            }
-        }
-        signalValueObj.AddMember("Unit", unitArray, alc);
-
-        rapidjson::Value signalObj(rapidjson::kObjectType);
-        signalObj.AddMember(rapidjson::Value(signal.getName().toStdString().c_str(), alc),
-                            signalValueObj,
-                            alc);
-        rapidjson::Value topicArray(rapidjson::kArrayType);
-        topicArray.PushBack(signalObj, alc);
-
-        doc.AddMember(rapidjson::Value(buildTopicFromId(signal.getGlobalId().toStdString()).c_str(),
-                                       alc),
-                      topicArray,
-                      alc);
-    }
-
-    // Serialize to string
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    doc.Accept(writer);
-
-    result = buffer.GetString();
-    return result;
-}
-
-std::string MqttDataWrapper::extractDeviceName(const std::string& topic)
-{
-
-    std::vector<std::string> list;
-    boost::split(list, topic, boost::is_any_of("/"));
-
-    if (list.size() != 3 || list[0] != TOPIC_ALL_SIGNALS_PREFIX || list[2] != DEVICE_SIGNAL_LIST)
-    {
-        return ""; // not a signal list message
-    }
-
-    return list[1];
-}
-
-std::string MqttDataWrapper::buildTopicFromId(const std::string& globalId)
-{
-    return (TOPIC_ALL_SIGNALS_PREFIX + globalId);
-}
-
-std::string MqttDataWrapper::buildSignalsTopic(const std::string& deviceId)
-{
-    return (TOPIC_ALL_SIGNALS_PREFIX + deviceId + "/" + DEVICE_SIGNAL_LIST);
 }
 
 MqttDataWrapper::CmdResult MqttDataWrapper::validateTopic(const daq::StringPtr topic, const daq::LoggerComponentPtr loggerComponent)
@@ -161,131 +62,158 @@ MqttDataWrapper::CmdResult MqttDataWrapper::validateTopic(const daq::StringPtr t
 void MqttDataWrapper::setConfig(const std::string& config)
 {
     this->config = config;
+    doc.Parse(config.c_str());
 }
 
-std::vector<std::pair<mqtt::SignalId, daq::DataDescriptorPtr>> MqttDataWrapper::extractDescription()
+std::vector<std::pair<std::string, MqttMsgDescriptor>> MqttDataWrapper::extractDescription()
 {
-    std::vector<std::pair<mqtt::SignalId, daq::DataDescriptorPtr>> result;
-    rapidjson::Document doc;
-    topicDescriptors.clear();
-
-    if (config.empty())
-    {
-        LOG_E("The JSON config is empty");
+    std::vector<std::pair<std::string, MqttMsgDescriptor>> result;
+    if (config.empty() || !isJsonValid().success)
         return result;
-    }
 
-    if (doc.Parse(config.c_str()).HasParseError())
+    auto it = doc.MemberBegin();
+    const rapidjson::Value& array = it->value;
+    // Each topic array contains one or more signal objects
+    for (const auto& elem : array.GetArray())
     {
-        LOG_E("The JSON config has wrong format");
-        return result;
+        // Iterate over signals inside this element
+        for (auto sigIt = elem.MemberBegin(); sigIt != elem.MemberEnd(); ++sigIt)
+        {
+            std::string SignalName(sigIt->name.GetString());
+            const rapidjson::Value& signalObj = sigIt->value;
+            MqttMsgDescriptor msgDescriptor;
+            msgDescriptor.unit = extractSignalUnit(signalObj);
+            msgDescriptor.valueFieldName = extractValueFieldName(signalObj);
+            msgDescriptor.tsFieldName = extractTimestampFieldName(signalObj);
+            result.push_back(std::pair(std::move(SignalName), std::move(msgDescriptor)));
+        }
     }
 
-    for (auto it = doc.MemberBegin(); it != doc.MemberEnd(); ++it)
-    {
-        const rapidjson::Value& array = it->value;
-        const std::string topic = it->name.GetString();
-        if (validateTopic(topic, loggerComponent).success == false)
-            continue;
-        if (!array.IsArray())
-        {
-            LOG_W("Wrong description for \"{}\" topic. Skip!", topic);
-            continue;
-        }
-
-        std::vector<MqttMsgDescriptor> msgDescriptors;
-        // Each topic array contains one or more signal objects
-        for (const auto& elem : array.GetArray())
-        {
-            if (!elem.IsObject())
-                continue;
-
-
-
-            // Iterate over signals inside this element
-            for (auto sigIt = elem.MemberBegin(); sigIt != elem.MemberEnd(); ++sigIt)
-            {
-                mqtt::SignalId SignalId{.topic = topic, .signalName = sigIt->name.GetString()};
-
-                const rapidjson::Value& signalObj = sigIt->value;
-
-                auto unit = extractSignalUnit(signalObj);
-                std::string valueFieldName = extractValueFieldName(signalObj);
-                std::string tsFieldName = extractTimestampFieldName(signalObj);
-
-                msgDescriptors.emplace_back(MqttMsgDescriptor{SignalId.signalName,
-                                                              std::move(valueFieldName),
-                                                              std::move(tsFieldName)});
-
-                auto dataDescBdr =
-                    daq::DataDescriptorBuilder().setSampleType(daq::SampleType::Undefined);
-                if (unit.assigned())
-                    dataDescBdr.setUnit(unit);
-
-                result.emplace_back(std::pair(std::move(SignalId), dataDescBdr.build()));
-            }
-        }
-        topicDescriptors.emplace(std::pair(topic, std::move(msgDescriptors)));
-    }
     return result;
 }
 
-void MqttDataWrapper::setOutputSignals(
-    std::unordered_map<SignalId, daq::SignalConfigPtr>* const outputSignals)
+std::string MqttDataWrapper::extractTopic()
 {
-    this->outputSignals = outputSignals;
+    std::string topic;
+    if (config.empty() || !isJsonValid().success)
+        return topic;
+
+    topic = doc.MemberBegin()->name.GetString();
+    return topic;
 }
 
-void MqttDataWrapper::createAndSendDataPacket(const std::string& topic, const std::string& json)
+MqttDataWrapper::CmdResult MqttDataWrapper::isJsonValid()
 {
-    auto msgDescriptors = topicDescriptors.find(topic);
-    if (msgDescriptors != topicDescriptors.end())
+    rapidjson::Document doc;
+
+    if (config.empty())
+        return CmdResult(true);
+
+    if (doc.Parse(config.c_str()).HasParseError())
+        return CmdResult(false, "The JSON config has an invalid format");
+
+    if (!doc.IsObject())
+        return CmdResult(false, "The JSON config must be an object");
+
+    if (doc.MemberCount() != 1)
+        return CmdResult(false, "The JSON config must contain exactly one topic");
+
+    const auto& arrayValue = doc.MemberBegin()->value;
+    if (!arrayValue.IsArray())
+        return CmdResult(false, "The JSON config has wrong format (expected array of signals)");
+
+    if (!arrayValue.Empty())
     {
-        for (const auto& dsc : msgDescriptors->second)
+        for (const auto& signalEntry : arrayValue.GetArray())
         {
-            auto packets = extractDataSamples(topic, dsc, json);
-            for (const auto& [signalId, data] : packets)
+            if (!signalEntry.IsObject())
+                return CmdResult(false, "Each signal entry must be an object");
+
+            if (signalEntry.MemberCount() != 1)
+                return CmdResult(false, "Each signal entry must contain exactly one signal");
+
+            const auto& signal = *signalEntry.MemberBegin();
+            const auto& signalBody = signal.value;
+
+            if (!signalBody.IsObject())
+                return CmdResult(false, "Signal definition must be an object");
+
+            if (!signalBody.HasMember("Value"))
             {
-                sendDataSamples(signalId, data);
+                return CmdResult(false, "Signal must contain a Value field");
+            }
+
+            if (!signalBody["Value"].IsString())
+                return CmdResult(false, "Signal field 'Value' must be a string");
+
+            if (signalBody.HasMember("Timestamp") && !signalBody["Timestamp"].IsString())
+                return CmdResult(false, "Signal field 'Timestamp' must be a string");
+
+            if (signalBody.HasMember("Unit"))
+            {
+                const auto& unit = signalBody["Unit"];
+                if (!unit.IsArray() || unit.Empty())
+                    return CmdResult(false, "Signal field 'Unit' must be a non-empty array");
+                for (const auto& u : unit.GetArray())
+                {
+                    if (!u.IsString())
+                        return CmdResult(false, "Each Unit entry must be a string");
+                }
             }
         }
     }
+    return CmdResult(true);
 }
 
-bool MqttDataWrapper::hasDomainSignal(const SignalId& signalId) const
+void MqttDataWrapper::setOutputSignal(daq::SignalConfigPtr outputSignal)
 {
-    auto it = topicDescriptors.find(signalId.topic);
-    if (it != topicDescriptors.end())
-    {
+    this->outputSignal = outputSignal;
+}
 
-        for (const auto& desc : it->second)
+MqttDataWrapper::CmdResult MqttDataWrapper::createAndSendDataPacket(const std::string& json)
+{
+    auto [status, packets] = extractDataSamples(msgDescriptor, json);
+    if (status.success)
+    {
+        for (const auto& data : packets)
         {
-            if (desc.signalName == signalId.signalName)
-            {
-                return !desc.tsFieldName.empty();
-            }
+            sendDataSamples(data);
         }
     }
-    return false;
+    return status;
 }
 
-std::vector<std::pair<SignalId, DataPackets>> MqttDataWrapper::extractDataSamples(
-    const std::string& topic, const MqttMsgDescriptor& msgDescriptor, const std::string& json)
+// bool MqttDataWrapper::hasDomainSignal(const SignalId& signalId) const
+// {
+//     return (msgDescriptor.signalName == signalId.signalName) ? !msgDescriptor.tsFieldName.empty() : false;
+// }
+
+void MqttDataWrapper::setValueFieldName(std::string valueFieldName)
+{
+    msgDescriptor.valueFieldName = std::move(valueFieldName);
+}
+
+void MqttDataWrapper::setTimestampFieldName(std::string tsFieldName)
+{
+    msgDescriptor.tsFieldName = std::move(tsFieldName);
+}
+
+std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper::extractDataSamples(const MqttMsgDescriptor& msgDescriptor, const std::string& json)
 {
     using ValueVariant = std::variant<int64_t, double, std::string>;
     ValueVariant value{};
-    std::vector<std::pair<SignalId, DataPackets>> res;
+    std::vector<DataPackets> outputData;
     uint64_t ts = 0;
     bool hasTS = false;
     bool hasValue = false;
+    CmdResult result(true);
     try
     {
         rapidjson::Document jsonDocument;
         jsonDocument.Parse(json);
         if (jsonDocument.HasParseError())
         {
-            LOG_E("Error parsing mqtt payload as JSON");
-            return res;
+            return std::pair{CmdResult(false, "Error parsing mqtt payload as JSON"), outputData};
         }
 
         if (jsonDocument.IsObject())
@@ -307,8 +235,9 @@ std::vector<std::pair<SignalId, DataPackets>> MqttDataWrapper::extractDataSample
                         value = std::string(v.GetString());
                     else
                     {
+                        result.success = false;
+                        result.msg = fmt::format("Unsupported value type for '{}'.", name);
                         hasValue = false;
-                        LOG_W("Unsupported value type for '{}'.", name);
                     }
                 }
                 else if (!msgDescriptor.tsFieldName.empty() && name == msgDescriptor.tsFieldName)
@@ -326,7 +255,8 @@ std::vector<std::pair<SignalId, DataPackets>> MqttDataWrapper::extractDataSample
                     }
                     else
                     {
-                        LOG_W("Value is not supported.");
+                        result.success = false;
+                        result.msg = "Timestamp value type is not supported.";
                     }
                 }
                 else
@@ -338,86 +268,62 @@ std::vector<std::pair<SignalId, DataPackets>> MqttDataWrapper::extractDataSample
     }
     catch (...)
     {
-        LOG_E("Error deserializing mqtt payload");
+        result.success = false;
+        result.msg = "Error deserializing MQTT payload";
+    }
+    if (!hasValue || (!msgDescriptor.tsFieldName.empty() && !hasTS))
+    {
+        result.success = false;
+        result.msg = "Not all required fields are present in the JSON message.";
     }
 
-    if (!hasValue)
-    {
-        LOG_W("Not all required fields are present.");
-    }
-    else if (!msgDescriptor.tsFieldName.empty() && hasTS == false)
-    {
-        LOG_W("Timestamp field is expected but missing.");
-    }
-    else
+    if (result.success)
     {
         // TODO : value [1, 2, 3, ...] support
-        SignalId signalId{topic, msgDescriptor.signalName};
         DataPackets dataPackets;
         std::visit(
             [&](auto&& val)
             {
                 using T = std::decay_t<decltype(val)>;
                 if (hasTS)
-                    dataPackets = buildDataPackets(signalId, val, ts);
+                    dataPackets = buildDataPackets(val, ts);
                 else
-                    dataPackets = buildDataPackets(signalId, val);
+                    dataPackets = buildDataPackets(val);
             },
             value);
         if (dataPackets.dataPacket.assigned())
-            res.emplace_back(std::move(signalId), std::move(dataPackets));
+            outputData.push_back(std::move(dataPackets));
     }
-    return res;
+    return std::pair{result, outputData};
 }
 
-void MqttDataWrapper::sendDataSamples(const SignalId& signalId, const DataPackets& dataPackets)
+void MqttDataWrapper::sendDataSamples(const DataPackets& dataPackets)
 {
-    const auto signalIter = outputSignals->find(signalId);
-    if (signalIter == outputSignals->end())
-    {
-        return;
-    }
+    auto domainSignal = outputSignal.getDomainSignal();
 
-    auto signal = signalIter->second;
-    auto domainSignal = signal.getDomainSignal();
-
-    signal.sendPacket(dataPackets.dataPacket);
+    outputSignal.sendPacket(dataPackets.dataPacket);
     if (domainSignal.assigned() && dataPackets.domainDataPacket.assigned())
-        signal.getDomainSignal().asPtr<daq::ISignalConfig>().sendPacket(
-            dataPackets.domainDataPacket);
+        domainSignal.asPtr<daq::ISignalConfig>().sendPacket(dataPackets.domainDataPacket);
 }
+
 template <typename T>
 DataPackets
-MqttDataWrapper::buildDataPackets(const SignalId& signalId, T value, uint64_t timestamp)
+MqttDataWrapper::buildDataPackets(T value, uint64_t timestamp)
 {
     DataPackets dataPackets;
-    const auto signalIter = outputSignals->find(signalId);
-    if (signalIter == outputSignals->end())
-    {
-        return dataPackets;
-    }
 
-    auto signal = signalIter->second;
-
-    dataPackets.domainDataPacket = buildDomainDataPacket(signal, timestamp);
-    dataPackets.dataPacket = buildDataPacket(signal, value, dataPackets.domainDataPacket);
+    dataPackets.domainDataPacket = buildDomainDataPacket(outputSignal, timestamp);
+    dataPackets.dataPacket = buildDataPacket(outputSignal, value, dataPackets.domainDataPacket);
 
     return dataPackets;
 }
 
 template <typename T>
 DataPackets
-MqttDataWrapper::buildDataPackets(const SignalId& signalId, T value)
+MqttDataWrapper::buildDataPackets(T value)
 {
     DataPackets dataPackets;
-    const auto signalIter = outputSignals->find(signalId);
-    if (signalIter == outputSignals->end())
-    {
-        return dataPackets;
-    }
-
-    auto signal = signalIter->second;
-    dataPackets.dataPacket = buildDataPacket(signal, value, daq::DataPacketPtr());
+    dataPackets.dataPacket = buildDataPacket(outputSignal, value, daq::DataPacketPtr());
 
     return dataPackets;
 }

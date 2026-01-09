@@ -58,12 +58,15 @@ TEST_F(MqttRawFbTest, DefaultRawFbConfig)
 
     ASSERT_TRUE(defaultConfig.assigned());
 
-    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 1u);
+    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 2u);
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_TOPIC));
-
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_TOPIC).getValueType(), CoreType::ctString);
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_TOPIC).asPtr<IString>().getLength(), 0u);
+
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_QOS));
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_QOS).getValueType(), CoreType::ctInt);
+    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_QOS).asPtr<IInteger>().getValue(DEFAULT_SUB_QOS), DEFAULT_SUB_QOS);
 }
 
 TEST_F(MqttRawFbTest, Creation)
@@ -174,7 +177,7 @@ TEST_F(MqttRawFbTest, CheckRawFbSubscriptionStatusWaitingForData)
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
 
     EXPECT_EQ(rawFb.getStatusContainer().getStatus("SubscriptionStatus"),
-              EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+              EnumerationWithIntValue(MQTT_FB_SUB_STATUS_TYPE,
                                       static_cast<Int>(MqttBaseFb::SubscriptionStatus::WaitingForData),
                                       daqInstance.getContext().getTypeManager()));
 }
@@ -197,14 +200,14 @@ TEST_P(MqttRawFbPTest, CheckRawFbTopic)
     if (result)
     {
         EXPECT_NE(rawFb.getStatusContainer().getStatus("SubscriptionStatus"),
-                  EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+                  EnumerationWithIntValue(MQTT_FB_SUB_STATUS_TYPE,
                                           static_cast<Int>(MqttBaseFb::SubscriptionStatus::InvalidTopicName),
                                           daqInstance.getContext().getTypeManager()));
     }
     else
     {
         EXPECT_EQ(rawFb.getStatusContainer().getStatus("SubscriptionStatus"),
-                  EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+                  EnumerationWithIntValue(MQTT_FB_SUB_STATUS_TYPE,
                                           static_cast<Int>(MqttBaseFb::SubscriptionStatus::InvalidTopicName),
                                           daqInstance.getContext().getTypeManager()));
     }
@@ -322,11 +325,11 @@ TEST_F(MqttRawFbTest, CheckRawFbFullDataTransferWithReconfiguring)
     auto singal = rawFB.getSignals()[0];
     auto reader = daq::PacketReader(singal);
 
-    const auto stHasData = EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+    const auto stHasData = EnumerationWithIntValue(MQTT_FB_SUB_STATUS_TYPE,
                                                    static_cast<Int>(MqttBaseFb::SubscriptionStatus::HasData),
                                                    daqInstance.getContext().getTypeManager());
 
-    const auto stWaitData = EnumerationWithIntValue(MQTT_RAW_FB_SUB_STATUS_TYPE,
+    const auto stWaitData = EnumerationWithIntValue(MQTT_FB_SUB_STATUS_TYPE,
                                                     static_cast<Int>(MqttBaseFb::SubscriptionStatus::WaitingForData),
                                                     daqInstance.getContext().getTypeManager());
 

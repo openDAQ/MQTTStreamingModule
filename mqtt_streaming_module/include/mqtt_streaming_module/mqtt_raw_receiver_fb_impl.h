@@ -35,17 +35,19 @@ public:
     ~MqttRawReceiverFbImpl() override;
 
     static FunctionBlockTypePtr CreateType();
+
+    std::string getSubscribedTopic() const override;
 private:
     std::mutex sync;
     SignalConfigPtr outputSignal;
     std::string topicForSubscribing;
     static std::atomic<int> localIndex;
 
-    static std::string getLocalId();
+    static std::string generateLocalId();
 
-    void createSignals() override;
+    void createSignals();
     void clearSubscribedTopic() override;
-    std::string getSubscribedTopic() const override;
+
     void processMessage(const mqtt::MqttMessage& msg) override;
     void readProperties() override;
     void propertyChanged() override;

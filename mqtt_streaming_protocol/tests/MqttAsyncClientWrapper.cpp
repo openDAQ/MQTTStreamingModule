@@ -148,7 +148,7 @@ void MqttAsyncClientWrapper::expectMsgs(const std::string& topic,
                                   {
                                       const auto receivedStr = receivedMsg.toString();
                                       std::cout << "{topic | msg}: " << receivedMsg.getTopic() << " | " << receivedStr << std::endl;
-                                      if (receivedMsg.getTopic() != topic || msgs[i] != receivedStr)
+                                      if (receivedMsg.getTopic() != topic || i >= msgs.size() || msgs[i] != receivedStr)
                                           return;
 
                                       bool expected = false;

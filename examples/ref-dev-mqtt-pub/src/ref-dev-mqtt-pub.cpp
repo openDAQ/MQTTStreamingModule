@@ -6,10 +6,10 @@
 using namespace daq;
 
 enum class Mode {
-    SINGLE = 0,
-    SINGLE_PACK,
-    MULTI_SINGLE,
-    MULTI_SHARED,
+    ATOMIC_SIGNAL_ATOMIC_SAMPLE = 0,
+    ATOMIC_SIGNAL_SAMPLE_ARRAY,
+    SIGNAL_ARRAY_ATOMIC_SAMPLE,
+    GROUP_SIGNAL_ATOMIC_SAMPLE_SHARED_TS,
     _COUNT
 };
 
@@ -29,10 +29,10 @@ ConfigStruct StartUp(int argc, char* argv[])
     args.addArg("--mode", "publisher FB mode", true);
     args.setUsageHelp(APP_NAME " [options]\n"
                               "Available modes:\n"
-                              "  0 - Single\n"
-                              "  1 - Single with packing\n"
-                              "  2 - Multi Single\n"
-                              "  3 - Multi Shared");
+                              "  0 - ATOMIC_SIGNAL_ATOMIC_SAMPLE\n"
+                              "  1 - ATOMIC_SIGNAL_SAMPLE_ARRAY\n"
+                              "  2 - SIGNAL_ARRAY_ATOMIC_SAMPLE\n"
+                              "  3 - GROUP_SIGNAL_ATOMIC_SAMPLE_SHARED_TS");
     args.parse(argc, argv);
 
     if (args.hasArg("--help") || args.hasUnknownArgs())
@@ -73,28 +73,28 @@ int main(int argc, char* argv[])
 
     // Configure channels
     const auto channels = refDevice.getChannelsRecursive();
-    channels[0].setPropertyValue("UseGlobalSampleRate", appConfig.mode == Mode::MULTI_SHARED);
+    channels[0].setPropertyValue("UseGlobalSampleRate", appConfig.mode == Mode::GROUP_SIGNAL_ATOMIC_SAMPLE_SHARED_TS);
     channels[0].setPropertyValue("SampleRate", 10);
     channels[0].setPropertyValue("Frequency", 1);
     channels[0].setPropertyValue("Waveform", 1);
-    channels[1].setPropertyValue("UseGlobalSampleRate", appConfig.mode == Mode::MULTI_SHARED);
+    channels[1].setPropertyValue("UseGlobalSampleRate", appConfig.mode == Mode::GROUP_SIGNAL_ATOMIC_SAMPLE_SHARED_TS);
     channels[1].setPropertyValue("SampleRate", 20);
     channels[1].setPropertyValue("Frequency", 1);
     channels[1].setPropertyValue("Waveform", 3);
-    channels[2].setPropertyValue("UseGlobalSampleRate", appConfig.mode == Mode::MULTI_SHARED);
+    channels[2].setPropertyValue("UseGlobalSampleRate", appConfig.mode == Mode::GROUP_SIGNAL_ATOMIC_SAMPLE_SHARED_TS);
     channels[2].setPropertyValue("SampleRate", 50);
     channels[2].setPropertyValue("Frequency", 4);
-    channels[3].setPropertyValue("UseGlobalSampleRate", appConfig.mode == Mode::MULTI_SHARED);
+    channels[3].setPropertyValue("UseGlobalSampleRate", appConfig.mode == Mode::GROUP_SIGNAL_ATOMIC_SAMPLE_SHARED_TS);
     channels[3].setPropertyValue("SampleRate", 100);
     channels[3].setPropertyValue("Frequency", 20);
 
     // Create and configure MQTT server
-    const std::string rootFbName = "@rootMqttFb";
+    const std::string rootFbName = "RootMqttFb";
     auto rootFbConfig = instance.getAvailableFunctionBlockTypes().get(rootFbName).createDefaultConfig();
     rootFbConfig.setPropertyValue("MqttBrokerAddress", appConfig.brokerAddress);
     auto brokerFB = instance.addFunctionBlock(rootFbName, rootFbConfig);
     auto availableFbs = brokerFB.getAvailableFunctionBlockTypes();
-    const std::string fbName = "@publisherMqttFb";
+    const std::string fbName = "PublisherMqttFb";
     std::cout << "Try to add the " << fbName << std::endl;
 
     auto config = availableFbs.get(fbName).createDefaultConfig();
@@ -102,23 +102,23 @@ int main(int argc, char* argv[])
     config.setPropertyValue("ReaderPeriod", 20);
     config.setPropertyValue("UseSignalNames", True);
     switch (appConfig.mode) {
-        case Mode::SINGLE:
+        case Mode::ATOMIC_SIGNAL_ATOMIC_SAMPLE:
             config.setPropertyValue("SharedTimestamp", False);
             config.setPropertyValue("TopicMode", 0);
             config.setPropertyValue("GroupValues", False);
             break;
-        case Mode::SINGLE_PACK:
+        case Mode::ATOMIC_SIGNAL_SAMPLE_ARRAY:
             config.setPropertyValue("SharedTimestamp", False);
             config.setPropertyValue("TopicMode", 0);
             config.setPropertyValue("GroupValues", True);
             config.setPropertyValue("GroupValuesPackSize", 3);
             break;
-        case Mode::MULTI_SINGLE:
+        case Mode::SIGNAL_ARRAY_ATOMIC_SAMPLE:
             config.setPropertyValue("SharedTimestamp", False);
             config.setPropertyValue("TopicMode", 1);
             config.setPropertyValue("GroupValues", False);
             break;
-        case Mode::MULTI_SHARED:
+        case Mode::GROUP_SIGNAL_ATOMIC_SAMPLE_SHARED_TS:
             config.setPropertyValue("SharedTimestamp", True);
             config.setPropertyValue("TopicMode", 1);
             config.setPropertyValue("GroupValues", False);
