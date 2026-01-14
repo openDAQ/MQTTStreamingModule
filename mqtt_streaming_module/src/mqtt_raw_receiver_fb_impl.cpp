@@ -37,10 +37,7 @@ FunctionBlockTypePtr MqttRawReceiverFbImpl::CreateType()
     auto defaultConfig = PropertyObject();
     {
         auto builder =
-            IntPropertyBuilder(PROPERTY_NAME_SUB_QOS, DEFAULT_SUB_QOS)
-                .setMinValue(0)
-                .setMaxValue(2)
-                .setSuggestedValues(List<IInteger>(0, 1, 2))
+            SelectionPropertyBuilder(PROPERTY_NAME_PUB_QOS, List<IInteger>(0, 1, 2), DEFAULT_PUB_QOS)
                 .setDescription(
                     fmt::format("MQTT Quality of Service level for subscribing. It can be 0 (at most once), 1 (at least once), or 2 "
                                 "(exactly once). By default it is set to {}.",

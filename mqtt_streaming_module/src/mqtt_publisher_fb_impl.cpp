@@ -66,25 +66,25 @@ FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
     auto defaultConfig = PropertyObject();
     {
         auto builder =
-            SelectionPropertyBuilder(PROPERTY_NAME_PUB_TOPIC_MODE, List<IString>("single-topic", "multiple-topic"), 0)
+            SelectionPropertyBuilder(PROPERTY_NAME_PUB_TOPIC_MODE, List<IString>("TopicPerSignal", "SingleTopic"), 0)
                 .setDescription(
-                    "Selects whether to publish all signals to separate MQTT topics (one per signal, single-topic mode) or to a single "
-                    "topic (multiple-topic mode), one for all signals. Choose 0 for single-topic mode, 1 for multiple-topic mode. By "
-                    "default it is set to single-topic mode.");
+                    "Selects whether to publish all signals to separate MQTT topics (one per signal, TopicPerSignal mode) or to a single "
+                    "topic (SingleTopic mode), one for all signals. Choose 0 for TopicPerSignal mode, 1 for SingleTopic mode. By "
+                    "default it is set to TopicPerSignal mode.");
         defaultConfig.addProperty(builder.build());
     }
     {
         auto builder =
             StringPropertyBuilder(PROPERTY_NAME_PUB_TOPIC_NAME, "")
                 .setDescription(
-                    "Topic name for publishing in multiple-topic mode. If left empty, the Publisher's Global ID is used as the topic name.")
+                    "Topic name for publishing in SingleTopic mode. If left empty, the Publisher's Global ID is used as the topic name.")
                 .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 1"));
         defaultConfig.addProperty(builder.build());
     }
     {
         auto builder = BoolPropertyBuilder(PROPERTY_NAME_PUB_SHARED_TS, False)
                            .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 1"))
-                           .setDescription("Enables the use of a shared timestamp for all signals when publishing in multiple-topic mode. "
+                           .setDescription("Enables the use of a shared timestamp for all signals when publishing in SingleTopic mode. "
                                            "By default it is set to false.");
         defaultConfig.addProperty(builder.build());
     }
@@ -93,7 +93,7 @@ FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
             BoolPropertyBuilder(PROPERTY_NAME_PUB_GROUP_VALUES, False)
                 .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 0"))
                 .setDescription(
-                    "Enables the use of a sample pack for a signal when publishing in single-topic mode. By default it is set to false.");
+                    "Enables the use of a sample pack for a signal when publishing in TopicPerSignal mode. By default it is set to false.");
         defaultConfig.addProperty(builder.build());
     }
     {
@@ -107,17 +107,14 @@ FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
                 .setMinValue(1)
                 .setVisible(EvalValue(std::string("($") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 0) && " + std::string("($") +
                                       PROPERTY_NAME_PUB_GROUP_VALUES + ")"))
-                .setDescription(fmt::format("Set the size of the sample pack when publishing grouped values in single-topic mode. "
+                .setDescription(fmt::format("Set the size of the sample pack when publishing grouped values in TopicPerSignal mode. "
                                             "By default it is set to {}.",
                                             DEFAULT_PUB_PACK_SIZE));
         defaultConfig.addProperty(builder.build());
     }
     {
         auto builder =
-            IntPropertyBuilder(PROPERTY_NAME_PUB_QOS, DEFAULT_PUB_QOS)
-                .setMinValue(0)
-                .setMaxValue(2)
-                .setSuggestedValues(List<IInteger>(0, 1, 2))
+            SelectionPropertyBuilder(PROPERTY_NAME_PUB_QOS, List<IInteger>(0, 1, 2), DEFAULT_PUB_QOS)
                 .setDescription(
                     fmt::format("MQTT Quality of Service level for published messages. It can be 0 (at most once), 1 (at least once), or 2 "
                                 "(exactly once). By default it is set to {}.",

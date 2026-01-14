@@ -89,16 +89,16 @@ int main(int argc, char* argv[])
     channels[3].setPropertyValue("Frequency", 20);
 
     // Create and configure MQTT server
-    const std::string rootFbName = "RootMqttFb";
+    const std::string rootFbName = "MQTTClientFB";
     auto rootFbConfig = instance.getAvailableFunctionBlockTypes().get(rootFbName).createDefaultConfig();
-    rootFbConfig.setPropertyValue("MqttBrokerAddress", appConfig.brokerAddress);
+    rootFbConfig.setPropertyValue("MQTTBrokerAddress", appConfig.brokerAddress);
     auto brokerFB = instance.addFunctionBlock(rootFbName, rootFbConfig);
     auto availableFbs = brokerFB.getAvailableFunctionBlockTypes();
-    const std::string fbName = "PublisherMqttFb";
+    const std::string fbName = "PublisherMQTTFB";
     std::cout << "Try to add the " << fbName << std::endl;
 
     auto config = availableFbs.get(fbName).createDefaultConfig();
-    config.setPropertyValue("MqttQoS", 1);
+    config.setPropertyValue("QoS", 1);
     config.setPropertyValue("ReaderPeriod", 20);
     config.setPropertyValue("UseSignalNames", True);
     switch (appConfig.mode) {
