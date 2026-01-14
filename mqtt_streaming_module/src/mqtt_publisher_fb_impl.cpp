@@ -227,6 +227,10 @@ void MqttPublisherFbImpl::updateStatuses()
     {
         setComponentStatusWithMessage(ComponentStatus::Error, "Some property has wrong value!");
     }
+    else if (signalContexts.size() == 1)        // no one input port is connected
+    {
+        setComponentStatusWithMessage(ComponentStatus::Warning, "No input ports are connected!");
+    }
     else if (skippedMsgCnt != 0)
     {
         setComponentStatusWithMessage(ComponentStatus::Warning, "Some messages were not published!");
