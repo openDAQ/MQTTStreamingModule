@@ -71,6 +71,7 @@ protected:
     std::future<bool> connectedFuture;
     std::atomic<bool> connectedDone{false};
     std::unordered_map<std::string, std::string> deviceMap;         // device name -> signal list JSON
+    std::mutex componentStatusSync;
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

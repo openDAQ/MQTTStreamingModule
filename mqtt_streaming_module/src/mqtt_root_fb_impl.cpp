@@ -54,7 +54,6 @@ void MqttRootFbImpl::removed()
     else
     {
         LOG_I("MQTT: disconnection was successful");
-        connectionStatus.setStatus(ConnectionStatus::Disconnected);
     }
 }
 
@@ -98,6 +97,8 @@ void MqttRootFbImpl::initMqttSubscriber()
             {
                 connectionStatus.setStatus(ConnectionStatus::Connected);
                 connectedPromise.set_value(true);
+                std::scoped_lock lock(componentStatusSync);
+                setComponentStatus(ComponentStatus::Ok);
             }
         });
 
@@ -111,6 +112,8 @@ void MqttRootFbImpl::initConnectionStatus()
         [this](std::string msg)
         {
             connectionStatus.setStatus(ConnectionStatus::Reconnecting, msg);
+            std::scoped_lock lock(componentStatusSync);
+            setComponentStatusWithMessage(ComponentStatus::Error, "Connection lost");
         });
 }
 
@@ -170,6 +173,8 @@ bool MqttRootFbImpl::waitForConnection(const int timeoutMs)
         [this]
         {
             connectionStatus.setStatus(ConnectionStatus::Connected);
+            std::scoped_lock lock(componentStatusSync);
+            setComponentStatus(ComponentStatus::Ok);
         });
     return res;
 }
