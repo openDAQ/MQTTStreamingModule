@@ -145,7 +145,7 @@ void MqttRawReceiverFbImpl::createSignals()
 {
     auto lock = std::lock_guard<std::mutex>(sync);
     const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::Binary).build();
-    outputSignal = createAndAddSignal(DEFAULT_SIGNAL_NAME, signalDsc);
+    outputSignal = createAndAddSignal(DEFAULT_VALUE_SIGNAL_LOCAL_ID, signalDsc);
 }
 
 std::string MqttRawReceiverFbImpl::getSubscribedTopic() const

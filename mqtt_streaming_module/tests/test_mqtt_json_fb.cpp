@@ -261,9 +261,9 @@ TEST_F(MqttJsonFbTest, JsonInit0)
     ASSERT_EQ(jsonFb.getFunctionBlocks().getCount(), 3u);
     ASSERT_EQ(jsonFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    auto lambda = [&](FunctionBlockPtr nestedFb, std::string name, std::string value, std::string ts, std::string symbol)
+    auto lambda = [&](FunctionBlockPtr nestedFb, std::string value, std::string ts, std::string symbol)
     {
-        EXPECT_EQ(nestedFb.getSignals()[0].getName().toStdString(), name);
+        EXPECT_EQ(nestedFb.getSignals()[0].getName().toStdString(), value);
         if (!symbol.empty())
             EXPECT_EQ(nestedFb.getSignals()[0].getDescriptor().getUnit().getSymbol().toStdString(), symbol);
         EXPECT_EQ(nestedFb.getPropertyValue(PROPERTY_NAME_VALUE_NAME).asPtr<IString>().toStdString(), value);
@@ -271,9 +271,9 @@ TEST_F(MqttJsonFbTest, JsonInit0)
     };
     EXPECT_EQ(jsonFb.getPropertyValue(PROPERTY_NAME_TOPIC).asPtr<IString>().toStdString(), "openDAQ/RefDev0/IO/AI/RefCh0/Sig/AI0");
 
-    lambda(jsonFb.getFunctionBlocks()[0], "AI0", "value", "timestamp", "V");
-    lambda(jsonFb.getFunctionBlocks()[1], "AI1", "value1", "", "");
-    lambda(jsonFb.getFunctionBlocks()[2], "AI2", "value2", "", "W");
+    lambda(jsonFb.getFunctionBlocks()[0], "value", "timestamp", "V");
+    lambda(jsonFb.getFunctionBlocks()[1], "value1", "", "");
+    lambda(jsonFb.getFunctionBlocks()[2], "value2", "", "W");
 
 }
 
@@ -287,9 +287,9 @@ TEST_F(MqttJsonFbTest, JsonInit1)
     ASSERT_EQ(jsonFb.getFunctionBlocks().getCount(), 3u);
     ASSERT_EQ(jsonFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    auto lambda = [&](FunctionBlockPtr nestedFb, std::string name, std::string value, std::string ts, std::string symbol)
+    auto lambda = [&](FunctionBlockPtr nestedFb, std::string value, std::string ts, std::string symbol)
     {
-        EXPECT_EQ(nestedFb.getSignals()[0].getName().toStdString(), name);
+        EXPECT_EQ(nestedFb.getSignals()[0].getName().toStdString(), value);
         if (!symbol.empty())
             EXPECT_EQ(nestedFb.getSignals()[0].getDescriptor().getUnit().getSymbol().toStdString(), symbol);
         EXPECT_EQ(nestedFb.getPropertyValue(PROPERTY_NAME_VALUE_NAME).asPtr<IString>().toStdString(), value);
@@ -297,9 +297,9 @@ TEST_F(MqttJsonFbTest, JsonInit1)
     };
     EXPECT_EQ(jsonFb.getPropertyValue(PROPERTY_NAME_TOPIC).asPtr<IString>().toStdString(), "/mirip/UNet3AC2/sensor/data");
 
-    lambda(jsonFb.getFunctionBlocks()[0], "temp", "temp", "ts", "°C");
-    lambda(jsonFb.getFunctionBlocks()[1], "humidity", "humi", "ts", "%");
-    lambda(jsonFb.getFunctionBlocks()[2], "tds", "tds_value", "ts", "ppm");
+    lambda(jsonFb.getFunctionBlocks()[0], "temp", "ts", "°C");
+    lambda(jsonFb.getFunctionBlocks()[1], "humi", "ts", "%");
+    lambda(jsonFb.getFunctionBlocks()[2], "tds_value", "ts", "ppm");
 
 }
 
@@ -356,9 +356,9 @@ TEST_F(MqttJsonFbTest, JsonInitFromFileWithChecking)
     ASSERT_EQ(jsonFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
     ASSERT_EQ(jsonFb.getFunctionBlocks().getCount(), 3u);
-    auto lambda = [&](FunctionBlockPtr nestedFb, std::string name, std::string value, std::string ts, std::string symbol)
+    auto lambda = [&](FunctionBlockPtr nestedFb, std::string value, std::string ts, std::string symbol)
     {
-        EXPECT_EQ(nestedFb.getSignals()[0].getName().toStdString(), name);
+        EXPECT_EQ(nestedFb.getSignals()[0].getName().toStdString(), value);
         if (!symbol.empty())
             EXPECT_EQ(nestedFb.getSignals()[0].getDescriptor().getUnit().getSymbol().toStdString(), symbol);
         EXPECT_EQ(nestedFb.getPropertyValue(PROPERTY_NAME_VALUE_NAME).asPtr<IString>().toStdString(), value);
@@ -366,9 +366,9 @@ TEST_F(MqttJsonFbTest, JsonInitFromFileWithChecking)
     };
     EXPECT_EQ(jsonFb.getPropertyValue(PROPERTY_NAME_TOPIC).asPtr<IString>().toStdString(), "/mirip/UNet3AC2/sensor/data");
 
-    lambda(jsonFb.getFunctionBlocks()[0], "temp", "temp", "ts", "°C");
-    lambda(jsonFb.getFunctionBlocks()[1], "humidity", "humi", "ts", "%");
-    lambda(jsonFb.getFunctionBlocks()[2], "tds", "tds_value", "ts", "ppm");
+    lambda(jsonFb.getFunctionBlocks()[0], "temp", "ts", "°C");
+    lambda(jsonFb.getFunctionBlocks()[1], "humi", "ts", "%");
+    lambda(jsonFb.getFunctionBlocks()[2], "tds_value", "ts", "ppm");
 
 }
 

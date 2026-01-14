@@ -19,7 +19,8 @@ static constexpr uint32_t DEFAULT_PUB_QOS = 1;
 static constexpr uint32_t DEFAULT_SUB_QOS = 1;
 static constexpr uint32_t DEFAULT_PUB_PACK_SIZE = 1;
 
-static constexpr const char* DEFAULT_SIGNAL_NAME = "MQTTValueSignal";
+static constexpr const char* DEFAULT_VALUE_SIGNAL_LOCAL_ID = "MQTTValueSignal";
+static constexpr const char* DEFAULT_TS_SIGNAL_LOCAL_ID = "MQTTTimestampSignal";
 
 static constexpr const char* PROPERTY_NAME_MQTT_BROKER_ADDRESS = "MQTTBrokerAddress";
 static constexpr const char* PROPERTY_NAME_MQTT_BROKER_PORT = "MQTTBrokerPort";
@@ -33,7 +34,6 @@ static constexpr const char* PROPERTY_NAME_TOPIC = "Topic";
 static constexpr const char* PROPERTY_NAME_VALUE_NAME = "ValueName";
 static constexpr const char* PROPERTY_NAME_TS_NAME = "TimestampName";
 static constexpr const char* PROPERTY_NAME_UNIT = "Unit";
-static constexpr const char* PROPERTY_NAME_SIGNAL_NAME = "SignalName";
 
 
 static constexpr const char* PROPERTY_NAME_PUB_TOPIC_MODE = "TopicMode";

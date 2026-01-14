@@ -47,7 +47,6 @@ protected:
         std::string valueFieldName;
         std::string tsFieldName;
         std::string unitSymbol;
-        std::string signalName;
     };
     struct ConfigStatus {
         bool configValid;

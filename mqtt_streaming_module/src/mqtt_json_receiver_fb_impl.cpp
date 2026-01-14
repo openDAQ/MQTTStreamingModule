@@ -232,7 +232,6 @@ void MqttJsonReceiverFbImpl::setJsonConfig(const std::string config)
                     LOG_I("Creating a decoder FB for the signal \"{}\":", signalName);
                     fbConfig.setPropertyValue(PROPERTY_NAME_VALUE_NAME, descriptor.valueFieldName);
                     fbConfig.setPropertyValue(PROPERTY_NAME_TS_NAME, descriptor.tsFieldName);
-                    fbConfig.setPropertyValue(PROPERTY_NAME_SIGNAL_NAME, signalName);
                     if (descriptor.unit.assigned())
                         fbConfig.setPropertyValue(PROPERTY_NAME_UNIT, descriptor.unit.getSymbol());
                     MqttJsonReceiverFbImpl::onAddFunctionBlock(JSON_DECODER_FB_NAME, fbConfig);

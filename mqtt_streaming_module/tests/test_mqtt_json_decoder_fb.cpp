@@ -66,20 +66,19 @@ public:
         jsonMqttFb = new MqttJsonReceiverFbImpl(NullContext(), nullptr, fbType, nullptr, config);
     }
 
-    void CreateDecoderFB(std::string topic, std::string valueF, std::string tsF, std::string sigName = "", std::string unitSymbol = "")
+    void CreateDecoderFB(std::string topic, std::string valueF, std::string tsF, std::string unitSymbol = "")
     {
         CreateJsonFb(topic);
-        AddDecoderFb(valueF, tsF, sigName, unitSymbol);
+        AddDecoderFb(valueF, tsF, unitSymbol);
     }
 
-    daq::FunctionBlockPtr AddDecoderFb(std::string valueF, std::string tsF, std::string sigName = "", std::string unitSymbol = "")
+    daq::FunctionBlockPtr AddDecoderFb(std::string valueF, std::string tsF, std::string unitSymbol = "")
     {
         daq::StringPtr typeId = daq::String(JSON_DECODER_FB_NAME);
         auto config = jsonMqttFb.getAvailableFunctionBlockTypes().get(JSON_DECODER_FB_NAME).createDefaultConfig();
 
         config.setPropertyValue(PROPERTY_NAME_VALUE_NAME, valueF);
         config.setPropertyValue(PROPERTY_NAME_TS_NAME, tsF);
-        config.setPropertyValue(PROPERTY_NAME_SIGNAL_NAME, sigName);
         config.setPropertyValue(PROPERTY_NAME_UNIT, unitSymbol);
         decoderObj = jsonMqttFb.addFunctionBlock(typeId, config);
         return decoderObj;
@@ -466,7 +465,7 @@ TEST_F(MqttJsonDecoderFbTest, DefaultConfig)
 
     ASSERT_TRUE(defaultConfig.assigned());
 
-    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 4u);
+    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 3u);
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_VALUE_NAME));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_VALUE_NAME).getValueType(), CoreType::ctString);
@@ -475,10 +474,6 @@ TEST_F(MqttJsonDecoderFbTest, DefaultConfig)
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_TS_NAME));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_TS_NAME).getValueType(), CoreType::ctString);
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_TS_NAME).asPtr<IString>().getLength(), 0u);
-
-    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SIGNAL_NAME));
-    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SIGNAL_NAME).getValueType(), CoreType::ctString);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SIGNAL_NAME).asPtr<IString>().toStdString(), std::string(DEFAULT_SIGNAL_NAME));
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_UNIT));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_UNIT).getValueType(), CoreType::ctString);
@@ -493,7 +488,6 @@ TEST_F(MqttJsonDecoderFbTest, Config)
 
     config.setPropertyValue(PROPERTY_NAME_VALUE_NAME, "value");
     config.setPropertyValue(PROPERTY_NAME_TS_NAME, "timestamp");
-    config.setPropertyValue(PROPERTY_NAME_SIGNAL_NAME, "signalName_0");
     config.setPropertyValue(PROPERTY_NAME_UNIT, "ppm");
     daq::FunctionBlockPtr fb;
     ASSERT_NO_THROW(fb = jsonMqttFb.addFunctionBlock(JSON_DECODER_FB_NAME, config));

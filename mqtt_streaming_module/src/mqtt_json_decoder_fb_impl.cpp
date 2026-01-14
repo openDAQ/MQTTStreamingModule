@@ -49,11 +49,6 @@ FunctionBlockTypePtr MqttJsonDecoderFbImpl::CreateType()
     }
 
     {
-        auto builder = StringPropertyBuilder(PROPERTY_NAME_SIGNAL_NAME, String(DEFAULT_SIGNAL_NAME)).setDescription("");
-        defaultConfig.addProperty(builder.build());
-    }
-
-    {
         auto builder = StringPropertyBuilder(PROPERTY_NAME_UNIT, String("")).setDescription("");
         defaultConfig.addProperty(builder.build());
     }
@@ -106,9 +101,6 @@ void MqttJsonDecoderFbImpl::readProperties()
     }
     config.tsFieldName = readProperty<std::string, IString>(PROPERTY_NAME_TS_NAME, "");
     config.unitSymbol = readProperty<std::string, IString>(PROPERTY_NAME_UNIT, "");
-    config.signalName = readProperty<std::string, IString>(PROPERTY_NAME_SIGNAL_NAME, DEFAULT_SIGNAL_NAME);
-    if (config.signalName.empty())
-        config.signalName = DEFAULT_SIGNAL_NAME;
 
     jsonDataWorker.setValueFieldName(config.valueFieldName);
     jsonDataWorker.setTimestampFieldName(config.tsFieldName);
@@ -199,7 +191,8 @@ void MqttJsonDecoderFbImpl::createSignal()
     if (config.unitSymbol != "")
         dataDescBdr.setUnit(Unit(config.unitSymbol));
 
-    outputSignal = createAndAddSignal(config.signalName, dataDescBdr.build());
+    outputSignal = createAndAddSignal(DEFAULT_VALUE_SIGNAL_LOCAL_ID, dataDescBdr.build());
+    outputSignal.setName(config.valueFieldName);
     if (config.tsFieldName != "")
     {
         outputSignal.setDomainSignal(createDomainSignal());
@@ -211,9 +204,9 @@ void MqttJsonDecoderFbImpl::createSignal()
 void MqttJsonDecoderFbImpl::reconfigureSignal(const FbConfig& prevConfig)
 {
     auto lock = this->getRecursiveConfigLock();
-    if (prevConfig.signalName != config.signalName)
+    if (prevConfig.valueFieldName != config.valueFieldName)
     {
-        outputSignal.setName(config.signalName);
+        outputSignal.setName(config.valueFieldName);
     }
 
     if (prevConfig.valueFieldName != config.valueFieldName || prevConfig.unitSymbol != config.unitSymbol)
@@ -260,7 +253,7 @@ SignalConfigPtr MqttJsonDecoderFbImpl::createDomainSignal()
                                      .setOrigin(getEpoch())
                                      .setName("Time")
                                      .build();
-    outputDomainSignal = createAndAddSignal("mqttTimestampSignal", domainSignalDsc, false);
+    outputDomainSignal = createAndAddSignal(DEFAULT_TS_SIGNAL_LOCAL_ID, domainSignalDsc, false);
     return outputDomainSignal;
 }
 
