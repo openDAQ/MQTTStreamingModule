@@ -17,6 +17,7 @@ public:
     bool publishMsg(const mqtt::MqttMessage& msg);
     bool subscribe(const std::string& topic, int qos);
     void expectMsgs(const std::string& topic, const std::vector<std::string>& msgs, std::promise<bool>& promise, std::atomic<bool>& done);
+    void expectMultiMsgs(const std::string& topic, const std::vector<std::string>& msgs, std::promise<bool>& promise, std::atomic<bool>& done);
 
     std::unique_ptr<mqtt::MqttAsyncClient> instance;
     std::promise<bool> connectedPromise;

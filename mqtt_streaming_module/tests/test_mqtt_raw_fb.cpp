@@ -289,8 +289,8 @@ TEST_F(MqttRawFbTest, CheckRawFbFullDataTransfer)
         mqtt::MqttMessage msg = {topic, data, 1, 0};
         ASSERT_TRUE(publisher.publishMsg(msg));
     }
-
-    while (!reader.getEmpty())
+    helper::utils::Timer tmr(3000, true);
+    while ((!reader.getEmpty() || !tmr.expired()) && dataToReceive.size() != dataToSend.size())
     {
         auto packet = reader.read();
         if (const auto eventPacket = packet.asPtrOrNull<IEventPacket>(); eventPacket.assigned())
