@@ -231,6 +231,10 @@ void MqttPublisherFbImpl::updateStatuses()
     {
         setComponentStatusWithMessage(ComponentStatus::Warning, "No input ports are connected!");
     }
+    else if (hasEmptyTopic)
+    {
+        setComponentStatusWithMessage(ComponentStatus::Warning, "Topic property is empty! Using FB Global ID as topic name.");
+    }
     else if (skippedMsgCnt != 0)
     {
         setComponentStatusWithMessage(ComponentStatus::Warning, "Some messages were not published!");
@@ -295,12 +299,31 @@ void MqttPublisherFbImpl::readProperties()
     config.qos = readProperty<int, IInteger>(PROPERTY_NAME_PUB_QOS, DEFAULT_PUB_QOS);
     config.periodMs = readProperty<int, IInteger>(PROPERTY_NAME_PUB_READ_PERIOD, DEFAULT_PUB_READ_PERIOD);
     config.topicName = readProperty<std::string, IString>(PROPERTY_NAME_PUB_TOPIC_NAME, globalId.toStdString());
+
+    if (tmpTopicMode < static_cast<int>(TopicMode::_count) && tmpTopicMode >= 0)
+    {
+        config.topicMode = static_cast<TopicMode>(tmpTopicMode);
+    }
+    else
+    {
+        config.topicMode = TopicMode::PerSignal;
+        hasSettingError = true;
+        settingErrors.push_back("Topic mode has invalid value.");
+    }
+
     if (config.topicName.empty())
+    {
         config.topicName = globalId.toStdString();
+        hasEmptyTopic = (config.topicMode == TopicMode::Single);
+    }
+    else
+    {
+        hasEmptyTopic = false;
+    }
 
     settingErrors.clear();
     hasSettingError = false;
-    if (config.topicMode == TopicMode::Multi || config.sharedTs)
+    if (config.topicMode == TopicMode::Single || config.sharedTs)
     {
         auto result = mqtt::MqttDataWrapper::validateTopic(config.topicName, loggerComponent);
         hasSettingError = !result.success;
@@ -318,17 +341,6 @@ void MqttPublisherFbImpl::readProperties()
         hasSettingError = true;
         settingErrors.push_back("Reader period must be non-negative.");
     }
-    if (tmpTopicMode < static_cast<int>(TopicMode::_count) && tmpTopicMode >= 0)
-    {
-        config.topicMode = static_cast<TopicMode>(tmpTopicMode);
-    }
-    else
-    {
-        config.topicMode = TopicMode::Single;
-        hasSettingError = true;
-        settingErrors.push_back("Topic mode has invalid value.");
-    }
-
 }
 
 void MqttPublisherFbImpl::propertyChanged()

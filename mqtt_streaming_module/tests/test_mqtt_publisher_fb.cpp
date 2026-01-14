@@ -619,7 +619,7 @@ TEST_F(MqttPublisherFbTest, Config)
     }
     MqttPublisherFbImpl* ptr = reinterpret_cast<MqttPublisherFbImpl*>(fb.getObject());
     ASSERT_TRUE(ptr != nullptr);
-    EXPECT_EQ(ptr->getFbConfig().topicMode, TopicMode::Multi);
+    EXPECT_EQ(ptr->getFbConfig().topicMode, TopicMode::Single);
     EXPECT_TRUE(ptr->getFbConfig().sharedTs);
     EXPECT_TRUE(ptr->getFbConfig().groupValues);
     EXPECT_TRUE(ptr->getFbConfig().useSignalNames);

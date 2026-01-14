@@ -83,6 +83,7 @@ private:
     std::atomic<bool> running;
     std::atomic<bool> hasSignalError;
     std::atomic<bool> hasSettingError;
+    std::atomic<bool> hasEmptyTopic;
     std::vector<std::string> signalErrors;
     std::vector<std::string> settingErrors;
     std::unique_ptr<HandlerBase> handler;

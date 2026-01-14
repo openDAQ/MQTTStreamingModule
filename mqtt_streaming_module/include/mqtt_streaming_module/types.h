@@ -12,8 +12,8 @@ using MqttDataSample = std::pair<std::string, std::string>;
 using MqttData = std::vector<MqttDataSample>;
 
 enum class TopicMode {
-    Single = 0,
-    Multi,
+    PerSignal = 0,
+    Single,
     _count
 };
 

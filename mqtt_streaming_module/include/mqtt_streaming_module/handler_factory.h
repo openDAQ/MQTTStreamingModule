@@ -34,14 +34,14 @@ public:
             return std::make_unique<GroupSignalSharedTsHandler>(config.useSignalNames,
                                                            config.topicName.empty() ? publisherFbGlobalId : config.topicName);
         }
-        else if (config.topicMode == TopicMode::Single)
+        else if (config.topicMode == TopicMode::PerSignal)
         {
             if (config.groupValues)
                 return std::make_unique<AtomicSignalSampleArrayHandler>(config.useSignalNames, config.groupValuesPackSize);
             else
                 return std::make_unique<AtomicSignalAtomicSampleHandler>(config.useSignalNames);
         }
-        else if (config.topicMode == TopicMode::Multi)
+        else if (config.topicMode == TopicMode::Single)
         {
             return std::make_unique<SignalArrayAtomicSampleHandler>(config.useSignalNames,
                                                      config.topicName.empty() ? publisherFbGlobalId : config.topicName);
