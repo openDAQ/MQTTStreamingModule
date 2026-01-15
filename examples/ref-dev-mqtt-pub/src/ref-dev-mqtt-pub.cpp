@@ -91,15 +91,15 @@ int main(int argc, char* argv[])
     // Create and configure MQTT server
     const std::string rootFbName = "MQTTClientFB";
     auto rootFbConfig = instance.getAvailableFunctionBlockTypes().get(rootFbName).createDefaultConfig();
-    rootFbConfig.setPropertyValue("MQTTBrokerAddress", appConfig.brokerAddress);
+    rootFbConfig.setPropertyValue("BrokerAddress", appConfig.brokerAddress);
     auto brokerFB = instance.addFunctionBlock(rootFbName, rootFbConfig);
     auto availableFbs = brokerFB.getAvailableFunctionBlockTypes();
-    const std::string fbName = "PublisherMQTTFB";
+    const std::string fbName = "MQTTJSONPublisherFB";
     std::cout << "Try to add the " << fbName << std::endl;
 
     auto config = availableFbs.get(fbName).createDefaultConfig();
     config.setPropertyValue("QoS", 1);
-    config.setPropertyValue("ReaderPeriod", 20);
+    config.setPropertyValue("ReaderWaitPeriod", 20);
     config.setPropertyValue("UseSignalNames", True);
     switch (appConfig.mode) {
         case Mode::ATOMIC_SIGNAL_ATOMIC_SAMPLE:
@@ -111,7 +111,7 @@ int main(int argc, char* argv[])
             config.setPropertyValue("SharedTimestamp", False);
             config.setPropertyValue("TopicMode", 0);
             config.setPropertyValue("GroupValues", True);
-            config.setPropertyValue("GroupValuesPackSize", 3);
+            config.setPropertyValue("SamplesPerMessage", 3);
             break;
         case Mode::SIGNAL_ARRAY_ATOMIC_SAMPLE:
             config.setPropertyValue("SharedTimestamp", False);

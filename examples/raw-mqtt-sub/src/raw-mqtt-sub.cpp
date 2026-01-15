@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
     const InstancePtr instance = InstanceBuilder().addModulePath(MODULE_PATH).build();
     const std::string clientFbName = "MQTTClientFB";
     auto clientFbConfig = instance.getAvailableFunctionBlockTypes().get(clientFbName).createDefaultConfig();
-    clientFbConfig.setPropertyValue("MQTTBrokerAddress", appConfig.brokerAddress);
+    clientFbConfig.setPropertyValue("BrokerAddress", appConfig.brokerAddress);
     auto brokerFB = instance.addFunctionBlock(clientFbName, clientFbConfig);
     auto availableFbs = brokerFB.getAvailableFunctionBlockTypes();
 

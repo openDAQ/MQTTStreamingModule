@@ -28,7 +28,7 @@ public:
     daq::FunctionBlockPtr DaqAddRootMqttFb(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
     {
         auto config = DaqMqttFbConfig(url, port);
-        rootMqttFb = daqInstance.addFunctionBlock(ROOT_FB_NAME, config);
+        rootMqttFb = daqInstance.addFunctionBlock(CLIENT_FB_NAME, config);
         return rootMqttFb;
     }
 
@@ -37,7 +37,7 @@ public:
         if (!rootMqttFb.assigned())
         {
             auto config = DaqMqttFbConfig(url, port);
-            rootMqttFb = daqInstance.addFunctionBlock(ROOT_FB_NAME, config);
+            rootMqttFb = daqInstance.addFunctionBlock(CLIENT_FB_NAME, config);
         }
         return rootMqttFb;
     }
@@ -47,9 +47,9 @@ public:
         daq::ModulePtr module;
         createModule(&module, daq::NullContext());
 
-        auto config = module.getAvailableFunctionBlockTypes().get(daq::modules::mqtt_streaming_module::ROOT_FB_NAME).createDefaultConfig();
-        config.setPropertyValue(PROPERTY_NAME_MQTT_BROKER_ADDRESS, url);
-        config.setPropertyValue(PROPERTY_NAME_MQTT_BROKER_PORT, port);
+        auto config = module.getAvailableFunctionBlockTypes().get(daq::modules::mqtt_streaming_module::CLIENT_FB_NAME).createDefaultConfig();
+        config.setPropertyValue(PROPERTY_NAME_CLIENT_BROKER_ADDRESS, url);
+        config.setPropertyValue(PROPERTY_NAME_CLIENT_BROKER_PORT, port);
         return config;
     }
 
@@ -63,7 +63,7 @@ public:
     daq::FunctionBlockPtr AddSubFb(std::string topic = "")
     {
         auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(SUB_FB_NAME).createDefaultConfig();
-        config.setPropertyValue(PROPERTY_NAME_TOPIC, daq::String(topic));
+        config.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, daq::String(topic));
         subMqttFb = rootMqttFb.addFunctionBlock(SUB_FB_NAME, config);
         return subMqttFb;
     }

@@ -22,43 +22,44 @@ static constexpr uint32_t DEFAULT_PUB_PACK_SIZE = 1;
 static constexpr const char* DEFAULT_VALUE_SIGNAL_LOCAL_ID = "MQTTValueSignal";
 static constexpr const char* DEFAULT_TS_SIGNAL_LOCAL_ID = "MQTTTimestampSignal";
 
-static constexpr const char* PROPERTY_NAME_MQTT_BROKER_ADDRESS = "MQTTBrokerAddress";
-static constexpr const char* PROPERTY_NAME_MQTT_BROKER_PORT = "MQTTBrokerPort";
-static constexpr const char* PROPERTY_NAME_MQTT_USERNAME = "MQTTUsername";
-static constexpr const char* PROPERTY_NAME_MQTT_PASSWORD = "MQTTPassword";
-static constexpr const char* PROPERTY_NAME_CONNECT_TIMEOUT = "ConnectTimeout";
-static constexpr const char* PROPERTY_NAME_SIGNAL_LIST = "SignalList";
-static constexpr const char* PROPERTY_NAME_JSON_CONFIG = "JSONConfig";
-static constexpr const char* PROPERTY_NAME_JSON_CONFIG_FILE = "JSONConfigFile";
-static constexpr const char* PROPERTY_NAME_TOPIC = "Topic";
-static constexpr const char* PROPERTY_NAME_VALUE_NAME = "ValueName";
-static constexpr const char* PROPERTY_NAME_TS_NAME = "TimestampName";
-static constexpr const char* PROPERTY_NAME_UNIT = "Unit";
 
+static constexpr const char* PROPERTY_NAME_CLIENT_BROKER_ADDRESS = "BrokerAddress";
+static constexpr const char* PROPERTY_NAME_CLIENT_BROKER_PORT = "BrokerPort";
+static constexpr const char* PROPERTY_NAME_CLIENT_USERNAME = "Username";
+static constexpr const char* PROPERTY_NAME_CLIENT_PASSWORD = "Password";
+static constexpr const char* PROPERTY_NAME_CLIENT_CONNECT_TIMEOUT = "ConnectionTimeout";
+
+static constexpr const char* PROPERTY_NAME_SUB_JSON_CONFIG = "JSONConfig";
+static constexpr const char* PROPERTY_NAME_SUB_JSON_CONFIG_FILE = "JSONConfigFile";
+static constexpr const char* PROPERTY_NAME_SUB_QOS = "QoS";
+static constexpr const char* PROPERTY_NAME_SUB_TOPIC = "Topic";
+
+static constexpr const char* PROPERTY_NAME_DEC_VALUE_NAME = "ValueKey";
+static constexpr const char* PROPERTY_NAME_DEC_TS_NAME = "DomainKey";
+static constexpr const char* PROPERTY_NAME_DEC_UNIT = "Unit";
 
 static constexpr const char* PROPERTY_NAME_PUB_TOPIC_MODE = "TopicMode";
 static constexpr const char* PROPERTY_NAME_PUB_TOPIC_NAME = "Topic";
 static constexpr const char* PROPERTY_NAME_PUB_SHARED_TS = "SharedTimestamp";
 static constexpr const char* PROPERTY_NAME_PUB_GROUP_VALUES = "GroupValues";
 static constexpr const char* PROPERTY_NAME_PUB_USE_SIGNAL_NAMES = "UseSignalNames";
-static constexpr const char* PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE = "GroupValuesPackSize";
+static constexpr const char* PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE = "SamplesPerMessage";
 static constexpr const char* PROPERTY_NAME_PUB_QOS = "QoS";
-static constexpr const char* PROPERTY_NAME_SUB_QOS = "QoS";
-static constexpr const char* PROPERTY_NAME_PUB_READ_PERIOD = "ReaderPeriod";
+static constexpr const char* PROPERTY_NAME_PUB_READ_PERIOD = "ReaderWaitPeriod";
 static constexpr const char* PROPERTY_NAME_PUB_TOPICS = "Topics";
 
 static constexpr const char* SUB_FB_NAME = "MQTTSubscriberFB";
-static constexpr const char* PUB_FB_NAME = "PublisherMQTTFB";
-static constexpr const char* ROOT_FB_NAME = "MQTTClientFB";
-static constexpr const char* JSON_DECODER_FB_NAME = "JSONDecoderMQTTTFB";
+static constexpr const char* PUB_FB_NAME = "MQTTJSONPublisherFB";
+static constexpr const char* CLIENT_FB_NAME = "MQTTClientFB";
+static constexpr const char* JSON_DECODER_FB_NAME = "MQTTJSONDecoderFB";
 
-static const char* MQTT_LOCAL_ROOT_FB_ID_PREFIX = "MQTTClientFB";
-static const char* MQTT_LOCAL_PUB_FB_ID_PREFIX = "PublisherMQTTFB";
+static const char* MQTT_LOCAL_CLIENT_FB_ID_PREFIX = "MQTTClientFB";
+static const char* MQTT_LOCAL_PUB_FB_ID_PREFIX = "MQTTJSONPublisherFB";
 static const char* MQTT_LOCAL_SUB_FB_ID_PREFIX = "MQTTSubscriberFB";
-static const char* MQTT_LOCAL_JSON_DECODER_FB_ID_PREFIX = "JSONDecoderMQTTTFB";
+static const char* MQTT_LOCAL_JSON_DECODER_FB_ID_PREFIX = "MQTTJSONDecoderFB";
 
 
-static const char* MQTT_ROOT_FB_CON_STATUS_TYPE = "BrokerConnectionStatusType";
+static const char* MQTT_CLIENT_FB_CON_STATUS_TYPE = "BrokerConnectionStatusType";
 static const char* MQTT_FB_SUB_STATUS_TYPE = "MQTTSubscriptionStatusType";
 static const char* MQTT_PUB_FB_SIG_STATUS_TYPE = "MQTTSignalStatusType";
 static const char* MQTT_PUB_FB_PUB_STATUS_TYPE = "MQTTPublishingStatusType";
@@ -66,7 +67,7 @@ static const char* MQTT_FB_PARSING_STATUS_TYPE = "MQTTParsingStatusType";
 static const char* MQTT_PUB_FB_SET_STATUS_TYPE = "MQTTSettingStatusType";
 
 
-static const char* MQTT_ROOT_FB_CON_STATUS_NAME = "ConnectionStatus";
+static const char* MQTT_CLIENT_FB_CON_STATUS_NAME = "ConnectionStatus";
 static const char* MQTT_PUB_FB_SIG_STATUS_NAME = "SignalStatus";
 static const char* MQTT_PUB_FB_PUB_STATUS_NAME = "PublishingStatus";
 static const char* MQTT_FB_SUB_STATUS_NAME = "SubscriptionStatus";

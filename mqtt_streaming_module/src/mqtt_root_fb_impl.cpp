@@ -19,8 +19,8 @@ MqttRootFbImpl::MqttRootFbImpl(const ContextPtr& ctx, const ComponentPtr& parent
     : FunctionBlock(CreateType(), ctx, parent, generateLocalId()),
       subscriber(std::make_shared<mqtt::MqttAsyncClient>()),
       connectTimeout(0),
-      connectionStatus(MQTT_ROOT_FB_CON_STATUS_TYPE,
-                       MQTT_ROOT_FB_CON_STATUS_NAME,
+      connectionStatus(MQTT_CLIENT_FB_CON_STATUS_TYPE,
+                       MQTT_CLIENT_FB_CON_STATUS_NAME,
                        statusContainer,
                        connectionStatusMap,
                        ConnectionStatus::Disconnected,
@@ -150,13 +150,13 @@ void MqttRootFbImpl::initProperties(const PropertyObjectPtr& config)
 
 void MqttRootFbImpl::readProperties()
 {
-    connectionSettings.mqttUrl = objPtr.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_ADDRESS).asPtr<IString>().toStdString();
-    connectionSettings.port = objPtr.getPropertyValue(PROPERTY_NAME_MQTT_BROKER_PORT);
-    connectionSettings.username = objPtr.getPropertyValue(PROPERTY_NAME_MQTT_USERNAME).asPtr<IString>().toStdString();
-    connectionSettings.password = objPtr.getPropertyValue(PROPERTY_NAME_MQTT_PASSWORD).asPtr<IString>().toStdString();
+    connectionSettings.mqttUrl = objPtr.getPropertyValue(PROPERTY_NAME_CLIENT_BROKER_ADDRESS).asPtr<IString>().toStdString();
+    connectionSettings.port = objPtr.getPropertyValue(PROPERTY_NAME_CLIENT_BROKER_PORT);
+    connectionSettings.username = objPtr.getPropertyValue(PROPERTY_NAME_CLIENT_USERNAME).asPtr<IString>().toStdString();
+    connectionSettings.password = objPtr.getPropertyValue(PROPERTY_NAME_CLIENT_PASSWORD).asPtr<IString>().toStdString();
     connectionSettings.clientId = globalId.toStdString();
 
-    connectTimeout = objPtr.getPropertyValue(PROPERTY_NAME_CONNECT_TIMEOUT);
+    connectTimeout = objPtr.getPropertyValue(PROPERTY_NAME_CLIENT_CONNECT_TIMEOUT);
 }
 
 bool MqttRootFbImpl::waitForConnection(const int timeoutMs)
@@ -214,7 +214,7 @@ FunctionBlockPtr MqttRootFbImpl::onAddFunctionBlock(const StringPtr& typeId, con
 
 std::string MqttRootFbImpl::generateLocalId()
 {
-    return std::string(MQTT_LOCAL_ROOT_FB_ID_PREFIX + std::to_string(localIndex++));
+    return std::string(MQTT_LOCAL_CLIENT_FB_ID_PREFIX + std::to_string(localIndex++));
 }
 
 FunctionBlockTypePtr MqttRootFbImpl::CreateType()
@@ -222,33 +222,33 @@ FunctionBlockTypePtr MqttRootFbImpl::CreateType()
     auto config = PropertyObject();
     {
         auto builder =
-            StringPropertyBuilder(PROPERTY_NAME_MQTT_BROKER_ADDRESS, DEFAULT_BROKER_ADDRESS)
+            StringPropertyBuilder(PROPERTY_NAME_CLIENT_BROKER_ADDRESS, DEFAULT_BROKER_ADDRESS)
                 .setDescription(fmt::format("MQTT broker address. It can be an IP address or a hostname. By default it is set to \"{}\".",
                                             DEFAULT_BROKER_ADDRESS));
         config.addProperty(builder.build());
     }
     {
         auto builder =
-            StringPropertyBuilder(PROPERTY_NAME_MQTT_USERNAME, DEFAULT_USERNAME)
+            StringPropertyBuilder(PROPERTY_NAME_CLIENT_USERNAME, DEFAULT_USERNAME)
                 .setDescription(fmt::format("Username for MQTT broker authentication. By default it is set to \"{}\".", DEFAULT_USERNAME));
         config.addProperty(builder.build());
     }
     {
         auto builder =
-            StringPropertyBuilder(PROPERTY_NAME_MQTT_PASSWORD, DEFAULT_PASSWORD)
+            StringPropertyBuilder(PROPERTY_NAME_CLIENT_PASSWORD, DEFAULT_PASSWORD)
                 .setDescription(fmt::format("Password for MQTT broker authentication. By default it is set to \"{}\".", DEFAULT_PASSWORD));
         config.addProperty(builder.build());
     }
     {
         auto builder =
-            IntPropertyBuilder(PROPERTY_NAME_MQTT_BROKER_PORT, DEFAULT_PORT)
+            IntPropertyBuilder(PROPERTY_NAME_CLIENT_BROKER_PORT, DEFAULT_PORT)
                 .setMinValue(1)
                 .setMaxValue(65535)
                 .setDescription(fmt::format("Port number for MQTT broker connection. By default it is set to {}.", DEFAULT_PORT));
         config.addProperty(builder.build());
     }
     {
-        auto builder = IntPropertyBuilder(PROPERTY_NAME_CONNECT_TIMEOUT, DEFAULT_INIT_TIMEOUT)
+        auto builder = IntPropertyBuilder(PROPERTY_NAME_CLIENT_CONNECT_TIMEOUT, DEFAULT_INIT_TIMEOUT)
         .setMinValue(0)
             .setUnit(Unit("ms"))
             .setDescription(fmt::format("Timeout in milliseconds for the initial connection to the MQTT broker. If the "
@@ -256,8 +256,8 @@ FunctionBlockTypePtr MqttRootFbImpl::CreateType()
                                         DEFAULT_INIT_TIMEOUT));
         config.addProperty(builder.build());
     }
-    const auto fbType = FunctionBlockType(ROOT_FB_NAME,
-                                          ROOT_FB_NAME,
+    const auto fbType = FunctionBlockType(CLIENT_FB_NAME,
+                                          CLIENT_FB_NAME,
                                           "The MQTT function block allows connecting to MQTT broker. It may contain nested "
                                           "publisher/subscriber FBs.",
                                           config);

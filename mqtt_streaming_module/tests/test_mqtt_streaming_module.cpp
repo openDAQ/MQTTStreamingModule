@@ -65,8 +65,8 @@ TEST_F(MqttStreamingClientModuleTest, GetAvailableComponentTypes)
     DictPtr<IString, IFunctionBlockType> functionBlockTypes;
     ASSERT_NO_THROW(functionBlockTypes = module.getAvailableFunctionBlockTypes());
     ASSERT_EQ(functionBlockTypes.getCount(), 1u);
-    ASSERT_TRUE(functionBlockTypes.hasKey(ROOT_FB_NAME));
-    ASSERT_EQ(functionBlockTypes.get(ROOT_FB_NAME).getId(), ROOT_FB_NAME);
+    ASSERT_TRUE(functionBlockTypes.hasKey(CLIENT_FB_NAME));
+    ASSERT_EQ(functionBlockTypes.get(CLIENT_FB_NAME).getId(), CLIENT_FB_NAME);
 
     DictPtr<IString, IDeviceType> deviceTypes;
     ASSERT_NO_THROW(deviceTypes = module.getAvailableDeviceTypes());

@@ -39,17 +39,17 @@ FunctionBlockTypePtr MqttJsonDecoderFbImpl::CreateType()
 {
     auto defaultConfig = PropertyObject();
     {
-        auto builder = StringPropertyBuilder(PROPERTY_NAME_VALUE_NAME, String("")).setDescription("");
+        auto builder = StringPropertyBuilder(PROPERTY_NAME_DEC_VALUE_NAME, String("")).setDescription("");
         defaultConfig.addProperty(builder.build());
     }
 
     {
-        auto builder = StringPropertyBuilder(PROPERTY_NAME_TS_NAME, String("")).setDescription("");
+        auto builder = StringPropertyBuilder(PROPERTY_NAME_DEC_TS_NAME, String("")).setDescription("");
         defaultConfig.addProperty(builder.build());
     }
 
     {
-        auto builder = StringPropertyBuilder(PROPERTY_NAME_UNIT, String("")).setDescription("");
+        auto builder = StringPropertyBuilder(PROPERTY_NAME_DEC_UNIT, String("")).setDescription("");
         defaultConfig.addProperty(builder.build());
     }
 
@@ -93,14 +93,14 @@ void MqttJsonDecoderFbImpl::readProperties()
     auto lock = this->getRecursiveConfigLock();
     configStatus.configValid = true;
     configStatus.configMsg.clear();
-    config.valueFieldName = readProperty<std::string, IString>(PROPERTY_NAME_VALUE_NAME, "");
+    config.valueFieldName = readProperty<std::string, IString>(PROPERTY_NAME_DEC_VALUE_NAME, "");
     if (config.valueFieldName.empty())
     {
-        configStatus.configMsg = fmt::format("\"{}\" property is empty!", PROPERTY_NAME_VALUE_NAME);
+        configStatus.configMsg = fmt::format("\"{}\" property is empty!", PROPERTY_NAME_DEC_VALUE_NAME);
         configStatus.configValid = false;
     }
-    config.tsFieldName = readProperty<std::string, IString>(PROPERTY_NAME_TS_NAME, "");
-    config.unitSymbol = readProperty<std::string, IString>(PROPERTY_NAME_UNIT, "");
+    config.tsFieldName = readProperty<std::string, IString>(PROPERTY_NAME_DEC_TS_NAME, "");
+    config.unitSymbol = readProperty<std::string, IString>(PROPERTY_NAME_DEC_UNIT, "");
 
     jsonDataWorker.setValueFieldName(config.valueFieldName);
     jsonDataWorker.setTimestampFieldName(config.tsFieldName);

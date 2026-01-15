@@ -68,7 +68,7 @@ void MqttSubscriberFbImpl::initProperties(const PropertyObjectPtr& config)
     for (const auto& prop : config.getAllProperties())
     {
         const auto propName = prop.getName();
-        if (propName == PROPERTY_NAME_JSON_CONFIG || propName == PROPERTY_NAME_JSON_CONFIG_FILE)
+        if (propName == PROPERTY_NAME_SUB_JSON_CONFIG || propName == PROPERTY_NAME_SUB_JSON_CONFIG_FILE)
         {
             if (!objPtr.hasProperty(propName))
             {
@@ -108,7 +108,7 @@ FunctionBlockTypePtr MqttSubscriberFbImpl::CreateType()
     auto defaultConfig = PropertyObject();
     {
         auto builder =
-            StringPropertyBuilder(PROPERTY_NAME_TOPIC, String("")).setDescription("An MQTT topic to subscribe to for receiving data.");
+            StringPropertyBuilder(PROPERTY_NAME_SUB_TOPIC, String("")).setDescription("An MQTT topic to subscribe to for receiving data.");
         defaultConfig.addProperty(builder.build());
     }
     {
@@ -122,12 +122,12 @@ FunctionBlockTypePtr MqttSubscriberFbImpl::CreateType()
     }
     {
         auto builder =
-            StringPropertyBuilder(PROPERTY_NAME_JSON_CONFIG, String(""))
+            StringPropertyBuilder(PROPERTY_NAME_SUB_JSON_CONFIG, String(""))
                 .setDescription("JSON configuration string that defines an MQTT topic and corresponding signals to subscribe to.");
         defaultConfig.addProperty(builder.build());
     }
     {
-        auto builder = StringPropertyBuilder(PROPERTY_NAME_JSON_CONFIG_FILE, String(""))
+        auto builder = StringPropertyBuilder(PROPERTY_NAME_SUB_JSON_CONFIG_FILE, String(""))
                            .setDescription("Path to file where the JSON configuration string is stored.");
         defaultConfig.addProperty(builder.build());
     }
@@ -160,9 +160,9 @@ void MqttSubscriberFbImpl::readProperties()
     auto lock = this->getRecursiveConfigLock();
     topicForSubscribing.clear();
     bool isPresent = false;
-    if (objPtr.hasProperty(PROPERTY_NAME_TOPIC))
+    if (objPtr.hasProperty(PROPERTY_NAME_SUB_TOPIC))
     {
-        auto topicStr = objPtr.getPropertyValue(PROPERTY_NAME_TOPIC).asPtrOrNull<IString>();
+        auto topicStr = objPtr.getPropertyValue(PROPERTY_NAME_SUB_TOPIC).asPtrOrNull<IString>();
         if (topicStr.assigned())
         {
             isPresent = true;
@@ -180,7 +180,7 @@ void MqttSubscriberFbImpl::readProperties()
     }
     if (!isPresent)
     {
-        LOG_W("\'{}\' property is missing!", PROPERTY_NAME_TOPIC);
+        LOG_W("\'{}\' property is missing!", PROPERTY_NAME_SUB_TOPIC);
         setComponentStatus(ComponentStatus::Warning);
         subscriptionStatus.setStatus(SubscriptionStatus::InvalidTopicName, "The topic property is not set!");
     }
@@ -189,9 +189,9 @@ void MqttSubscriberFbImpl::readProperties()
 void MqttSubscriberFbImpl::readJsonConfig()
 {
     bool hasJsonConfig = false;
-    if (objPtr.hasProperty(PROPERTY_NAME_JSON_CONFIG))
+    if (objPtr.hasProperty(PROPERTY_NAME_SUB_JSON_CONFIG))
     {
-        const auto signalConfig = objPtr.getPropertyValue(PROPERTY_NAME_JSON_CONFIG).asPtrOrNull<IString>();
+        const auto signalConfig = objPtr.getPropertyValue(PROPERTY_NAME_SUB_JSON_CONFIG).asPtrOrNull<IString>();
         if (signalConfig.assigned())
         {
             if (!signalConfig.toStdString().empty())
@@ -201,9 +201,9 @@ void MqttSubscriberFbImpl::readJsonConfig()
             }
         }
     }
-    if (hasJsonConfig == false && objPtr.hasProperty(PROPERTY_NAME_JSON_CONFIG_FILE))
+    if (hasJsonConfig == false && objPtr.hasProperty(PROPERTY_NAME_SUB_JSON_CONFIG_FILE))
     {
-        const auto configPath = objPtr.getPropertyValue(PROPERTY_NAME_JSON_CONFIG_FILE).asPtrOrNull<IString>();
+        const auto configPath = objPtr.getPropertyValue(PROPERTY_NAME_SUB_JSON_CONFIG_FILE).asPtrOrNull<IString>();
         if (configPath.assigned())
         {
             if (!configPath.toStdString().empty())
@@ -247,9 +247,9 @@ void MqttSubscriberFbImpl::setJsonConfig(const std::string config)
         if (result.success)
         {
             {
-                auto event = objPtr.getOnPropertyValueWrite(PROPERTY_NAME_TOPIC);
+                auto event = objPtr.getOnPropertyValueWrite(PROPERTY_NAME_SUB_TOPIC);
                 event.mute();
-                objPtr.setPropertyValue(PROPERTY_NAME_TOPIC, String(topic));
+                objPtr.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, String(topic));
                 event.unmute();
             }
             if (const auto signalDscs = jsonDataWorker.extractDescription(); !signalDscs.empty())
@@ -258,10 +258,10 @@ void MqttSubscriberFbImpl::setJsonConfig(const std::string config)
                 for (const auto& [signalName, descriptor] : signalDscs)
                 {
                     LOG_I("Creating a decoder FB for the signal \"{}\":", signalName);
-                    fbConfig.setPropertyValue(PROPERTY_NAME_VALUE_NAME, descriptor.valueFieldName);
-                    fbConfig.setPropertyValue(PROPERTY_NAME_TS_NAME, descriptor.tsFieldName);
+                    fbConfig.setPropertyValue(PROPERTY_NAME_DEC_VALUE_NAME, descriptor.valueFieldName);
+                    fbConfig.setPropertyValue(PROPERTY_NAME_DEC_TS_NAME, descriptor.tsFieldName);
                     if (descriptor.unit.assigned())
-                        fbConfig.setPropertyValue(PROPERTY_NAME_UNIT, descriptor.unit.getSymbol());
+                        fbConfig.setPropertyValue(PROPERTY_NAME_DEC_UNIT, descriptor.unit.getSymbol());
                     MqttSubscriberFbImpl::onAddFunctionBlock(JSON_DECODER_FB_NAME, fbConfig);
                 }
             }
