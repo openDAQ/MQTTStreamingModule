@@ -3,8 +3,7 @@ set(TEST_APP test_${MODULE_NAME})
 
 set(TEST_SOURCES test_mqtt_streaming_module.cpp
                  test_mqtt_root_fb.cpp
-                 test_mqtt_raw_fb.cpp
-                 test_mqtt_json_fb.cpp
+                 test_mqtt_subscriber_fb.cpp
                  test_mqtt_json_decoder_fb.cpp
                  test_mqtt_publisher_fb.cpp
                  test_daq_test_helper.h

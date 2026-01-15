@@ -1,6 +1,6 @@
 #include "MqttAsyncClientWrapper.h"
 #include "mqtt_streaming_helper/timer.h"
-#include "mqtt_streaming_module/mqtt_json_receiver_fb_impl.h"
+#include "mqtt_streaming_module/mqtt_subscriber_fb_impl.h"
 #include "mqtt_streaming_module/mqtt_json_decoder_fb_impl.h"
 #include "test_daq_test_helper.h"
 #include "test_data.h"
@@ -44,7 +44,7 @@ public:
     void onSignalsMessage(const mqtt::MqttMessage& msg)
     {
         mqtt::MqttAsyncClient unused;
-        auto fb = reinterpret_cast<MqttJsonReceiverFbImpl*>(*jsonMqttFb);
+        auto fb = reinterpret_cast<MqttSubscriberFbImpl*>(*subMqttFb);
         fb->onSignalsMessage(unused, msg);
     }
 
@@ -52,18 +52,18 @@ public:
     {
         auto config = PropertyObject();
         config.addProperty(StringProperty(PROPERTY_NAME_SIGNAL_LIST, String("")));
-        const auto fbType = FunctionBlockType(JSON_FB_NAME, JSON_FB_NAME, "", config);
+        const auto fbType = FunctionBlockType(SUB_FB_NAME, SUB_FB_NAME, "", config);
         config.setPropertyValue(PROPERTY_NAME_SIGNAL_LIST, jsonConfig);
-        jsonMqttFb = new MqttJsonReceiverFbImpl(NullContext(), nullptr, fbType, nullptr, config);
+        subMqttFb = new MqttSubscriberFbImpl(NullContext(), nullptr, fbType, nullptr, config);
     }
 
     void CreateJsonFb(const std::string& topic)
     {
         auto config = PropertyObject();
         config.addProperty(StringProperty(PROPERTY_NAME_TOPIC, String("")));
-        const auto fbType = FunctionBlockType(JSON_FB_NAME, JSON_FB_NAME, "", config);
+        const auto fbType = FunctionBlockType(SUB_FB_NAME, SUB_FB_NAME, "", config);
         config.setPropertyValue(PROPERTY_NAME_TOPIC, topic);
-        jsonMqttFb = new MqttJsonReceiverFbImpl(NullContext(), nullptr, fbType, nullptr, config);
+        subMqttFb = new MqttSubscriberFbImpl(NullContext(), nullptr, fbType, nullptr, config);
     }
 
     void CreateDecoderFB(std::string topic, std::string valueF, std::string tsF, std::string unitSymbol = "")
@@ -75,12 +75,12 @@ public:
     daq::FunctionBlockPtr AddDecoderFb(std::string valueF, std::string tsF, std::string unitSymbol = "")
     {
         daq::StringPtr typeId = daq::String(JSON_DECODER_FB_NAME);
-        auto config = jsonMqttFb.getAvailableFunctionBlockTypes().get(JSON_DECODER_FB_NAME).createDefaultConfig();
+        auto config = subMqttFb.getAvailableFunctionBlockTypes().get(JSON_DECODER_FB_NAME).createDefaultConfig();
 
         config.setPropertyValue(PROPERTY_NAME_VALUE_NAME, valueF);
         config.setPropertyValue(PROPERTY_NAME_TS_NAME, tsF);
         config.setPropertyValue(PROPERTY_NAME_UNIT, unitSymbol);
-        decoderObj = jsonMqttFb.addFunctionBlock(typeId, config);
+        decoderObj = subMqttFb.addFunctionBlock(typeId, config);
         return decoderObj;
     }
 
@@ -455,11 +455,11 @@ class MqttJsonFbUnitPTest : public ::testing::TestWithParam<std::pair<std::strin
 TEST_F(MqttJsonDecoderFbTest, DefaultConfig)
 {
     StartUp();
-    AddJsonFb(buildTopicName());
+    AddSubFb(buildTopicName());
     daq::DictPtr<daq::IString, daq::IFunctionBlockType> fbTypes;
     daq::FunctionBlockTypePtr fbt;
     daq::PropertyObjectPtr defaultConfig;
-    ASSERT_NO_THROW(fbTypes = jsonMqttFb.getAvailableFunctionBlockTypes());
+    ASSERT_NO_THROW(fbTypes = subMqttFb.getAvailableFunctionBlockTypes());
     ASSERT_NO_THROW(fbt = fbTypes.get(JSON_DECODER_FB_NAME));
     ASSERT_NO_THROW(defaultConfig = fbt.createDefaultConfig());
 
@@ -483,14 +483,14 @@ TEST_F(MqttJsonDecoderFbTest, DefaultConfig)
 TEST_F(MqttJsonDecoderFbTest, Config)
 {
     StartUp();
-    AddJsonFb(buildTopicName());
-    auto config = jsonMqttFb.getAvailableFunctionBlockTypes().get(JSON_DECODER_FB_NAME).createDefaultConfig();
+    AddSubFb(buildTopicName());
+    auto config = subMqttFb.getAvailableFunctionBlockTypes().get(JSON_DECODER_FB_NAME).createDefaultConfig();
 
     config.setPropertyValue(PROPERTY_NAME_VALUE_NAME, "value");
     config.setPropertyValue(PROPERTY_NAME_TS_NAME, "timestamp");
     config.setPropertyValue(PROPERTY_NAME_UNIT, "ppm");
     daq::FunctionBlockPtr fb;
-    ASSERT_NO_THROW(fb = jsonMqttFb.addFunctionBlock(JSON_DECODER_FB_NAME, config));
+    ASSERT_NO_THROW(fb = subMqttFb.addFunctionBlock(JSON_DECODER_FB_NAME, config));
     EXPECT_EQ(fb.getSignals().getCount(), 1u);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
@@ -512,9 +512,9 @@ TEST_F(MqttJsonDecoderFbTest, Config)
 TEST_F(MqttJsonDecoderFbTest, CreationWithDefaultConfig)
 {
     StartUp();
-    AddJsonFb(buildTopicName());
+    AddSubFb(buildTopicName());
     daq::FunctionBlockPtr fb;
-    ASSERT_NO_THROW(fb = jsonMqttFb.addFunctionBlock(JSON_DECODER_FB_NAME));
+    ASSERT_NO_THROW(fb = subMqttFb.addFunctionBlock(JSON_DECODER_FB_NAME));
     EXPECT_EQ(fb.getSignals().getCount(), 1u);
     EXPECT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager()));
@@ -527,12 +527,12 @@ TEST_F(MqttJsonDecoderFbTest, CreationWithDefaultConfig)
 TEST_F(MqttJsonDecoderFbTest, CreationWithPartialConfig)
 {
     StartUp();
-    AddJsonFb(buildTopicName());
+    AddSubFb(buildTopicName());
     {
         daq::FunctionBlockPtr fb;
         auto config = PropertyObject();
         config.addProperty(StringProperty(PROPERTY_NAME_VALUE_NAME, String("value")));
-        ASSERT_NO_THROW(fb = jsonMqttFb.addFunctionBlock(JSON_DECODER_FB_NAME, config));
+        ASSERT_NO_THROW(fb = subMqttFb.addFunctionBlock(JSON_DECODER_FB_NAME, config));
         EXPECT_EQ(fb.getSignals().getCount(), 1u);
         ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
                   Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
@@ -540,13 +540,13 @@ TEST_F(MqttJsonDecoderFbTest, CreationWithPartialConfig)
                   EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
                                           static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::WaitingForData),
                                           daqInstance.getContext().getTypeManager()));
-        jsonMqttFb.removeFunctionBlock(fb);
+        subMqttFb.removeFunctionBlock(fb);
     }
     {
         daq::FunctionBlockPtr fb;
         auto config = PropertyObject();
         config.addProperty(StringProperty(PROPERTY_NAME_TS_NAME, String("ts")));
-        ASSERT_NO_THROW(fb = jsonMqttFb.addFunctionBlock(JSON_DECODER_FB_NAME, config));
+        ASSERT_NO_THROW(fb = subMqttFb.addFunctionBlock(JSON_DECODER_FB_NAME, config));
         EXPECT_EQ(fb.getSignals().getCount(), 1u);
         ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
                   Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager()));
@@ -554,7 +554,7 @@ TEST_F(MqttJsonDecoderFbTest, CreationWithPartialConfig)
                   EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
                                           static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::InvalidParamaters),
                                           daqInstance.getContext().getTypeManager()));
-        jsonMqttFb.removeFunctionBlock(fb);
+        subMqttFb.removeFunctionBlock(fb);
     }
 }
 
@@ -683,7 +683,7 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferSeveralSignals)
 
     DaqInstanceInit();
     auto rootFb0 = DaqAddRootMqttFb("127.0.0.1", DEFAULT_PORT);
-    auto jsonFb0 = AddJsonFb(topic);
+    auto jsonFb0 = AddSubFb(topic);
     auto decoderFb0 = AddDecoderFb(valueF0, tsF);
     auto decoderFb1 = AddDecoderFb(valueF1, tsF);
     auto decoderFb2 = AddDecoderFb(valueF2, "");
@@ -782,7 +782,7 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferMissingFieldSeveralSignals)
 
     DaqInstanceInit();
     auto rootFb0 = DaqAddRootMqttFb("127.0.0.1", DEFAULT_PORT);
-    auto jsonFb0 = AddJsonFb(topic);
+    auto jsonFb0 = AddSubFb(topic);
     auto decoderFb0 = AddDecoderFb(valueF0, tsF);
     auto decoderFb1 = AddDecoderFb(valueF1, tsF);
     auto decoderFb2 = AddDecoderFb(valueF2, "");
@@ -848,7 +848,7 @@ TEST_F(MqttJsonFbCommunicationTest, FullDataTransfer)
     const auto msgTemplate = VALID_JSON_DATA_0;
     const std::string valueF = extractFieldName(msgTemplate, "<placeholder_value>");
     const std::string tsF = extractFieldName(msgTemplate, "<placeholder_ts>");
-    AddJsonFb(topic);
+    AddSubFb(topic);
     AddDecoderFb(valueF, tsF);
 
     const auto result = processTransfer("127.0.0.1", DEFAULT_PORT, topic, DATA_DOUBLE_INT_0, decoderObj.getSignals()[0]);
@@ -875,11 +875,11 @@ TEST_F(MqttJsonFbCommunicationTest, FullDataTransferFor2MqttFbs)
 
     DaqInstanceInit();
     auto rootFb0 = DaqAddRootMqttFb("127.0.0.1", 1883);
-    auto jsonFb0 = AddJsonFb(topic0);
+    auto jsonFb0 = AddSubFb(topic0);
     auto decoderFb0 = AddDecoderFb(valueF, tsF);
 
     auto rootFb1 = DaqAddRootMqttFb("127.0.0.1", 1884);
-    auto jsonFb1 = AddJsonFb(topic1);
+    auto jsonFb1 = AddSubFb(topic1);
     auto decoderFb1 = AddDecoderFb(valueF, tsF);
 
     const auto result0 = processTransfer("127.0.0.1", 1883, topic0, DATA_DOUBLE_INT_0, decoderFb0.getSignals()[0]);
@@ -911,17 +911,17 @@ TEST_F(MqttJsonFbCommunicationTest, FullDataTransferFor2MqttFbs)
 TEST_F(MqttJsonDecoderFbTest, RemovingNestedFunctionBlock)
 {
     StartUp();
-    AddJsonFb(buildTopicName());
+    AddSubFb(buildTopicName());
     daq::FunctionBlockPtr jsonDecoderFb;
     {
         auto config = PropertyObject();
         config.addProperty(StringProperty(PROPERTY_NAME_VALUE_NAME, String("temp")));
-        ASSERT_NO_THROW(jsonDecoderFb = jsonMqttFb.addFunctionBlock(JSON_DECODER_FB_NAME, config));
+        ASSERT_NO_THROW(jsonDecoderFb = subMqttFb.addFunctionBlock(JSON_DECODER_FB_NAME, config));
     }
-    ASSERT_EQ(jsonMqttFb.getFunctionBlocks().getCount(), 1u);
+    ASSERT_EQ(subMqttFb.getFunctionBlocks().getCount(), 1u);
 
-    ASSERT_NO_THROW(jsonMqttFb.removeFunctionBlock(jsonDecoderFb));
-    ASSERT_EQ(jsonMqttFb.getFunctionBlocks().getCount(), 0u);
-    ASSERT_EQ(jsonMqttFb.getStatusContainer().getStatus("ComponentStatus"),
+    ASSERT_NO_THROW(subMqttFb.removeFunctionBlock(jsonDecoderFb));
+    ASSERT_EQ(subMqttFb.getFunctionBlocks().getCount(), 0u);
+    ASSERT_EQ(subMqttFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
 }

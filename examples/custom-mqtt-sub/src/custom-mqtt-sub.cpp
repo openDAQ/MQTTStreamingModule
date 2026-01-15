@@ -123,24 +123,24 @@ int main(int argc, char* argv[])
 
     // Create OpenDAQ instance and add MQTT broker FB
     const InstancePtr instance = InstanceBuilder().addModulePath(MODULE_PATH).build();
-    const std::string rootFbName = "MQTTClientFB";
-    auto rootFbConfig = instance.getAvailableFunctionBlockTypes().get(rootFbName).createDefaultConfig();
-    rootFbConfig.setPropertyValue("MQTTBrokerAddress", appConfig.brokerAddress);
-    auto brokerFB = instance.addFunctionBlock(rootFbName, rootFbConfig);
+    const std::string clientFbName = "MQTTClientFB";
+    auto clientFbConfig = instance.getAvailableFunctionBlockTypes().get(clientFbName).createDefaultConfig();
+    clientFbConfig.setPropertyValue("MQTTBrokerAddress", appConfig.brokerAddress);
+    auto brokerFB = instance.addFunctionBlock(clientFbName, clientFbConfig);
     auto availableFbs = brokerFB.getAvailableFunctionBlockTypes();
 
-    const std::string jsonFbName = "JSONSubscriberMQTTFB";
-    std::cout << "Try to add the " << jsonFbName << std::endl;
+    const std::string subFbName = "MQTTSubscriberFB";
+    std::cout << "Try to add the " << subFbName << std::endl;
 
-    auto config = availableFbs.get(jsonFbName).createDefaultConfig();
+    auto config = availableFbs.get(subFbName).createDefaultConfig();
     config.setPropertyValue("JSONConfigFile", appConfig.configFilePath);
 
-    // Add the JSON function block to the broker FB
-    daq::FunctionBlockPtr jsonFb = brokerFB.addFunctionBlock(jsonFbName, config);
+    // Add the subscriber function block to the broker FB
+    daq::FunctionBlockPtr subFb = brokerFB.addFunctionBlock(subFbName, config);
 
     // Create packet readers for all signals
     auto signals = List<daq::ISignal>();
-    const auto fbs = jsonFb.getFunctionBlocks();
+    const auto fbs = subFb.getFunctionBlocks();
     for (const auto& fb : fbs)
     {
         const auto sig = fb.getSignals();

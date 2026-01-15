@@ -13,8 +13,6 @@
 #include <opendaq/mirrored_signal_config_ptr.h>
 #include <opendaq/search_filter_factory.h>
 
-#include <mqtt_streaming_module/mqtt_json_receiver_fb_impl.h>
-
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
 MqttStreamingModule::MqttStreamingModule(ContextPtr context)

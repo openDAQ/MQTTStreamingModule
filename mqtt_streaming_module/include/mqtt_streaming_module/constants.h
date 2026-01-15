@@ -46,16 +46,14 @@ static constexpr const char* PROPERTY_NAME_PUB_QOS = "QoS";
 static constexpr const char* PROPERTY_NAME_SUB_QOS = "QoS";
 static constexpr const char* PROPERTY_NAME_PUB_READ_PERIOD = "ReaderPeriod";
 
-static constexpr const char* RAW_FB_NAME = "RawSubscriberMQTTFB";
-static constexpr const char* JSON_FB_NAME = "JSONSubscriberMQTTFB";
+static constexpr const char* SUB_FB_NAME = "MQTTSubscriberFB";
 static constexpr const char* PUB_FB_NAME = "PublisherMQTTFB";
 static constexpr const char* ROOT_FB_NAME = "MQTTClientFB";
 static constexpr const char* JSON_DECODER_FB_NAME = "JSONDecoderMQTTTFB";
 
 static const char* MQTT_LOCAL_ROOT_FB_ID_PREFIX = "MQTTClientFB";
 static const char* MQTT_LOCAL_PUB_FB_ID_PREFIX = "PublisherMQTTFB";
-static const char* MQTT_LOCAL_RAW_FB_ID_PREFIX = "RawSubscriberMQTTFB";
-static const char* MQTT_LOCAL_JSON_FB_ID_PREFIX = "JSONSubscriberMQTTFB";
+static const char* MQTT_LOCAL_SUB_FB_ID_PREFIX = "MQTTSubscriberFB";
 static const char* MQTT_LOCAL_JSON_DECODER_FB_ID_PREFIX = "JSONDecoderMQTTTFB";
 
 

@@ -18,54 +18,87 @@
 #include "MqttAsyncClient.h"
 #include "MqttDataWrapper.h"
 #include <mqtt_streaming_module/common.h>
-#include <mqtt_streaming_module/mqtt_base_fb.h>
+#include <opendaq/function_block_impl.h>
+#include "mqtt_streaming_module/constants.h"
+#include "mqtt_streaming_module/status_helper.h"
 #include <opendaq/function_block_impl.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-class MqttJsonReceiverFbImpl final : public MqttBaseFb
+class MqttSubscriberFbImpl final : public FunctionBlock
 {
-    friend class MqttJsonFbHelper;
+    friend class MqttSubscriberFbHelper;
     friend class MqttJsonDecoderFbHelper;
 
 public:
-    explicit DAQ_MQTT_STREAM_MODULE_API MqttJsonReceiverFbImpl(const ContextPtr& ctx,
+    enum class SubscriptionStatus : EnumType
+    {
+        InvalidTopicName = 0,
+        SubscribingError,
+        WaitingForData,
+        HasData
+    };
+
+    struct CmdResult
+    {
+        bool success = false;
+        std::string msg;
+        int token = 0;
+
+        CmdResult(bool success = false, const std::string& msg = "", int token = 0)
+            : success(success),
+              msg(msg),
+              token(token)
+        {
+        }
+    };
+
+    explicit DAQ_MQTT_STREAM_MODULE_API MqttSubscriberFbImpl(const ContextPtr& ctx,
                                 const ComponentPtr& parent,
                                 const FunctionBlockTypePtr& type,
                                 std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                 const PropertyObjectPtr& config = nullptr);
-    DAQ_MQTT_STREAM_MODULE_API ~MqttJsonReceiverFbImpl() override;
+    DAQ_MQTT_STREAM_MODULE_API ~MqttSubscriberFbImpl() override;
 
     DAQ_MQTT_STREAM_MODULE_API static FunctionBlockTypePtr CreateType();
 
-    DAQ_MQTT_STREAM_MODULE_API std::string getSubscribedTopic() const override;
+    DAQ_MQTT_STREAM_MODULE_API std::string getSubscribedTopic() const;
 
 protected:
-    mqtt::MqttDataWrapper jsonDataWorker;
-    std::unordered_map<mqtt::SignalId, SignalConfigPtr> outputSignals;
-    std::string topicForSubscribing;
+    static std::vector<std::pair<SubscriptionStatus, std::string>> subscriptionStatusMap;
     static std::atomic<int> localIndex;
 
+    std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
+    StatusHelper<SubscriptionStatus> subscriptionStatus;
+    int qos = DEFAULT_SUB_QOS;
+    mqtt::MqttDataWrapper jsonDataWorker;
+    std::string topicForSubscribing;
     DictObjectPtr<IDict, IString, IFunctionBlockType> nestedFbTypes;
     std::vector<FunctionBlockPtr> nestedFunctionBlocks;
+    SignalConfigPtr outputSignal;
+
+    DAQ_MQTT_STREAM_MODULE_API void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg);
 
     static std::string generateLocalId();
 
     void initNestedFbTypes();
 
     void createSignals();
-    void clearSubscribedTopic() override;
+    void clearSubscribedTopic();
 
-    void processMessage(const mqtt::MqttMessage& msg) override;
+    void processMessage(const mqtt::MqttMessage& msg);
     void initProperties(const PropertyObjectPtr& config);
-    void readProperties() override;
+    void readProperties();
     void readJsonConfig();
     std::pair<bool, std::string> readFileToString(const std::string& filePath);
     void setJsonConfig(const std::string config);
-    void propertyChanged() override;
+    void propertyChanged();
 
     bool setTopic(std::string topic);
+    CmdResult subscribeToTopic();
+    CmdResult unsubscribeFromTopic();
 
+    void removed() override;
     DictPtr<IString, IFunctionBlockType> onGetAvailableFunctionBlockTypes() override;
     FunctionBlockPtr onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config) override;
     void onRemoveFunctionBlock(const FunctionBlockPtr& functionBlock) override;

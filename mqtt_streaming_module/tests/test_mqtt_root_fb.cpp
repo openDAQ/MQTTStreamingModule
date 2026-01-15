@@ -131,8 +131,7 @@ TEST_F(MqttFbTest, CheckMqttFbFunctionalBlocks)
     StartUp();
     daq::DictPtr<daq::IString, daq::IFunctionBlockType> fbTypes;
     ASSERT_NO_THROW(fbTypes = rootMqttFb.getAvailableFunctionBlockTypes());
-    ASSERT_GE(fbTypes.getCount(), 3);
-    ASSERT_TRUE(fbTypes.hasKey(RAW_FB_NAME));
-    ASSERT_TRUE(fbTypes.hasKey(JSON_FB_NAME));
+    ASSERT_GE(fbTypes.getCount(), 2);
+    ASSERT_TRUE(fbTypes.hasKey(SUB_FB_NAME));
     ASSERT_TRUE(fbTypes.hasKey(PUB_FB_NAME));
 }

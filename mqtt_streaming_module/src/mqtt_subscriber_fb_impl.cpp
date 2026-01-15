@@ -1,23 +1,39 @@
 #include "mqtt_streaming_module/constants.h"
 #include <boost/algorithm/string.hpp>
-#include <mqtt_streaming_module/helper.h>
-#include <mqtt_streaming_module/mqtt_json_receiver_fb_impl.h>
-#include <mqtt_streaming_module/mqtt_json_decoder_fb_impl.h>
 #include <fstream>
+#include <mqtt_streaming_module/helper.h>
+#include <mqtt_streaming_module/mqtt_json_decoder_fb_impl.h>
+#include <mqtt_streaming_module/mqtt_subscriber_fb_impl.h>
+#include <opendaq/binary_data_packet_factory.h>
 #include <sstream>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-std::atomic<int> MqttJsonReceiverFbImpl::localIndex = 0;
+constexpr int MQTT_FB_UNSUBSCRIBE_TOUT = 3000;
 
-MqttJsonReceiverFbImpl::MqttJsonReceiverFbImpl(const ContextPtr& ctx,
-                                       const ComponentPtr& parent,
-                                       const FunctionBlockTypePtr& type,
-                                       std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
-                                       const PropertyObjectPtr& config)
-    : MqttBaseFb(ctx, parent, type, generateLocalId(), subscriber, config),
+std::atomic<int> MqttSubscriberFbImpl::localIndex = 0;
+std::vector<std::pair<MqttSubscriberFbImpl::SubscriptionStatus, std::string>> MqttSubscriberFbImpl::subscriptionStatusMap =
+    {{SubscriptionStatus::InvalidTopicName, "InvalidTopicName"},
+     {SubscriptionStatus::SubscribingError, "SubscribingError"},
+     {SubscriptionStatus::WaitingForData, "WaitingForData"},
+     {SubscriptionStatus::HasData, "HasData"}};
+
+MqttSubscriberFbImpl::MqttSubscriberFbImpl(const ContextPtr& ctx,
+                                           const ComponentPtr& parent,
+                                           const FunctionBlockTypePtr& type,
+                                           std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
+                                           const PropertyObjectPtr& config)
+    : FunctionBlock(type, ctx, parent, generateLocalId()),
+      subscriber(subscriber),
+      subscriptionStatus(MQTT_FB_SUB_STATUS_TYPE,
+                         MQTT_FB_SUB_STATUS_NAME,
+                         statusContainer,
+                         subscriptionStatusMap,
+                         SubscriptionStatus::InvalidTopicName,
+                         context.getTypeManager()),
       jsonDataWorker(loggerComponent)
 {
+    initComponentStatus();
     initNestedFbTypes();
     if (config.assigned())
         initProperties(populateDefaultConfig(type.createDefaultConfig(), config));
@@ -31,12 +47,23 @@ MqttJsonReceiverFbImpl::MqttJsonReceiverFbImpl(const ContextPtr& ctx,
     subscribeToTopic();
 }
 
-MqttJsonReceiverFbImpl::~MqttJsonReceiverFbImpl()
+MqttSubscriberFbImpl::~MqttSubscriberFbImpl()
 {
     unsubscribeFromTopic();
 }
 
-void MqttJsonReceiverFbImpl::initProperties(const PropertyObjectPtr& config)
+void MqttSubscriberFbImpl::removed()
+{
+    FunctionBlock::removed();
+    unsubscribeFromTopic();
+}
+
+void MqttSubscriberFbImpl::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg)
+{
+    processMessage(msg);
+}
+
+void MqttSubscriberFbImpl::initProperties(const PropertyObjectPtr& config)
 {
     for (const auto& prop : config.getAllProperties())
     {
@@ -76,12 +103,12 @@ void MqttJsonReceiverFbImpl::initProperties(const PropertyObjectPtr& config)
     readProperties();
 }
 
-FunctionBlockTypePtr MqttJsonReceiverFbImpl::CreateType()
+FunctionBlockTypePtr MqttSubscriberFbImpl::CreateType()
 {
     auto defaultConfig = PropertyObject();
     {
         auto builder =
-            StringPropertyBuilder(PROPERTY_NAME_TOPIC, String("")).setDescription("An MQTT topic to subscribe to for receiving JSON data.");
+            StringPropertyBuilder(PROPERTY_NAME_TOPIC, String("")).setDescription("An MQTT topic to subscribe to for receiving data.");
         defaultConfig.addProperty(builder.build());
     }
     {
@@ -94,9 +121,9 @@ FunctionBlockTypePtr MqttJsonReceiverFbImpl::CreateType()
         defaultConfig.addProperty(builder.build());
     }
     {
-        auto builder = StringPropertyBuilder(PROPERTY_NAME_JSON_CONFIG, String(""))
-                           .setDescription(
-                               "JSON configuration string that defines an MQTT topic and corresponding signals to subscribe to.");
+        auto builder =
+            StringPropertyBuilder(PROPERTY_NAME_JSON_CONFIG, String(""))
+                .setDescription("JSON configuration string that defines an MQTT topic and corresponding signals to subscribe to.");
         defaultConfig.addProperty(builder.build());
     }
     {
@@ -104,20 +131,21 @@ FunctionBlockTypePtr MqttJsonReceiverFbImpl::CreateType()
                            .setDescription("Path to file where the JSON configuration string is stored.");
         defaultConfig.addProperty(builder.build());
     }
-    const auto fbType = FunctionBlockType(JSON_FB_NAME,
-                                          JSON_FB_NAME,
-                                          "The JSON MQTT function block allows subscribing to MQTT topics, extracting values and "
-                                          "timestamps from MQTT JSON messages, and converting them into openDAQ signal data samples.",
-                                          defaultConfig);
+    const auto fbType =
+        FunctionBlockType(SUB_FB_NAME,
+                          SUB_FB_NAME,
+                          "The subscriber MQTT function block allows subscribing to an MQTT topic and converting MQTT payloads into "
+                          "openDAQ signal binary data samples.",
+                          defaultConfig);
     return fbType;
 }
 
-std::string MqttJsonReceiverFbImpl::generateLocalId()
+std::string MqttSubscriberFbImpl::generateLocalId()
 {
-    return std::string(MQTT_LOCAL_JSON_FB_ID_PREFIX + std::to_string(localIndex++));
+    return std::string(MQTT_LOCAL_SUB_FB_ID_PREFIX + std::to_string(localIndex++));
 }
 
-void MqttJsonReceiverFbImpl::initNestedFbTypes()
+void MqttSubscriberFbImpl::initNestedFbTypes()
 {
     nestedFbTypes = Dict<IString, IFunctionBlockType>();
     // Add a function block type for manual JSON configuration
@@ -127,7 +155,7 @@ void MqttJsonReceiverFbImpl::initNestedFbTypes()
     }
 }
 
-void MqttJsonReceiverFbImpl::readProperties()
+void MqttSubscriberFbImpl::readProperties()
 {
     auto lock = this->getRecursiveConfigLock();
     topicForSubscribing.clear();
@@ -158,7 +186,7 @@ void MqttJsonReceiverFbImpl::readProperties()
     }
 }
 
-void MqttJsonReceiverFbImpl::readJsonConfig()
+void MqttSubscriberFbImpl::readJsonConfig()
 {
     bool hasJsonConfig = false;
     if (objPtr.hasProperty(PROPERTY_NAME_JSON_CONFIG))
@@ -197,7 +225,7 @@ void MqttJsonReceiverFbImpl::readJsonConfig()
     }
 }
 
-std::pair<bool, std::string> MqttJsonReceiverFbImpl::readFileToString(const std::string& filePath)
+std::pair<bool, std::string> MqttSubscriberFbImpl::readFileToString(const std::string& filePath)
 {
     std::ifstream file(filePath);
     if (!file)
@@ -208,7 +236,7 @@ std::pair<bool, std::string> MqttJsonReceiverFbImpl::readFileToString(const std:
     return std::pair(true, buffer.str());
 }
 
-void MqttJsonReceiverFbImpl::setJsonConfig(const std::string config)
+void MqttSubscriberFbImpl::setJsonConfig(const std::string config)
 {
     jsonDataWorker.setConfig(config);
     auto result = jsonDataWorker.isJsonValid();
@@ -234,7 +262,7 @@ void MqttJsonReceiverFbImpl::setJsonConfig(const std::string config)
                     fbConfig.setPropertyValue(PROPERTY_NAME_TS_NAME, descriptor.tsFieldName);
                     if (descriptor.unit.assigned())
                         fbConfig.setPropertyValue(PROPERTY_NAME_UNIT, descriptor.unit.getSymbol());
-                    MqttJsonReceiverFbImpl::onAddFunctionBlock(JSON_DECODER_FB_NAME, fbConfig);
+                    MqttSubscriberFbImpl::onAddFunctionBlock(JSON_DECODER_FB_NAME, fbConfig);
                 }
             }
         }
@@ -251,7 +279,7 @@ void MqttJsonReceiverFbImpl::setJsonConfig(const std::string config)
     }
 }
 
-void MqttJsonReceiverFbImpl::propertyChanged()
+void MqttSubscriberFbImpl::propertyChanged()
 {
     auto lock = this->getRecursiveConfigLock();
     auto result = unsubscribeFromTopic();
@@ -264,7 +292,7 @@ void MqttJsonReceiverFbImpl::propertyChanged()
     result = subscribeToTopic();
 }
 
-bool MqttJsonReceiverFbImpl::setTopic(std::string topic)
+bool MqttSubscriberFbImpl::setTopic(std::string topic)
 {
     const auto validationStatus = mqtt::MqttDataWrapper::validateTopic(topic, loggerComponent);
     if (validationStatus.success)
@@ -282,12 +310,12 @@ bool MqttJsonReceiverFbImpl::setTopic(std::string topic)
     return validationStatus.success;
 }
 
-DictPtr<IString, IFunctionBlockType> MqttJsonReceiverFbImpl::onGetAvailableFunctionBlockTypes()
+DictPtr<IString, IFunctionBlockType> MqttSubscriberFbImpl::onGetAvailableFunctionBlockTypes()
 {
     return nestedFbTypes;
 }
 
-FunctionBlockPtr MqttJsonReceiverFbImpl::onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config)
+FunctionBlockPtr MqttSubscriberFbImpl::onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config)
 {
 
     FunctionBlockPtr nestedFunctionBlock;
@@ -296,7 +324,8 @@ FunctionBlockPtr MqttJsonReceiverFbImpl::onAddFunctionBlock(const StringPtr& typ
         auto fbTypePtr = nestedFbTypes.getOrDefault(typeId);
         if (fbTypePtr.getName() == JSON_DECODER_FB_NAME)
         {
-            nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttJsonDecoderFbImpl>(context, functionBlocks, fbTypePtr, config);
+            nestedFunctionBlock =
+                createWithImplementation<IFunctionBlock, MqttJsonDecoderFbImpl>(context, functionBlocks, fbTypePtr, config);
         }
     }
     if (nestedFunctionBlock.assigned())
@@ -315,7 +344,7 @@ FunctionBlockPtr MqttJsonReceiverFbImpl::onAddFunctionBlock(const StringPtr& typ
     return nestedFunctionBlock;
 }
 
-void MqttJsonReceiverFbImpl::onRemoveFunctionBlock(const FunctionBlockPtr& functionBlock)
+void MqttSubscriberFbImpl::onRemoveFunctionBlock(const FunctionBlockPtr& functionBlock)
 {
     {
         auto lock = this->getAcquisitionLock2();
@@ -331,7 +360,7 @@ void MqttJsonReceiverFbImpl::onRemoveFunctionBlock(const FunctionBlockPtr& funct
     FunctionBlockImpl::onRemoveFunctionBlock(functionBlock);
 }
 
-void MqttJsonReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
+void MqttSubscriberFbImpl::processMessage(const mqtt::MqttMessage& msg)
 {
     if (topicForSubscribing == msg.getTopic())
     {
@@ -342,6 +371,11 @@ void MqttJsonReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
 
         std::string jsonObjStr(msg.getData().begin(), msg.getData().end());
         auto acqlock = this->getAcquisitionLock2();
+
+        const auto outputPacket = BinaryDataPacket(nullptr, outputSignal.getDescriptor(), msg.getData().size());
+        memcpy(outputPacket.getData(), msg.getData().data(), msg.getData().size());
+        outputSignal.sendPacket(outputPacket);
+
         for (const auto& fb : nestedFunctionBlocks)
         {
             if (fb.assigned())
@@ -353,19 +387,103 @@ void MqttJsonReceiverFbImpl::processMessage(const mqtt::MqttMessage& msg)
     }
 }
 
-void MqttJsonReceiverFbImpl::createSignals()
+void MqttSubscriberFbImpl::createSignals()
 {
-
+    auto lock = this->getRecursiveConfigLock(); // ???
+    const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::Binary).build();
+    outputSignal = createAndAddSignal(DEFAULT_VALUE_SIGNAL_LOCAL_ID, signalDsc);
 }
 
-std::string MqttJsonReceiverFbImpl::getSubscribedTopic() const
+std::string MqttSubscriberFbImpl::getSubscribedTopic() const
 {
     return topicForSubscribing;
 }
 
-void MqttJsonReceiverFbImpl::clearSubscribedTopic()
+void MqttSubscriberFbImpl::clearSubscribedTopic()
 {
     topicForSubscribing.clear();
+}
+
+MqttSubscriberFbImpl::CmdResult MqttSubscriberFbImpl::subscribeToTopic()
+{
+    CmdResult result{false};
+    if (subscriber)
+    {
+        auto lambda = [this](const mqtt::MqttAsyncClient& client, mqtt::MqttMessage& msg) { this->onSignalsMessage(client, msg); };
+        const auto topic = getSubscribedTopic();
+        if (!topic.empty())
+        {
+            LOG_I("Trying to subscribe to the topic : {}", topic);
+            subscriber->setMessageArrivedCb(topic, lambda);
+            if (auto subRes = subscriber->subscribe(topic, qos); subRes.success == false)
+            {
+                LOG_W("Failed to subscribe to the topic: \"{}\"; reason: {}", topic, subRes.msg);
+                setComponentStatusWithMessage(ComponentStatus::Warning, "Some topics failed to subscribe!");
+                subscriptionStatus.setStatus(SubscriptionStatus::SubscribingError, "The reason: " + subRes.msg);
+                result = {false, "Failed to subscribe to the topic: \"" + topic + "\"; reason: " + subRes.msg};
+            }
+            else
+            {
+                // subscriber->subscribe(...) is asynchronous. It puts command in queue and returns immediately.
+                LOG_D("Trying to subscribe to the topic: {}", topic);
+                setComponentStatus(ComponentStatus::Ok);
+                subscriptionStatus.setStatus(SubscriptionStatus::WaitingForData, "Topic: " + topic);
+                result = {true, "", result.token};
+            }
+        }
+        else
+        {
+            result = {false, "Couldn't subscribe to an empty topic"};
+            LOG_W("{}", result.msg);
+        }
+    }
+    else
+    {
+        const std::string msg = "MQTT subscriber client is not set!";
+        setComponentStatusWithMessage(ComponentStatus::Error, msg);
+        subscriptionStatus.setStatus(SubscriptionStatus::SubscribingError, msg);
+        result = {false, msg};
+    }
+    return result;
+}
+
+MqttSubscriberFbImpl::CmdResult MqttSubscriberFbImpl::unsubscribeFromTopic()
+{
+    CmdResult result{true};
+    if (subscriber)
+    {
+        const auto topic = getSubscribedTopic();
+        if (!topic.empty())
+        {
+            subscriber->setMessageArrivedCb(topic, nullptr);
+            mqtt::CmdResult unsubRes = subscriber->unsubscribe(topic);
+            if (unsubRes.success)
+                unsubRes = subscriber->waitForCompletion(unsubRes.token, MQTT_FB_UNSUBSCRIBE_TOUT);
+
+            if (unsubRes.success)
+            {
+                clearSubscribedTopic();
+                LOG_I("The topic \'{}\' has been unsubscribed successfully", topic);
+                result = {true};
+            }
+            else
+            {
+                const auto msg = fmt::format("Failed to unsubscribe from the topic \'{}\'; reason: {}", topic, unsubRes.msg);
+                LOG_W("{}", msg);
+                setComponentStatus(ComponentStatus::Warning);
+                subscriptionStatus.setStatus(SubscriptionStatus::SubscribingError, msg);
+                result = {false, msg};
+            }
+        }
+    }
+    else
+    {
+        const std::string msg = "MQTT subscriber client is not set!";
+        setComponentStatusWithMessage(ComponentStatus::Error, msg);
+        subscriptionStatus.setStatus(SubscriptionStatus::SubscribingError, msg);
+        result = {false, msg};
+    }
+    return result;
 }
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

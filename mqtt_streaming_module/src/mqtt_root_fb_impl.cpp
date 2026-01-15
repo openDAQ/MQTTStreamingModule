@@ -1,7 +1,6 @@
 #include "mqtt_streaming_module/constants.h"
-#include "mqtt_streaming_module/mqtt_json_receiver_fb_impl.h"
+#include "mqtt_streaming_module/mqtt_subscriber_fb_impl.h"
 #include "mqtt_streaming_module/mqtt_publisher_fb_impl.h"
-#include "mqtt_streaming_module/mqtt_raw_receiver_fb_impl.h"
 #include <mqtt_streaming_module/mqtt_root_fb_impl.h>
 #include <opendaq/function_block_type_factory.h>
 #include <boost/algorithm/string.hpp>
@@ -60,14 +59,9 @@ void MqttRootFbImpl::removed()
 void MqttRootFbImpl::initNestedFbTypes()
 {
     nestedFbTypes = Dict<IString, IFunctionBlockType>();
-    // Add a function block type for manual JSON configuration
+    // Add a MQTT subscriber function block type
     {
-        const auto fbType = MqttJsonReceiverFbImpl::CreateType();
-        nestedFbTypes.set(fbType.getId(), fbType);
-    }
-    // Add a function block type for raw MQTT messages
-    {
-        const auto fbType = MqttRawReceiverFbImpl::CreateType();
+        const auto fbType = MqttSubscriberFbImpl::CreateType();
         nestedFbTypes.set(fbType.getId(), fbType);
     }
 
@@ -191,13 +185,9 @@ FunctionBlockPtr MqttRootFbImpl::onAddFunctionBlock(const StringPtr& typeId, con
         if (nestedFbTypes.hasKey(typeId))
         {
             auto fbTypePtr = nestedFbTypes.getOrDefault(typeId);
-            if (fbTypePtr.getName() == RAW_FB_NAME)
+            if (fbTypePtr.getName() == SUB_FB_NAME)
             {
-                nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttRawReceiverFbImpl>(context, functionBlocks, fbTypePtr, subscriber, config);
-            }
-            else if (fbTypePtr.getName() == JSON_FB_NAME)
-            {
-                nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttJsonReceiverFbImpl>(context, functionBlocks, fbTypePtr, subscriber, config);
+                nestedFunctionBlock = createWithImplementation<IFunctionBlock, MqttSubscriberFbImpl>(context, functionBlocks, fbTypePtr, subscriber, config);
             }
             else if (fbTypePtr.getName() == PUB_FB_NAME)
             {

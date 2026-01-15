@@ -5,10 +5,8 @@ set(SRC_Include common.h
                 module_dll.h
                 mqtt_streaming_module_impl.h
                 mqtt_root_fb_impl.h
-                mqtt_base_fb.h
-                mqtt_json_receiver_fb_impl.h
                 mqtt_json_decoder_fb_impl.h
-                mqtt_raw_receiver_fb_impl.h
+                mqtt_subscriber_fb_impl.h
                 mqtt_publisher_fb_impl.h
                 constants.h
                 helper.h
@@ -25,10 +23,8 @@ set(SRC_Include common.h
 set(SRC_Srcs module_dll.cpp
              mqtt_streaming_module_impl.cpp
              mqtt_root_fb_impl.cpp
-             mqtt_base_fb.cpp
-             mqtt_json_receiver_fb_impl.cpp
              mqtt_json_decoder_fb_impl.cpp
-             mqtt_raw_receiver_fb_impl.cpp
+             mqtt_subscriber_fb_impl.cpp
              mqtt_publisher_fb_impl.cpp
              helper.cpp
              atomic_signal_atomic_sample_handler.cpp
@@ -53,16 +49,12 @@ source_group("module" FILES ${MODULE_HEADERS_DIR}/mqtt_streaming_module_impl.h
                             mqtt_streaming_module_impl.cpp
 )
 
-source_group("functionalBlock" FILES ${MODULE_HEADERS_DIR}/mqtt_json_receiver_fb_impl.h
-                            mqtt_json_receiver_fb_impl.cpp
-                            ${MODULE_HEADERS_DIR}/mqtt_json_decoder_fb_impl.h
+source_group("functionalBlock" FILES ${MODULE_HEADERS_DIR}/mqtt_json_decoder_fb_impl.h
                             mqtt_json_decoder_fb_impl.cpp
-                            ${MODULE_HEADERS_DIR}/mqtt_raw_receiver_fb_impl.h
-                            mqtt_raw_receiver_fb_impl.cpp
+                            ${MODULE_HEADERS_DIR}/mqtt_subscriber_fb_impl.h
+                            mqtt_subscriber_fb_impl.cpp
                             ${MODULE_HEADERS_DIR}/mqtt_publisher_fb_impl.h
                             mqtt_publisher_fb_impl.cpp
-                            ${MODULE_HEADERS_DIR}/mqtt_base_fb.h
-                            mqtt_base_fb.cpp
                             ${MODULE_HEADERS_DIR}/mqtt_root_fb_impl.h
                             mqtt_root_fb_impl.cpp
 )
