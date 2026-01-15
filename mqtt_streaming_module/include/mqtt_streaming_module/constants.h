@@ -33,6 +33,7 @@ static constexpr const char* PROPERTY_NAME_SUB_JSON_CONFIG = "JSONConfig";
 static constexpr const char* PROPERTY_NAME_SUB_JSON_CONFIG_FILE = "JSONConfigFile";
 static constexpr const char* PROPERTY_NAME_SUB_QOS = "QoS";
 static constexpr const char* PROPERTY_NAME_SUB_TOPIC = "Topic";
+static constexpr const char* PROPERTY_NAME_SUB_PREVIEW_SIGNAL = "EnablePreviewSignal";
 
 static constexpr const char* PROPERTY_NAME_DEC_VALUE_NAME = "ValueKey";
 static constexpr const char* PROPERTY_NAME_DEC_TS_NAME = "DomainKey";
@@ -47,6 +48,7 @@ static constexpr const char* PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE = "Samples
 static constexpr const char* PROPERTY_NAME_PUB_QOS = "QoS";
 static constexpr const char* PROPERTY_NAME_PUB_READ_PERIOD = "ReaderWaitPeriod";
 static constexpr const char* PROPERTY_NAME_PUB_TOPICS = "Topics";
+static constexpr const char* PROPERTY_NAME_PUB_PREVIEW_SIGNAL = "EnablePreviewSignal";
 
 static constexpr const char* SUB_FB_NAME = "MQTTSubscriberFB";
 static constexpr const char* PUB_FB_NAME = "MQTTJSONPublisherFB";

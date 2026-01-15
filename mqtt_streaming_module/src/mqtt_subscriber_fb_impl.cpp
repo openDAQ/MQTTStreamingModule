@@ -121,6 +121,12 @@ FunctionBlockTypePtr MqttSubscriberFbImpl::CreateType()
         defaultConfig.addProperty(builder.build());
     }
     {
+        auto builder = BoolPropertyBuilder(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, False)
+            .setDescription("Enables previewing of the subscribed signal data in the function block's output signal. "
+                            "By default it is set to false.");
+        defaultConfig.addProperty(builder.build());
+    }
+    {
         auto builder =
             StringPropertyBuilder(PROPERTY_NAME_SUB_JSON_CONFIG, String(""))
                 .setDescription("JSON configuration string that defines an MQTT topic and corresponding signals to subscribe to.");
@@ -176,6 +182,14 @@ void MqttSubscriberFbImpl::readProperties()
         {
             const auto qos = qosProp.getValue(DEFAULT_SUB_QOS);
             this->qos = (qos < 0 || qos > 2) ? DEFAULT_SUB_QOS : qos;
+        }
+    }
+    if (objPtr.hasProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL))
+    {
+        auto previewProp = objPtr.getPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL).asPtrOrNull<IBoolean>();
+        if (previewProp.assigned())
+        {
+            this->enablePreview = previewProp.getValue(False);
         }
     }
     if (!isPresent)
@@ -289,6 +303,19 @@ void MqttSubscriberFbImpl::propertyChanged()
         return;
     }
     readProperties();
+    if (enablePreview)
+    {
+        if (!outputSignal.assigned())
+            createSignals();
+    }
+    else
+    {
+        if (outputSignal.assigned())
+        {
+            removeSignal(outputSignal);
+            outputSignal = nullptr;
+        }
+    }
     result = subscribeToTopic();
 }
 
@@ -372,9 +399,12 @@ void MqttSubscriberFbImpl::processMessage(const mqtt::MqttMessage& msg)
         std::string jsonObjStr(msg.getData().begin(), msg.getData().end());
         auto acqlock = this->getAcquisitionLock2();
 
-        const auto outputPacket = BinaryDataPacket(nullptr, outputSignal.getDescriptor(), msg.getData().size());
-        memcpy(outputPacket.getData(), msg.getData().data(), msg.getData().size());
-        outputSignal.sendPacket(outputPacket);
+        if (enablePreview)
+        {
+            const auto outputPacket = BinaryDataPacket(nullptr, outputSignal.getDescriptor(), msg.getData().size());
+            memcpy(outputPacket.getData(), msg.getData().data(), msg.getData().size());
+            outputSignal.sendPacket(outputPacket);
+        }
 
         for (const auto& fb : nestedFunctionBlocks)
         {
@@ -390,8 +420,11 @@ void MqttSubscriberFbImpl::processMessage(const mqtt::MqttMessage& msg)
 void MqttSubscriberFbImpl::createSignals()
 {
     auto lock = this->getRecursiveConfigLock(); // ???
-    const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::Binary).build();
-    outputSignal = createAndAddSignal(DEFAULT_VALUE_SIGNAL_LOCAL_ID, signalDsc);
+    if (enablePreview)
+    {
+        const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::Binary).build();
+        outputSignal = createAndAddSignal(DEFAULT_VALUE_SIGNAL_LOCAL_ID, signalDsc);
+    }
 }
 
 std::string MqttSubscriberFbImpl::getSubscribedTopic() const

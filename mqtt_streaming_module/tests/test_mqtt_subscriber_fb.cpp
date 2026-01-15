@@ -24,8 +24,10 @@ public:
     {
         auto config = PropertyObject();
         config.addProperty(StringProperty(PROPERTY_NAME_SUB_TOPIC, ""));
+        config.addProperty(BoolProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, False));
         const auto fbType = FunctionBlockType(SUB_FB_NAME, SUB_FB_NAME, "", config);
         config.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, topic);
+        config.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, True);
         obj = std::make_unique<MqttSubscriberFbImpl>(NullContext(), nullptr, fbType, nullptr, config);
     }
 
@@ -88,7 +90,7 @@ TEST_F(MqttSubscriberFbTest, DefaultConfig)
 
     ASSERT_TRUE(defaultConfig.assigned());
 
-    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 4u);
+    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 5u);
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_JSON_CONFIG));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_JSON_CONFIG).getValueType(), CoreType::ctString);
@@ -105,6 +107,10 @@ TEST_F(MqttSubscriberFbTest, DefaultConfig)
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_QOS));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_QOS).getValueType(), CoreType::ctInt);
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_QOS).asPtr<IInteger>().getValue(DEFAULT_SUB_QOS), DEFAULT_SUB_QOS);
+
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL));
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL).getValueType(), CoreType::ctBool);
+    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL).asPtr<IBoolean>().getValue(False), False);
 }
 
 TEST_F(MqttSubscriberFbTest, Config)
@@ -132,7 +138,7 @@ TEST_F(MqttSubscriberFbTest, CreationWithDefaultConfig)
     StartUp();
     daq::FunctionBlockPtr subFb;
     ASSERT_NO_THROW(subFb = rootMqttFb.addFunctionBlock(SUB_FB_NAME));
-    EXPECT_EQ(subFb.getSignals().getCount(), 1u);
+    EXPECT_EQ(subFb.getSignals().getCount(), 0u);
     ASSERT_EQ(subFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
 }
@@ -145,7 +151,7 @@ TEST_F(MqttSubscriberFbTest, CreationWithPartialConfig)
     auto config = PropertyObject();
     config.addProperty(StringProperty(PROPERTY_NAME_SUB_TOPIC, String(buildTopicName())));
     ASSERT_NO_THROW(subFb = rootMqttFb.addFunctionBlock(SUB_FB_NAME, config));
-    EXPECT_EQ(subFb.getSignals().getCount(), 1u);
+    EXPECT_EQ(subFb.getSignals().getCount(), 0u);
     ASSERT_EQ(subFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
 }
@@ -156,7 +162,8 @@ TEST_F(MqttSubscriberFbTest, CreationWithCustomConfig)
     StartUp();
     daq::FunctionBlockPtr subFb;
     auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(SUB_FB_NAME).createDefaultConfig();
-    config.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, String(buildTopicName()));
+    config.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, True);
+    config.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, buildTopicName());
     ASSERT_NO_THROW(subFb = rootMqttFb.addFunctionBlock(SUB_FB_NAME, config));
     EXPECT_EQ(subFb.getSignals().getCount(), 1u);
     ASSERT_EQ(subFb.getStatusContainer().getStatus("ComponentStatus"),
@@ -189,6 +196,7 @@ TEST_P(MqttSubscriberFbTopicPTest, CheckSubscriberFbTopic)
     auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(SUB_FB_NAME).createDefaultConfig();
 
     config.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, topic);
+    config.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, True);
     daq::FunctionBlockPtr fb;
     ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(SUB_FB_NAME, config));
     auto signals = fb.getSignals();
@@ -469,6 +477,7 @@ TEST_F(MqttSubscriberFbTest, CheckRawFbFullDataTransfer)
     auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(SUB_FB_NAME).createDefaultConfig();
 
     config.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, topic);
+    config.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, True);
     auto singal = rootMqttFb.addFunctionBlock(SUB_FB_NAME, config).getSignals()[0];
     auto reader = daq::PacketReader(singal);
 
@@ -519,6 +528,7 @@ TEST_F(MqttSubscriberFbTest, CheckRawFbFullDataTransferWithReconfiguring)
 
     auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(SUB_FB_NAME).createDefaultConfig();
     config.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, topic0);
+    config.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, True);
     auto rawFB = rootMqttFb.addFunctionBlock(SUB_FB_NAME, config);
     auto singal = rawFB.getSignals()[0];
     auto reader = daq::PacketReader(singal);

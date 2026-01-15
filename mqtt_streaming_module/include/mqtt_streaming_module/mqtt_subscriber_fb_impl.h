@@ -76,6 +76,7 @@ protected:
     DictObjectPtr<IDict, IString, IFunctionBlockType> nestedFbTypes;
     std::vector<FunctionBlockPtr> nestedFunctionBlocks;
     SignalConfigPtr outputSignal;
+    bool enablePreview;
 
     DAQ_MQTT_STREAM_MODULE_API void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg);
 
