@@ -104,6 +104,7 @@ private:
     void updateInputPorts();
     void updateStatuses();
     void validateInputPorts();
+    void updateTopics();
     template <typename retT, typename intfT>
     retT readProperty(const std::string& propertyName, const retT defaultValue);
     void runReaderThread();

@@ -169,6 +169,12 @@ ProcedureStatus GroupSignalSharedTsHandler::signalListChanged(std::vector<Signal
     return status;
 }
 
+ListPtr<IString> GroupSignalSharedTsHandler::getTopics(const std::vector<SignalContext>& signalContexts)
+{
+    auto res = List<IString>(String(buildTopicName()));
+    return res;
+}
+
 std::string GroupSignalSharedTsHandler::toString(const SampleType sampleType, const std::string& valueFieldName, void* data, SizeT offset)
 {
     switch (sampleType)

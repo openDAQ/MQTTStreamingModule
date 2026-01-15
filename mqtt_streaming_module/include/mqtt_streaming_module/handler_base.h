@@ -30,6 +30,7 @@ public:
     virtual MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) = 0;
     virtual ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const = 0;
     virtual ProcedureStatus signalListChanged(std::vector<SignalContext>& signalContexts) = 0;
+    virtual ListPtr<IString> getTopics(const std::vector<SignalContext>& signalContexts) = 0;
 
 protected:
     static std::pair<uint64_t, uint64_t> calculateRatio(const DataDescriptorPtr descriptor)

@@ -29,6 +29,7 @@ public:
     MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) override;
     ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const override;
     ProcedureStatus signalListChanged(std::vector<SignalContext>& signalContexts) override;
+    ListPtr<IString> getTopics(const std::vector<SignalContext>& signalContexts) override;
 
 protected:
     bool useSignalNames;

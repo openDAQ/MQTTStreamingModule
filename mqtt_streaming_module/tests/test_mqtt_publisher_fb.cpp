@@ -613,7 +613,7 @@ TEST_F(MqttPublisherFbTest, Config)
                                       static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
                                       daqInstance.getContext().getTypeManager()));
     const auto allProperties = fb.getAllProperties();
-    ASSERT_EQ(allProperties.getCount(), config.getAllProperties().getCount());
+    ASSERT_EQ(allProperties.getCount(), config.getAllProperties().getCount() + 1); // +1 for Topics property
 
     for (const auto& pror : config.getAllProperties())
     {
@@ -828,6 +828,38 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
     }
 }
 
+TEST_F(MqttPublisherFbTest, TopicsList)
+{
+    StartUp();
+
+    {
+        daq::FunctionBlockPtr fb;
+        auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0);
+        ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME, config));
+        auto help = SignalHelper<double>();
+
+        ASSERT_NO_THROW(fb.getInputPorts()[0].connect(help.signal0));
+        ASSERT_EQ(fb.getPropertyValue(PROPERTY_NAME_PUB_TOPICS).asPtr<IList>().getCount(), 1u);
+        ASSERT_NO_THROW(fb.getInputPorts()[1].connect(help.signal1));
+        ASSERT_EQ(fb.getPropertyValue(PROPERTY_NAME_PUB_TOPICS).asPtr<IList>().getCount(), 2u);
+        ASSERT_TRUE(fb.getProperty(PROPERTY_NAME_PUB_TOPICS).getVisible());
+    }
+
+    {
+        daq::FunctionBlockPtr fb;
+        auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
+        ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME, config));
+        auto help = SignalHelper<double>();
+
+        ASSERT_NO_THROW(fb.getInputPorts()[0].connect(help.signal0));
+        ASSERT_EQ(fb.getPropertyValue(PROPERTY_NAME_PUB_TOPICS).asPtr<IList>().getCount(), 1u);
+        ASSERT_NO_THROW(fb.getInputPorts()[1].connect(help.signal1));
+        ASSERT_EQ(fb.getPropertyValue(PROPERTY_NAME_PUB_TOPICS).asPtr<IList>().getCount(), 1u);
+        ASSERT_FALSE(fb.getProperty(PROPERTY_NAME_PUB_TOPICS).getVisible());
+    }
+}
 
 TEST_F(MqttPublisherFbTest, WrongConfig)
 {

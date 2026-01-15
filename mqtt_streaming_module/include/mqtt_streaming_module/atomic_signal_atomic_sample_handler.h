@@ -31,7 +31,7 @@ public:
     {
         return ProcedureStatus{true, {}};
     };
-
+    ListPtr<IString> getTopics(const std::vector<SignalContext>& signalContexts) override;
 protected:
     bool useSignalNames;
 

@@ -122,6 +122,12 @@ ProcedureStatus SignalArrayAtomicSampleHandler::signalListChanged(std::vector<Si
     return ProcedureStatus{true, {}};
 }
 
+ListPtr<IString> SignalArrayAtomicSampleHandler::getTopics(const std::vector<SignalContext>& signalContexts)
+{
+    auto res = List<IString>(String(buildTopicName()));
+    return res;
+}
+
 std::string SignalArrayAtomicSampleHandler::toString(const std::string valueFieldName, daq::DataPacketPtr packet)
 {
     std::string result;

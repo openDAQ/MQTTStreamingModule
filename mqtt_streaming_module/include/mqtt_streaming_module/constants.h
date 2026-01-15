@@ -45,6 +45,7 @@ static constexpr const char* PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE = "GroupVa
 static constexpr const char* PROPERTY_NAME_PUB_QOS = "QoS";
 static constexpr const char* PROPERTY_NAME_SUB_QOS = "QoS";
 static constexpr const char* PROPERTY_NAME_PUB_READ_PERIOD = "ReaderPeriod";
+static constexpr const char* PROPERTY_NAME_PUB_TOPICS = "Topics";
 
 static constexpr const char* SUB_FB_NAME = "MQTTSubscriberFB";
 static constexpr const char* PUB_FB_NAME = "PublisherMQTTFB";

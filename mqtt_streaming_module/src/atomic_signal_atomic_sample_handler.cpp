@@ -152,4 +152,17 @@ MqttDataSample AtomicSignalAtomicSampleHandler::processDataPacket(SignalContext&
     return MqttDataSample{topic, msg};
 }
 
+ListPtr<IString> AtomicSignalAtomicSampleHandler::getTopics(const std::vector<SignalContext>& signalContexts)
+{
+    auto res = List<IString>();
+    for (const auto& sigCtx : signalContexts)
+    {
+        if (!sigCtx.inputPort.getConnection().assigned())
+            continue;
+        auto t = buildTopicName(sigCtx);
+        res.pushBack(String(t));
+    }
+    return res;
+};
+
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

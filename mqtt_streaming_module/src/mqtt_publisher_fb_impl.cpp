@@ -151,6 +151,7 @@ void MqttPublisherFbImpl::onConnected(const InputPortPtr& inputPort)
     updateInputPorts();
     LOG_T("Connected to port {}", inputPort.getLocalId());
     validateInputPorts();
+    updateTopics();
     updateStatuses();
 }
 
@@ -161,6 +162,7 @@ void MqttPublisherFbImpl::onDisconnected(const InputPortPtr& inputPort)
     updateInputPorts();
     LOG_T("Disconnected from port {}", inputPort.getLocalId());
     validateInputPorts();
+    updateTopics();
     updateStatuses();
 }
 
@@ -264,6 +266,12 @@ void MqttPublisherFbImpl::validateInputPorts()
     }
 }
 
+void MqttPublisherFbImpl::updateTopics()
+{
+    const auto topics = handler->getTopics(signalContexts);
+    objPtr.getProperty(PROPERTY_NAME_PUB_TOPICS).asPtr<IPropertyInternal>().setValueProtected(topics);
+}
+
 void MqttPublisherFbImpl::initProperties(const PropertyObjectPtr& config)
 {
     for (const auto& prop : config.getAllProperties())
@@ -275,15 +283,25 @@ void MqttPublisherFbImpl::initProperties(const PropertyObjectPtr& config)
             {
                 objPtr.addProperty(internalProp.clone());
                 objPtr.setPropertyValue(propName, prop.getValue());
-                objPtr.getOnPropertyValueWrite(prop.getName()) +=
-                    [this](PropertyObjectPtr& obj, PropertyValueEventArgsPtr& args) { propertyChanged(); };
+                objPtr.getOnPropertyValueWrite(prop.getName()) += [this](PropertyObjectPtr& obj, PropertyValueEventArgsPtr& args)
+                { propertyChanged(); };
             }
         }
         else
         {
             objPtr.setPropertyValue(propName, prop.getValue());
         }
-    }
+
+        if (propName == PROPERTY_NAME_PUB_TOPIC_NAME)
+        {
+            auto builder = ListPropertyBuilder(PROPERTY_NAME_PUB_TOPICS, List<IString>())
+            .setReadOnly(true)
+                .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 0"))
+                .setDescription("List of currently used MQTT topics for publishing.");
+
+            objPtr.addProperty(builder.build());
+        }
+    }  
     readProperties();
 }
 
@@ -349,6 +367,7 @@ void MqttPublisherFbImpl::propertyChanged()
     readProperties();
     handler = HandlerFactory::create(this->config, globalId.toStdString());
     validateInputPorts();
+    updateTopics();
     updateStatuses();
 }
 
