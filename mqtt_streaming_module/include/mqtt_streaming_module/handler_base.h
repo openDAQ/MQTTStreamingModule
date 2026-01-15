@@ -110,6 +110,24 @@ protected:
         }
         return data;
     }
+
+    static std::string buildValueFieldName(SignalValueJSONKey signalNamesMode, daq::SignalPtr signal)
+    {
+        std::string valueFieldName;
+        if (signalNamesMode == SignalValueJSONKey::LocalID)
+        {
+            valueFieldName = signal.getLocalId().toStdString();
+        }
+        else if (signalNamesMode == SignalValueJSONKey::Name)
+        {
+            valueFieldName = signal.getName().toStdString();
+        }
+        else
+        {
+            valueFieldName = signal.getGlobalId().toStdString();
+        }
+        return valueFieldName;
+    }
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

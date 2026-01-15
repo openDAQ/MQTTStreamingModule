@@ -23,7 +23,7 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 class AtomicSignalSampleArrayHandler : public AtomicSignalAtomicSampleHandler
 {
 public:
-    explicit AtomicSignalSampleArrayHandler(bool useSignalNames, size_t packSize);
+    explicit AtomicSignalSampleArrayHandler(SignalValueJSONKey signalNamesMode, size_t packSize);
 
 protected:
     size_t packSize;

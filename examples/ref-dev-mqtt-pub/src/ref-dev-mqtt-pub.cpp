@@ -100,7 +100,7 @@ int main(int argc, char* argv[])
     auto config = availableFbs.get(fbName).createDefaultConfig();
     config.setPropertyValue("QoS", 1);
     config.setPropertyValue("ReaderWaitPeriod", 20);
-    config.setPropertyValue("UseSignalNames", True);
+    config.setPropertyValue("SignalValueJSONKey", 2);
     switch (appConfig.mode) {
         case Mode::ATOMIC_SIGNAL_ATOMIC_SAMPLE:
             config.setPropertyValue("SharedTimestamp", False);

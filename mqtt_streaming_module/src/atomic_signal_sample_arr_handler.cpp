@@ -7,8 +7,8 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-AtomicSignalSampleArrayHandler::AtomicSignalSampleArrayHandler(bool useSignalNames, size_t packSize)
-    : AtomicSignalAtomicSampleHandler(useSignalNames),
+AtomicSignalSampleArrayHandler::AtomicSignalSampleArrayHandler(SignalValueJSONKey signalNamesMode, size_t packSize)
+    : AtomicSignalAtomicSampleHandler(signalNamesMode),
       packSize(packSize > 0 ? packSize : 1)
 {
 }
@@ -92,7 +92,7 @@ MqttDataSample AtomicSignalSampleArrayHandler::processDataPackets(SignalContext&
     if (dataPacket.empty())
         return MqttDataSample{"", ""};
     const auto signal = signalContext.inputPort.getSignal();
-    std::string valueFieldName = useSignalNames ? signal.getName().toStdString() : signal.getGlobalId().toStdString();
+    std::string valueFieldName = buildValueFieldName(signalNamesMode, signal);
     auto msg = toString(valueFieldName, dataPacket);
     std::string topic = buildTopicName(signalContext);
     return MqttDataSample{topic, msg};

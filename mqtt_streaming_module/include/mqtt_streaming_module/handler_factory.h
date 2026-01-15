@@ -31,23 +31,23 @@ public:
     {
         if (config.sharedTs)
         {
-            return std::make_unique<GroupSignalSharedTsHandler>(config.useSignalNames,
+            return std::make_unique<GroupSignalSharedTsHandler>(config.valueFieldName,
                                                            config.topicName.empty() ? publisherFbGlobalId : config.topicName);
         }
         else if (config.topicMode == TopicMode::PerSignal)
         {
             if (config.groupValues)
-                return std::make_unique<AtomicSignalSampleArrayHandler>(config.useSignalNames, config.groupValuesPackSize);
+                return std::make_unique<AtomicSignalSampleArrayHandler>(config.valueFieldName, config.groupValuesPackSize);
             else
-                return std::make_unique<AtomicSignalAtomicSampleHandler>(config.useSignalNames);
+                return std::make_unique<AtomicSignalAtomicSampleHandler>(config.valueFieldName);
         }
         else if (config.topicMode == TopicMode::Single)
         {
-            return std::make_unique<SignalArrayAtomicSampleHandler>(config.useSignalNames,
+            return std::make_unique<SignalArrayAtomicSampleHandler>(config.valueFieldName,
                                                      config.topicName.empty() ? publisherFbGlobalId : config.topicName);
         }
 
-        return std::make_unique<AtomicSignalAtomicSampleHandler>(config.useSignalNames);
+        return std::make_unique<AtomicSignalAtomicSampleHandler>(config.valueFieldName);
     }
 };
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

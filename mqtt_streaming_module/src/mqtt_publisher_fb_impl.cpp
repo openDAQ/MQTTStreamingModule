@@ -97,8 +97,8 @@ FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
         defaultConfig.addProperty(builder.build());
     }
     {
-        auto builder = BoolPropertyBuilder(PROPERTY_NAME_PUB_USE_SIGNAL_NAMES, False)
-                           .setDescription("Uses signal names as JSON field names instead of Global IDs. By default it is set to false.");
+        auto builder = SelectionPropertyBuilder(PROPERTY_NAME_PUB_VALUE_FIELD_NAME, List<IString>("GlobalID", "LocalID", "Name"), 0)
+                           .setDescription("Describes how to name a JSON value field. By default it is set to GlobalID.");
         defaultConfig.addProperty(builder.build());
     }
     {
@@ -312,11 +312,21 @@ void MqttPublisherFbImpl::readProperties()
 
     config.sharedTs = readProperty<bool, IBoolean>(PROPERTY_NAME_PUB_SHARED_TS, false);
     config.groupValues = readProperty<bool, IBoolean>(PROPERTY_NAME_PUB_GROUP_VALUES, false);
-    config.useSignalNames = readProperty<bool, IBoolean>(PROPERTY_NAME_PUB_USE_SIGNAL_NAMES, false);
+    int tmpValueFieldName = (readProperty<int, IInteger>(PROPERTY_NAME_PUB_VALUE_FIELD_NAME, 0));
     config.groupValuesPackSize = readProperty<size_t, IInteger>(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, DEFAULT_PUB_PACK_SIZE);
     config.qos = readProperty<int, IInteger>(PROPERTY_NAME_PUB_QOS, DEFAULT_PUB_QOS);
     config.periodMs = readProperty<int, IInteger>(PROPERTY_NAME_PUB_READ_PERIOD, DEFAULT_PUB_READ_PERIOD);
     config.topicName = readProperty<std::string, IString>(PROPERTY_NAME_PUB_TOPIC_NAME, globalId.toStdString());
+    if (tmpValueFieldName < static_cast<int>(SignalValueJSONKey::_count) && tmpValueFieldName >= 0)
+    {
+        config.valueFieldName = static_cast<SignalValueJSONKey>(tmpValueFieldName);
+    }
+    else
+    {
+        config.valueFieldName = SignalValueJSONKey::GlobalID;
+        hasSettingError = true;
+        settingErrors.push_back(fmt::format("{} property has invalid value.", PROPERTY_NAME_PUB_VALUE_FIELD_NAME));
+    }
 
     if (tmpTopicMode < static_cast<int>(TopicMode::_count) && tmpTopicMode >= 0)
     {

@@ -11,8 +11,8 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-GroupSignalSharedTsHandler::GroupSignalSharedTsHandler(bool useSignalNames, std::string topic)
-    : useSignalNames(useSignalNames),
+GroupSignalSharedTsHandler::GroupSignalSharedTsHandler(SignalValueJSONKey signalNamesMode, std::string topic)
+    : signalNamesMode(signalNamesMode),
       buffersSize(1000),
       topic(topic)
 {
@@ -35,7 +35,7 @@ MqttData GroupSignalSharedTsHandler::processSignalContexts(std::vector<SignalCon
             for (size_t signalCnt = 0; signalCnt < signalContexts.size() - 1; ++signalCnt)
             {
                 const auto signal = signalContexts[signalCnt].inputPort.getSignal();
-                std::string valueFieldName = (useSignalNames ? signal.getName() : signal.getGlobalId()).toStdString();
+                std::string valueFieldName = buildValueFieldName(signalNamesMode, signal);
                 fields.emplace_back(toString(signal.getDescriptor().getSampleType(), valueFieldName, dataBuffers[signalCnt], sampleCnt));
             }
 

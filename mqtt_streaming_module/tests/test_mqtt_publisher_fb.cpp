@@ -222,7 +222,7 @@ public:
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, multiTopic ? 1 : 0);
         config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, sharedTs ? True : False);
         config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES, groupV ? True : False);
-        config.setPropertyValue(PROPERTY_NAME_PUB_USE_SIGNAL_NAMES, useSignalNames ? True : False);
+        config.setPropertyValue(PROPERTY_NAME_PUB_VALUE_FIELD_NAME, useSignalNames ? 2 : 0);
         config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, valuePackSize);
         config.setPropertyValue(PROPERTY_NAME_PUB_QOS, qos);
         config.setPropertyValue(PROPERTY_NAME_PUB_READ_PERIOD, readPeriod);
@@ -534,9 +534,9 @@ TEST_F(MqttPublisherFbTest, DefaultConfig)
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES).getValueType(), CoreType::ctBool);
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES).asPtr<IBoolean>(), False);
 
-    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_USE_SIGNAL_NAMES));
-    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_USE_SIGNAL_NAMES).getValueType(), CoreType::ctBool);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_USE_SIGNAL_NAMES).asPtr<IBoolean>(), False);
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_VALUE_FIELD_NAME));
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_VALUE_FIELD_NAME).getValueType(), CoreType::ctInt);
+    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_VALUE_FIELD_NAME).asPtr<IInteger>(), 0u);
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getValueType(), CoreType::ctInt);
@@ -595,7 +595,7 @@ TEST_F(MqttPublisherFbTest, Config)
     config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
     config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, True);
     config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES, True);
-    config.setPropertyValue(PROPERTY_NAME_PUB_USE_SIGNAL_NAMES, True);
+    config.setPropertyValue(PROPERTY_NAME_PUB_VALUE_FIELD_NAME, 1);
     config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, 3);
     config.setPropertyValue(PROPERTY_NAME_PUB_QOS, 2);
     config.setPropertyValue(PROPERTY_NAME_PUB_READ_PERIOD, 100);
@@ -626,7 +626,7 @@ TEST_F(MqttPublisherFbTest, Config)
     EXPECT_EQ(ptr->getFbConfig().topicMode, TopicMode::Single);
     EXPECT_TRUE(ptr->getFbConfig().sharedTs);
     EXPECT_TRUE(ptr->getFbConfig().groupValues);
-    EXPECT_TRUE(ptr->getFbConfig().useSignalNames);
+    EXPECT_EQ(ptr->getFbConfig().valueFieldName, SignalValueJSONKey::LocalID);
     EXPECT_EQ(ptr->getFbConfig().groupValuesPackSize, 3);
     EXPECT_EQ(ptr->getFbConfig().qos, 2);
     EXPECT_EQ(ptr->getFbConfig().periodMs, 100);
@@ -701,7 +701,7 @@ TEST_F(MqttPublisherFbTest, CreationWithPartialConfig)
     StartUp();
     daq::FunctionBlockPtr fb;
     auto config = PropertyObject();
-    config.addProperty(BoolProperty(PROPERTY_NAME_PUB_USE_SIGNAL_NAMES, True));
+    config.addProperty(IntProperty(PROPERTY_NAME_PUB_READ_PERIOD, 20));
     ASSERT_NO_THROW(fb = rootMqttFb.addFunctionBlock(PUB_FB_NAME, config));
     SignalHelper<double> helper;
     fb.getInputPorts()[0].connect(helper.signal0);

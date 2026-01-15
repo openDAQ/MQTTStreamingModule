@@ -33,7 +33,7 @@ struct TimestampTickStruct
 class GroupSignalSharedTsHandler : public HandlerBase
 {
 public:
-    explicit GroupSignalSharedTsHandler(bool useSignalNames, std::string topic);
+    explicit GroupSignalSharedTsHandler(SignalValueJSONKey signalNamesMode, std::string topic);
 
     MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) override;
     ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const override;
@@ -41,7 +41,7 @@ public:
     ListPtr<IString> getTopics(const std::vector<SignalContext>& signalContexts) override;
 
 protected:
-    bool useSignalNames;
+    SignalValueJSONKey signalNamesMode;
     const size_t buffersSize;
     const std::string topic;
     std::vector<void*> dataBuffers;

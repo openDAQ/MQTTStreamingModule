@@ -17,12 +17,19 @@ enum class TopicMode {
     _count
 };
 
+enum class SignalValueJSONKey {
+    GlobalID = 0,
+    LocalID,
+    Name,
+    _count
+};
+
 struct PublisherFbConfig {
     TopicMode topicMode;
     std::string topicName;
     bool sharedTs;
     bool groupValues;
-    bool useSignalNames;
+    SignalValueJSONKey valueFieldName;
     size_t groupValuesPackSize;
     int qos;
     int periodMs;

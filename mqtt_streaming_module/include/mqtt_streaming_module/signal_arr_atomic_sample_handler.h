@@ -24,7 +24,7 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 class SignalArrayAtomicSampleHandler : public HandlerBase
 {
 public:
-    explicit SignalArrayAtomicSampleHandler(bool useSignalNames, std::string topic);
+    explicit SignalArrayAtomicSampleHandler(SignalValueJSONKey signalNamesMode, std::string topic);
 
     MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) override;
     ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const override;
@@ -32,7 +32,7 @@ public:
     ListPtr<IString> getTopics(const std::vector<SignalContext>& signalContexts) override;
 
 protected:
-    bool useSignalNames;
+    SignalValueJSONKey signalNamesMode;
     const std::string topic;
 
     std::string toString(const std::string valueFieldName, daq::DataPacketPtr packet);

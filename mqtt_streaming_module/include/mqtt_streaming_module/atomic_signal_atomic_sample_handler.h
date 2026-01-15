@@ -23,7 +23,7 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 class AtomicSignalAtomicSampleHandler : public HandlerBase
 {
 public:
-    explicit AtomicSignalAtomicSampleHandler(bool useSignalNames);
+    explicit AtomicSignalAtomicSampleHandler(SignalValueJSONKey signalNamesMode);
 
     MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) override;
     ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const override;
@@ -33,7 +33,7 @@ public:
     };
     ListPtr<IString> getTopics(const std::vector<SignalContext>& signalContexts) override;
 protected:
-    bool useSignalNames;
+    SignalValueJSONKey signalNamesMode;
 
     virtual MqttData processSignalContext(SignalContext& signalContext);
     void
