@@ -175,6 +175,11 @@ ListPtr<IString> GroupSignalSharedTsHandler::getTopics(const std::vector<SignalC
     return res;
 }
 
+std::string GroupSignalSharedTsHandler::getSchema()
+{
+    return fmt::format("{{\"{}\" : <sample_value>, ..., \"{}\" : <sample_value>, \"timestamp\": <timestamp_ns>}}", buildValueFieldNameForSchema(signalNamesMode, "_0"), buildValueFieldNameForSchema(signalNamesMode, "_N"));
+}
+
 std::string GroupSignalSharedTsHandler::toString(const SampleType sampleType, const std::string& valueFieldName, void* data, SizeT offset)
 {
     switch (sampleType)

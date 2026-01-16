@@ -163,6 +163,11 @@ ListPtr<IString> AtomicSignalAtomicSampleHandler::getTopics(const std::vector<Si
         res.pushBack(String(t));
     }
     return res;
+}
+
+std::string AtomicSignalAtomicSampleHandler::getSchema()
+{
+    return fmt::format("{{\"{}\" : <sample_value>, \"timestamp\": <timestamp_ns>}}", buildValueFieldNameForSchema(signalNamesMode));
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

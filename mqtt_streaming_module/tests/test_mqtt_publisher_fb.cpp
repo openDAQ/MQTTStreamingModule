@@ -620,7 +620,7 @@ TEST_F(MqttPublisherFbTest, Config)
                                       static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
                                       daqInstance.getContext().getTypeManager()));
     const auto allProperties = fb.getAllProperties();
-    ASSERT_EQ(allProperties.getCount(), config.getAllProperties().getCount() + 1); // +1 for Topics property
+    ASSERT_EQ(allProperties.getCount(), config.getAllProperties().getCount() + 2); // +2 for Topics property, Schema property
 
     for (const auto& pror : config.getAllProperties())
     {

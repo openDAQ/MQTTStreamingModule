@@ -39,6 +39,7 @@ public:
     ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const override;
     ProcedureStatus signalListChanged(std::vector<SignalContext>& signalContexts) override;
     ListPtr<IString> getTopics(const std::vector<SignalContext>& signalContexts) override;
+    std::string getSchema() override;
 
 protected:
     SignalValueJSONKey signalNamesMode;

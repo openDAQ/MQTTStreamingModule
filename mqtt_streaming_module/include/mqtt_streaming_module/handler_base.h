@@ -31,6 +31,7 @@ public:
     virtual ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const = 0;
     virtual ProcedureStatus signalListChanged(std::vector<SignalContext>& signalContexts) = 0;
     virtual ListPtr<IString> getTopics(const std::vector<SignalContext>& signalContexts) = 0;
+    virtual std::string getSchema() = 0;
 
 protected:
     static std::pair<uint64_t, uint64_t> calculateRatio(const DataDescriptorPtr descriptor)
@@ -125,6 +126,24 @@ protected:
         else
         {
             valueFieldName = signal.getGlobalId().toStdString();
+        }
+        return valueFieldName;
+    }
+
+    static std::string buildValueFieldNameForSchema(SignalValueJSONKey signalNamesMode, std::string postfix = "")
+    {
+        std::string valueFieldName;
+        if (signalNamesMode == SignalValueJSONKey::LocalID)
+        {
+            valueFieldName = fmt::format("<signal{}_local_id>", postfix);
+        }
+        else if (signalNamesMode == SignalValueJSONKey::Name)
+        {
+            valueFieldName = fmt::format("<signal{}_name>", postfix);
+        }
+        else
+        {
+            valueFieldName = fmt::format("<signal{}_global_id>", postfix);
         }
         return valueFieldName;
     }

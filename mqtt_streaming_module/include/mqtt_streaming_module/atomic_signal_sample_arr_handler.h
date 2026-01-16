@@ -24,6 +24,7 @@ class AtomicSignalSampleArrayHandler : public AtomicSignalAtomicSampleHandler
 {
 public:
     explicit AtomicSignalSampleArrayHandler(SignalValueJSONKey signalNamesMode, size_t packSize);
+    std::string getSchema() override;
 
 protected:
     size_t packSize;

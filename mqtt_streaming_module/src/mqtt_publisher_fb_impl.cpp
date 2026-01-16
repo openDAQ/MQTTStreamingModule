@@ -52,6 +52,7 @@ MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
     handler = HandlerFactory::create(this->config, globalId.toStdString());
     updatePortsAndSignals(true);
     validateInputPorts();
+    updateSchema();
     updateStatuses();
     runReaderThread();
 }
@@ -341,6 +342,12 @@ void MqttPublisherFbImpl::updateTopics()
     objPtr.getProperty(PROPERTY_NAME_PUB_TOPICS).asPtr<IPropertyInternal>().setValueProtected(topics);
 }
 
+void MqttPublisherFbImpl::updateSchema()
+{
+    const auto schema = handler->getSchema();
+    objPtr.getProperty(PROPERTY_NAME_PUB_SCHEMA).asPtr<IPropertyInternal>().setValueProtected(String(schema));
+}
+
 void MqttPublisherFbImpl::initProperties(const PropertyObjectPtr& config)
 {
     for (const auto& prop : config.getAllProperties())
@@ -370,7 +377,13 @@ void MqttPublisherFbImpl::initProperties(const PropertyObjectPtr& config)
 
             objPtr.addProperty(builder.build());
         }
-    }  
+    }
+    {
+        auto builder =
+            StringPropertyBuilder(PROPERTY_NAME_PUB_SCHEMA, "").setReadOnly(true).setDescription("Publishing JSON schema.");
+
+        objPtr.addProperty(builder.build());
+    }
     readProperties();
 }
 
@@ -449,6 +462,7 @@ void MqttPublisherFbImpl::propertyChanged()
     updatePortsAndSignals(false);
     validateInputPorts();
     updateTopics();
+    updateSchema();
     updateStatuses();
 }
 

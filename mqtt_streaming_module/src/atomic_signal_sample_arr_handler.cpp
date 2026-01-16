@@ -13,6 +13,22 @@ AtomicSignalSampleArrayHandler::AtomicSignalSampleArrayHandler(SignalValueJSONKe
 {
 }
 
+std::string AtomicSignalSampleArrayHandler::getSchema()
+{
+    if (packSize == 1)
+    {
+        return fmt::format("{{\"{}\" : [<sample_value_0>], \"timestamp\": [<timestamp_ns_0>]}}", buildValueFieldNameForSchema(signalNamesMode));
+    }
+    else if (packSize == 2)
+    {
+        return fmt::format("{{\"{}\" : [<sample_value_0>, <sample_value_1>], \"timestamp\": [<timestamp_ns_0>, <timestamp_ns_1>]}}", buildValueFieldNameForSchema(signalNamesMode));
+    }
+    else
+    {
+        return fmt::format("{{\"{}\" : [<sample_value_0>, ..., <sample_value_{}>], \"timestamp\": [<timestamp_ns_0>, ..., <timestamp_ns_{}>]}}", buildValueFieldNameForSchema(signalNamesMode), packSize - 1, packSize - 1);
+    }
+}
+
 MqttData AtomicSignalSampleArrayHandler::processSignalContext(SignalContext& signalContext)
 {
     MqttData messages;

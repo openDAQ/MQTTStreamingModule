@@ -128,6 +128,11 @@ ListPtr<IString> SignalArrayAtomicSampleHandler::getTopics(const std::vector<Sig
     return res;
 }
 
+std::string SignalArrayAtomicSampleHandler::getSchema()
+{
+    return fmt::format("[{{\"{}\" : <sample_value>, \"timestamp\": <timestamp_ns>}}, ..., {{\"{}\" : <sample_value>, \"timestamp\": <timestamp_ns>}}]", buildValueFieldNameForSchema(signalNamesMode, "_0"), buildValueFieldNameForSchema(signalNamesMode, "_N"));
+}
+
 std::string SignalArrayAtomicSampleHandler::toString(const std::string valueFieldName, daq::DataPacketPtr packet)
 {
     std::string result;
