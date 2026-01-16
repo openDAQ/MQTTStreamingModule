@@ -27,12 +27,12 @@ class MqttRawReceiverFbImpl final : public MqttBaseFb
     friend class MqttRawFbTest;
 
 public:
-    explicit MqttRawReceiverFbImpl(const ContextPtr& ctx,
+    explicit DAQ_MQTT_STREAM_MODULE_API MqttRawReceiverFbImpl(const ContextPtr& ctx,
                                    const ComponentPtr& parent,
                                    const FunctionBlockTypePtr& type,
                                    std::shared_ptr<mqtt::MqttAsyncClient> subscriber,
                                    const PropertyObjectPtr& config = nullptr);
-    ~MqttRawReceiverFbImpl() override;
+    DAQ_MQTT_STREAM_MODULE_API ~MqttRawReceiverFbImpl() override;
 
     static FunctionBlockTypePtr CreateType();
 

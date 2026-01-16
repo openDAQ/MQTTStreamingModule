@@ -1,6 +1,7 @@
 #include "mqtt_streaming_module/constants.h"
 #include <mqtt_streaming_module/helper.h>
 #include <mqtt_streaming_module/mqtt_json_decoder_fb_impl.h>
+#include <chrono>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 

@@ -19,3 +19,13 @@
 
 #define BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE BEGIN_NAMESPACE_OPENDAQ_MODULE(mqtt_streaming_module)
 #define END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE END_NAMESPACE_OPENDAQ_MODULE
+
+#if defined(_WIN32)
+    #ifdef OPENDAQ_MODULE_DLL_IMPORT
+        #define DAQ_MQTT_STREAM_MODULE_API __declspec(dllexport)
+    #else
+        #define DAQ_MQTT_STREAM_MODULE_API __declspec(dllimport)
+    #endif
+#else
+    #define DAQ_MQTT_STREAM_MODULE_API
+#endif

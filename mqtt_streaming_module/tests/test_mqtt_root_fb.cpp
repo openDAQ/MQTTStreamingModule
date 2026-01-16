@@ -58,12 +58,12 @@ TEST_F(MqttFbTest, CreatingMqttFbWithDefaultConfig)
     auto fbs = instance.getFunctionBlocks();
     bool contain = false;
     daq::FunctionBlockPtr fbFromList;
-    for (const auto& fb : fbs)
+    for (const auto& fbInst : fbs)
     {
-        contain = (fb.getName() == std::string(MQTT_LOCAL_ROOT_FB_ID_PREFIX) + std::to_string(0));
+        contain = (fbInst.getName() == std::string(MQTT_LOCAL_ROOT_FB_ID_PREFIX) + std::to_string(0));
         if (contain)
         {
-            fbFromList = fb;
+            fbFromList = fbInst;
             break;
         }
     }

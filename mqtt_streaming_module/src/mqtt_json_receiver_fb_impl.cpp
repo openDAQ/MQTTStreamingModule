@@ -8,8 +8,6 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-constexpr int MQTT_JSON_FB_UNSUBSCRIBE_TOUT = 3000;
-
 std::atomic<int> MqttJsonReceiverFbImpl::localIndex = 0;
 
 MqttJsonReceiverFbImpl::MqttJsonReceiverFbImpl(const ContextPtr& ctx,
@@ -231,16 +229,16 @@ void MqttJsonReceiverFbImpl::setJsonConfig(const std::string config)
             }
             if (const auto signalDscs = jsonDataWorker.extractDescription(); !signalDscs.empty())
             {
-                auto config = MqttJsonDecoderFbImpl::CreateType().createDefaultConfig();
+                auto fbConfig = MqttJsonDecoderFbImpl::CreateType().createDefaultConfig();
                 for (const auto& [signalName, descriptor] : signalDscs)
                 {
                     LOG_I("Creating a decoder FB for the signal \"{}\":", signalName);
-                    config.setPropertyValue(PROPERTY_NAME_VALUE_NAME, descriptor.valueFieldName);
-                    config.setPropertyValue(PROPERTY_NAME_TS_NAME, descriptor.tsFieldName);
-                    config.setPropertyValue(PROPERTY_NAME_SIGNAL_NAME, signalName);
+                    fbConfig.setPropertyValue(PROPERTY_NAME_VALUE_NAME, descriptor.valueFieldName);
+                    fbConfig.setPropertyValue(PROPERTY_NAME_TS_NAME, descriptor.tsFieldName);
+                    fbConfig.setPropertyValue(PROPERTY_NAME_SIGNAL_NAME, signalName);
                     if (descriptor.unit.assigned())
-                        config.setPropertyValue(PROPERTY_NAME_UNIT, descriptor.unit.getSymbol());
-                    MqttJsonReceiverFbImpl::onAddFunctionBlock(JSON_DECODER_FB_NAME, config);
+                        fbConfig.setPropertyValue(PROPERTY_NAME_UNIT, descriptor.unit.getSymbol());
+                    MqttJsonReceiverFbImpl::onAddFunctionBlock(JSON_DECODER_FB_NAME, fbConfig);
                 }
             }
         }

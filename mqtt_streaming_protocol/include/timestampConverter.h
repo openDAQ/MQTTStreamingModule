@@ -9,7 +9,7 @@
 
 namespace mqtt::utils
 {
-uint64_t numericToMicroseconds(uint64_t val)
+inline uint64_t numericToMicroseconds(uint64_t val)
 {
     // Determine number of digits
     int digits = (val == 0) ? 1 : static_cast<int>(std::log10(val)) + 1;
@@ -29,7 +29,7 @@ uint64_t numericToMicroseconds(uint64_t val)
     }
 }
 
-uint64_t toUnixTicks(const std::string& input)
+inline uint64_t toUnixTicks(const std::string& input)
 {
     std::string str = input;
     // Trim leading/trailing spaces

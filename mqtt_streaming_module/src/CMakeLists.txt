@@ -90,6 +90,10 @@ if (MSVC)
     target_compile_options(${LIB_NAME} PRIVATE /bigobj)
 endif()
 
+if (WIN32)
+    target_compile_definitions(${LIB_NAME} PRIVATE OPENDAQ_MODULE_DLL_IMPORT)
+endif()
+
 target_link_libraries(${LIB_NAME} PUBLIC  daq::opendaq
                                           mqtt_streaming_protocol
                                           mqtt_streaming_helper

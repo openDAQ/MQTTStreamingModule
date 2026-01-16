@@ -129,7 +129,7 @@ bool MqttAsyncClientWrapper::publishMsg(const mqtt::MqttMessage& msg)
     return (status == std::future_status::ready && deliveryFuture.get() == result.token);
 }
 
-bool MqttAsyncClientWrapper::subscribe(const std::string& topic, uint qos)
+bool MqttAsyncClientWrapper::subscribe(const std::string& topic, int qos)
 {
     auto status = instance->subscribe(topic, qos);
     if (status.success)
@@ -143,7 +143,7 @@ void MqttAsyncClientWrapper::expectMsgs(const std::string& topic,
                                         std::atomic<bool>& done)
 {
     instance->setMessageArrivedCb(topic,
-                                  [topic, &done, &msgs, &promise, i = 0](const mqtt::MqttAsyncClient& subscriber,
+                                  [topic, &done, &msgs, &promise, i = size_t(0)](const mqtt::MqttAsyncClient& subscriber,
                                                                          mqtt::MqttMessage& receivedMsg) mutable
                                   {
                                       const auto receivedStr = receivedMsg.toString();
@@ -153,6 +153,41 @@ void MqttAsyncClientWrapper::expectMsgs(const std::string& topic,
 
                                       bool expected = false;
                                       if (++i == msgs.size() && done.compare_exchange_strong(expected, true))
+                                          promise.set_value(true);
+                                  });
+}
+
+void MqttAsyncClientWrapper::expectMultiMsgs(const std::string& topic,
+                                        const std::vector<std::string>& msgs,
+                                        std::promise<bool>& promise,
+                                        std::atomic<bool>& done)
+{
+    instance->setMessageArrivedCb(topic,
+                                  [topic, &done, localMsgs = msgs, &promise](const mqtt::MqttAsyncClient& subscriber,
+                                                                                 mqtt::MqttMessage& receivedMsg) mutable
+                                  {
+                                      const auto receivedStr = receivedMsg.toString();
+                                      std::cout << "{topic | msg}: " << receivedMsg.getTopic() << " | " << receivedStr << std::endl;
+                                      if (receivedMsg.getTopic() != topic || localMsgs.empty())
+                                          return;
+                                      if ((std::string("[") + localMsgs.at(0) + "]") == receivedStr)
+                                      {
+                                          localMsgs.erase(localMsgs.begin());
+                                      }
+                                      else if (localMsgs.size() >= 2 && (std::string("[") + localMsgs.at(1) + "]") == receivedStr)
+                                      {
+                                          localMsgs.erase(localMsgs.begin() + 1);
+                                      }
+                                      else if(localMsgs.size() >= 2 && (std::string("[") + localMsgs.at(0) + ", " + localMsgs.at(1) + "]") == receivedStr)
+                                      {
+                                          localMsgs.erase(localMsgs.begin(), localMsgs.begin() + 2);
+                                      }
+                                      else if(localMsgs.size() >= 2 && (std::string("[") + localMsgs.at(1) + ", " + localMsgs.at(0) + "]") == receivedStr)
+                                      {
+                                          localMsgs.erase(localMsgs.begin(), localMsgs.begin() + 2);
+                                      }
+                                      bool expected = false;
+                                      if (localMsgs.empty() && done.compare_exchange_strong(expected, true))
                                           promise.set_value(true);
                                   });
 }

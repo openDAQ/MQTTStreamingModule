@@ -174,7 +174,7 @@ protected:
             {
                 if constexpr (std::is_integral_v<T>)
                 {
-                    sampleData = i;
+                    sampleData = static_cast<T>(i);
                     if constexpr (std::is_signed_v<T>)
                     {
                         sampleData *= ((i % 2 == 0) ? 1 : -1);
@@ -214,9 +214,9 @@ public:
                            bool groupV,
                            bool useSignalNames,
                            const std::string& topicName,
-                           uint valuePackSize = 0,
-                           uint qos = 2,
-                           uint readPeriod = 20)
+                           size_t valuePackSize = 0,
+                           int qos = 2,
+                           uint32_t readPeriod = 20)
     {
         auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, multiTopic ? 1 : 0);
@@ -324,19 +324,28 @@ public:
     expectedMsgsForMultimsg(const std::string& signalName0, const std::string& signalName1, std::vector<std::pair<T, uint64_t>> data)
     {
         std::vector<std::string> msgs;
-        const std::string PUBLISHER_SINGLE_MSG = "[{<placeholder_signal0> : <placeholder_value0>, \"timestamp\": <placeholder_ts0>}, "
-                                                 "{<placeholder_signal1> : <placeholder_value1>, \"timestamp\": <placeholder_ts1>}]";
+        // const std::string PUBLISHER_SINGLE_MSG = "[{<placeholder_signal0> : <placeholder_value0>, \"timestamp\": <placeholder_ts0>}, "
+        //                                          "{<placeholder_signal1> : <placeholder_value1>, \"timestamp\": <placeholder_ts1>}]";
+        const std::string PUBLISHER_SINGLE_MSG_FIRST = "{<placeholder_signal0> : <placeholder_value0>, \"timestamp\": <placeholder_ts0>}";
+        const std::string PUBLISHER_SINGLE_MSG_SECOND = "{<placeholder_signal1> : <placeholder_value1>, \"timestamp\": <placeholder_ts1>}";
 
+        std::string tmpStr;
+        tmpStr = replacePlaceholder(tmpStr, "<placeholder_first>", PUBLISHER_SINGLE_MSG_FIRST);
+        tmpStr = replacePlaceholder(tmpStr, "<placeholder_second>", PUBLISHER_SINGLE_MSG_SECOND);
+        const std::string PUBLISHER_SINGLE_MSG = std::move(tmpStr);
         std::vector<std::string> messages;
         {
             for (const auto& [value, ts] : data)
             {
-                auto msg = PUBLISHER_SINGLE_MSG;
+                auto msg = PUBLISHER_SINGLE_MSG_FIRST;
                 msg = replacePlaceholder(msg, "<placeholder_signal0>", signalName0);
-                msg = replacePlaceholder(msg, "<placeholder_signal1>", signalName1);
                 msg = replacePlaceholder(msg, "<placeholder_value0>", value);
-                msg = replacePlaceholder(msg, "<placeholder_value1>", value);
                 msg = replacePlaceholder(msg, "<placeholder_ts0>", ts * 1000);
+                messages.push_back(std::move(msg));
+
+                msg = PUBLISHER_SINGLE_MSG_SECOND;
+                msg = replacePlaceholder(msg, "<placeholder_signal1>", signalName1);
+                msg = replacePlaceholder(msg, "<placeholder_value1>", value);
                 msg = replacePlaceholder(msg, "<placeholder_ts1>", ts * 1000);
                 messages.push_back(std::move(msg));
             }
@@ -405,12 +414,15 @@ public:
     bool transfer(const std::string& topic,
                   const std::vector<std::string>& messages,
                   SignalHelper<T>& helper,
-                  const std::vector<std::pair<T, uint64_t>>& data)
+                  const std::vector<std::pair<T, uint64_t>>& data, bool isMultimessage = false)
     {
         std::promise<bool> receivedPromise;
         auto receivedFuture = receivedPromise.get_future();
         std::atomic<bool> done{false};
-        subscriber->expectMsgs(topic, messages, receivedPromise, done);
+        if (isMultimessage)
+            subscriber->expectMultiMsgs(topic, messages, receivedPromise, done);
+        else
+            subscriber->expectMsgs(topic, messages, receivedPromise, done);
 
         helper::utils::Timer receiveTimer(5000);
         bool ok = subscriber->subscribe(topic, 2);
@@ -962,7 +974,7 @@ TEST_P(MqttPublisherFbPTest, TransferMultimessage)
             const auto data = help.generateTestData(sampleCnt);
             const std::vector<std::string> messages =
                 expectedMsgsForMultimsg(help.signal0.getGlobalId().toStdString(), help.signal1.getGlobalId().toStdString(), data);
-            auto ok = transfer(topic, messages, help, data);
+            auto ok = transfer(topic, messages, help, data, true);
             ASSERT_TRUE(ok);
             ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
                       Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
@@ -1104,18 +1116,18 @@ TEST_F(MqttPublisherFbTest, DISABLED_MultiReaderTest)
         if (status.getReadStatus() == ReadStatus::Ok && count > 0)
         {
             sampleCnt += count;
-            for (SizeT sampleCnt = 0; sampleCnt < count; ++sampleCnt)
+            for (SizeT cnt = 0; cnt < count; ++cnt)
             {
                 std::vector<std::string> fields;
                 for (size_t signalCnt = 0; signalCnt < signalNum; ++signalCnt)
                 {
                     std::string valueFieldName = "Signal" + std::to_string(signalCnt);
-                    fields.emplace_back(toString(valueFieldName, dataBuffers[signalCnt], sampleCnt));
+                    fields.emplace_back(toString(valueFieldName, dataBuffers[signalCnt], cnt));
                 }
                 for (size_t signalCnt = 0; signalCnt < signalNum; ++signalCnt)
                 {
                     std::string valueFieldName = "TS" + std::to_string(signalCnt);
-                    fields.emplace_back(toString(valueFieldName, domainBuffers[signalCnt], sampleCnt));
+                    fields.emplace_back(toString(valueFieldName, domainBuffers[signalCnt], cnt));
                 }
                 std::string msg;
                 for (size_t i = 0; i < fields.size(); ++i)
