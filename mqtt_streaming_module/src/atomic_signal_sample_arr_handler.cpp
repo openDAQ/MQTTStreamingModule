@@ -90,11 +90,11 @@ std::string AtomicSignalSampleArrayHandler::toString(const std::string valueFiel
 MqttDataSample AtomicSignalSampleArrayHandler::processDataPackets(SignalContext& signalContext, const std::vector<DataPacketPtr>& dataPacket)
 {
     if (dataPacket.empty())
-        return MqttDataSample{"", ""};
+        return MqttDataSample{nullptr, "", ""};
     const auto signal = signalContext.inputPort.getSignal();
     std::string valueFieldName = buildValueFieldName(signalNamesMode, signal);
     auto msg = toString(valueFieldName, dataPacket);
     std::string topic = buildTopicName(signalContext);
-    return MqttDataSample{topic, msg};
+    return MqttDataSample{signalContext.previewSignal, topic, msg};
 }
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

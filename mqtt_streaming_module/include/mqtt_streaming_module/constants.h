@@ -49,6 +49,7 @@ static constexpr const char* PROPERTY_NAME_PUB_QOS = "QoS";
 static constexpr const char* PROPERTY_NAME_PUB_READ_PERIOD = "ReaderWaitPeriod";
 static constexpr const char* PROPERTY_NAME_PUB_TOPICS = "Topics";
 static constexpr const char* PROPERTY_NAME_PUB_PREVIEW_SIGNAL = "EnablePreviewSignal";
+static constexpr const char* PUB_PREVIEW_SIGNAL_NAME = "PreviewSignal";
 
 static constexpr const char* SUB_FB_NAME = "MQTTSubscriberFB";
 static constexpr const char* PUB_FB_NAME = "MQTTJSONPublisherFB";

@@ -7,8 +7,12 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-// std::vector<std::pair<topic, message>>
-using MqttDataSample = std::pair<std::string, std::string>;
+struct MqttDataSample {
+    SignalConfigPtr previewSignal;
+    std::string topic;
+    std::string message;
+};
+
 using MqttData = std::vector<MqttDataSample>;
 
 enum class TopicMode {
@@ -33,6 +37,7 @@ struct PublisherFbConfig {
     size_t groupValuesPackSize;
     int qos;
     int periodMs;
+    bool enablePreview;
 };
 
 struct SignalContext
@@ -40,6 +45,7 @@ struct SignalContext
     size_t index;
     InputPortConfigPtr inputPort;
     std::vector<DataPacketPtr> data;
+    SignalConfigPtr previewSignal;
 };
 
 struct ProcedureStatus

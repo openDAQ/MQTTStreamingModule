@@ -42,7 +42,7 @@ MqttData GroupSignalSharedTsHandler::processSignalContexts(std::vector<SignalCon
             fields.emplace_back(tsToString(tsStruct, sampleCnt));
             std::string topic = buildTopicName();
             std::string msg = messageFromFields(fields);
-            messages.emplace_back(std::move(topic), std::move(msg));
+            messages.emplace_back(MqttDataSample{signalContexts[0].previewSignal, std::move(topic), std::move(msg)});
         }
     }
 

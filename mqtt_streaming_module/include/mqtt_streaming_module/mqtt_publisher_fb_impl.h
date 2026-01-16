@@ -95,13 +95,14 @@ private:
     std::atomic<uint64_t> publishedMsgCnt;
     std::string lastSkippedReason;
     helper::utils::Timer publishingStatusTimer;
+    SignalConfigPtr commonPreviewSignal;
 
     static std::string generateLocalId();
     void updatePublishingStatus(bool force);
     void initProperties(const PropertyObjectPtr& config);
     void readProperties();
     void propertyChanged();
-    void updateInputPorts();
+    void updatePortsAndSignals(bool reassignPorts);
     void updateStatuses();
     void validateInputPorts();
     void updateTopics();

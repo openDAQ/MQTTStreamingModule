@@ -3,6 +3,7 @@
 #include <boost/algorithm/string.hpp>
 #include <mqtt_streaming_module/helper.h>
 #include <mqtt_streaming_module/mqtt_publisher_fb_impl.h>
+#include <opendaq/binary_data_packet_factory.h>
 #include <opendaq/event_packet_params.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
@@ -49,7 +50,7 @@ MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
         initProperties(type.createDefaultConfig());
 
     handler = HandlerFactory::create(this->config, globalId.toStdString());
-    updateInputPorts();
+    updatePortsAndSignals(true);
     validateInputPorts();
     updateStatuses();
     runReaderThread();
@@ -122,6 +123,12 @@ FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
         defaultConfig.addProperty(builder.build());
     }
     {
+        auto builder = BoolPropertyBuilder(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, False)
+        .setDescription("Enables previewing of the publishing data in the function block's output signal. "
+                        "By default it is set to false.");
+        defaultConfig.addProperty(builder.build());
+    }
+    {
         auto builder =
             IntPropertyBuilder(PROPERTY_NAME_PUB_READ_PERIOD, DEFAULT_PUB_READ_PERIOD)
                 .setMinValue(0)
@@ -148,7 +155,7 @@ void MqttPublisherFbImpl::onConnected(const InputPortPtr& inputPort)
 {
     auto lock = this->getRecursiveConfigLock();
 
-    updateInputPorts();
+    updatePortsAndSignals(true);
     LOG_T("Connected to port {}", inputPort.getLocalId());
     validateInputPorts();
     updateTopics();
@@ -159,31 +166,93 @@ void MqttPublisherFbImpl::onDisconnected(const InputPortPtr& inputPort)
 {
     auto lock = this->getRecursiveConfigLock();
 
-    updateInputPorts();
+    updatePortsAndSignals(true);
     LOG_T("Disconnected from port {}", inputPort.getLocalId());
     validateInputPorts();
     updateTopics();
     updateStatuses();
 }
 
-void MqttPublisherFbImpl::updateInputPorts()
+void MqttPublisherFbImpl::updatePortsAndSignals(bool reassignPorts)
 {
+    if (reassignPorts)
+    {
+        for (auto it = signalContexts.begin(); it != signalContexts.end();)
+        {
+            if (!it->inputPort.getSignal().assigned())
+            {
+                removeInputPort(it->inputPort);
+                if (it->previewSignal.assigned() && (!commonPreviewSignal.assigned() || commonPreviewSignal != it->previewSignal))
+                {
+                    removeSignal(it->previewSignal);
+                }
+                it = signalContexts.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
+    if (config.enablePreview)
+    {
+        if (config.topicMode == TopicMode::Single && !commonPreviewSignal.assigned())
+        {
+            const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::Binary).build();
+            commonPreviewSignal = createAndAddSignal(fmt::format("{}{}", PUB_PREVIEW_SIGNAL_NAME, "Common"), signalDsc);
+        }
+    }
+
     for (auto it = signalContexts.begin(); it != signalContexts.end();)
     {
         if (!it->inputPort.getSignal().assigned())
         {
-            removeInputPort(it->inputPort);
-            it = signalContexts.erase(it);
+            ++it;
+            continue;
+        }
+        if (config.enablePreview)
+        {
+            if (config.topicMode == TopicMode::Single)
+            {
+                if (it->previewSignal != commonPreviewSignal)
+                {
+                    if (it->previewSignal.assigned())
+                        removeSignal(it->previewSignal);
+                    it->previewSignal = commonPreviewSignal;
+                }
+            }
+            else if (config.topicMode == TopicMode::PerSignal)
+            {
+                if (!it->previewSignal.assigned() || (commonPreviewSignal.assigned() && commonPreviewSignal == it->previewSignal))
+                {
+                    const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::Binary).build();
+                    it->previewSignal = createAndAddSignal(fmt::format("{}{}", PUB_PREVIEW_SIGNAL_NAME, size_t(it->index)), signalDsc);
+                }
+            }
         }
         else
-            ++it;
+        {
+            if (it->previewSignal.assigned())
+            {
+                if (!commonPreviewSignal.assigned() || commonPreviewSignal != it->previewSignal)
+                {
+                    removeSignal(it->previewSignal);
+                }
+                it->previewSignal = nullptr;
+            }
+        }
+        ++it;
     }
-
-    const auto inputPort = createAndAddInputPort(fmt::format("Input{}", inputPortCount++), PacketReadyNotification::SameThread);
-
-    signalContexts.emplace_back(SignalContext{0, inputPort, {}});
-    for (size_t i = 0; i < signalContexts.size(); i++)
-        signalContexts[i].index = i;
+    if (commonPreviewSignal.assigned() && (!config.enablePreview || config.topicMode == TopicMode::PerSignal))
+    {
+        removeSignal(commonPreviewSignal);
+        commonPreviewSignal = nullptr;
+    }
+    if (reassignPorts)
+    {
+        const auto inputPort = createAndAddInputPort(fmt::format("Input{}", size_t(inputPortCount)), PacketReadyNotification::SameThread);
+        signalContexts.emplace_back(SignalContext{size_t(inputPortCount++), inputPort, {}, nullptr});
+    }
 }
 
 void MqttPublisherFbImpl::updateStatuses()
@@ -317,6 +386,7 @@ void MqttPublisherFbImpl::readProperties()
     config.qos = readProperty<int, IInteger>(PROPERTY_NAME_PUB_QOS, DEFAULT_PUB_QOS);
     config.periodMs = readProperty<int, IInteger>(PROPERTY_NAME_PUB_READ_PERIOD, DEFAULT_PUB_READ_PERIOD);
     config.topicName = readProperty<std::string, IString>(PROPERTY_NAME_PUB_TOPIC_NAME, globalId.toStdString());
+    config.enablePreview = readProperty<bool, IBoolean>(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, false);
     if (tmpValueFieldName < static_cast<int>(SignalValueJSONKey::_count) && tmpValueFieldName >= 0)
     {
         config.valueFieldName = static_cast<SignalValueJSONKey>(tmpValueFieldName);
@@ -376,6 +446,7 @@ void MqttPublisherFbImpl::propertyChanged()
     auto lock = this->getRecursiveConfigLock();
     readProperties();
     handler = HandlerFactory::create(this->config, globalId.toStdString());
+    updatePortsAndSignals(false);
     validateInputPorts();
     updateTopics();
     updateStatuses();
@@ -423,8 +494,14 @@ void MqttPublisherFbImpl::readerLoop()
 
 void MqttPublisherFbImpl::sendMessages(const MqttData& data)
 {
-    for (const auto& [topic, msg] : data)
+    for (const auto& [signal, topic, msg] : data)
     {
+        if (signal.assigned())
+        {
+            const auto outputPacket = BinaryDataPacket(nullptr, signal.getDescriptor(), msg.size());
+            memcpy(outputPacket.getData(), msg.data(), msg.size());
+            signal.sendPacket(outputPacket);
+        }
         auto status = mqttClient->publish(topic, (void*)msg.c_str(), msg.length(), config.qos);
         if (!status.success)
         {

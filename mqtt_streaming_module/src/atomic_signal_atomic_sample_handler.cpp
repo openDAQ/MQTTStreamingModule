@@ -149,7 +149,7 @@ MqttDataSample AtomicSignalAtomicSampleHandler::processDataPacket(SignalContext&
     std::string valueFieldName = buildValueFieldName(signalNamesMode, signal);
     auto msg = toString(valueFieldName, dataPacket);
     std::string topic = buildTopicName(signalContext);
-    return MqttDataSample{topic, msg};
+    return MqttDataSample{signalContext.previewSignal, topic, msg};
 }
 
 ListPtr<IString> AtomicSignalAtomicSampleHandler::getTopics(const std::vector<SignalContext>& signalContexts)
