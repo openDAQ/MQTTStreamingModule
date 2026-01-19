@@ -2,7 +2,7 @@ set(MODULE_NAME mqtt_stream_module)
 set(TEST_APP test_${MODULE_NAME})
 
 set(TEST_SOURCES test_mqtt_streaming_module.cpp
-                 test_mqtt_root_fb.cpp
+                 test_mqtt_client_fb.cpp
                  test_mqtt_subscriber_fb.cpp
                  test_mqtt_json_decoder_fb.cpp
                  test_mqtt_publisher_fb.cpp

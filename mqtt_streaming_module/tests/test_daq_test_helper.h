@@ -9,7 +9,7 @@ class DaqTestHelper
 {
 public:
     daq::InstancePtr daqInstance;
-    daq::FunctionBlockPtr rootMqttFb;
+    daq::FunctionBlockPtr clientMqttFb;
     daq::FunctionBlockPtr subMqttFb;
 
     void StartUp(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
@@ -25,21 +25,21 @@ public:
         return daqInstance;
     }
 
-    daq::FunctionBlockPtr DaqAddRootMqttFb(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
+    daq::FunctionBlockPtr DaqAddClientMqttFb(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
     {
         auto config = DaqMqttFbConfig(url, port);
-        rootMqttFb = daqInstance.addFunctionBlock(CLIENT_FB_NAME, config);
-        return rootMqttFb;
+        clientMqttFb = daqInstance.addFunctionBlock(CLIENT_FB_NAME, config);
+        return clientMqttFb;
     }
 
     daq::FunctionBlockPtr DaqMqttFbInit(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
     {
-        if (!rootMqttFb.assigned())
+        if (!clientMqttFb.assigned())
         {
             auto config = DaqMqttFbConfig(url, port);
-            rootMqttFb = daqInstance.addFunctionBlock(CLIENT_FB_NAME, config);
+            clientMqttFb = daqInstance.addFunctionBlock(CLIENT_FB_NAME, config);
         }
-        return rootMqttFb;
+        return clientMqttFb;
     }
 
     daq::PropertyObjectPtr DaqMqttFbConfig(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
@@ -62,9 +62,9 @@ public:
 
     daq::FunctionBlockPtr AddSubFb(std::string topic = "")
     {
-        auto config = rootMqttFb.getAvailableFunctionBlockTypes().get(SUB_FB_NAME).createDefaultConfig();
+        auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(SUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, daq::String(topic));
-        subMqttFb = rootMqttFb.addFunctionBlock(SUB_FB_NAME, config);
+        subMqttFb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config);
         return subMqttFb;
     }
 };

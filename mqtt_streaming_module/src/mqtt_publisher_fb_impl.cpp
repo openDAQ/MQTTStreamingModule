@@ -134,8 +134,8 @@ FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
             IntPropertyBuilder(PROPERTY_NAME_PUB_READ_PERIOD, DEFAULT_PUB_READ_PERIOD)
                 .setMinValue(0)
                 .setUnit(Unit("ms"))
-                .setDescription(fmt::format("Polling period in milliseconds, which specifies how often the server collects and publishes "
-                                            "the connected signals’ data to an MQTT broker. By default it is set to {} ms.",
+                .setDescription(fmt::format("Polling period in milliseconds, which specifies how often the server calls an internal reader to "
+                                            "collect and publish the connected signals’ data to an MQTT broker. By default it is set to {} ms.",
                                             DEFAULT_PUB_READ_PERIOD));
         defaultConfig.addProperty(builder.build());
     }
@@ -373,7 +373,7 @@ void MqttPublisherFbImpl::initProperties(const PropertyObjectPtr& config)
             auto builder = ListPropertyBuilder(PROPERTY_NAME_PUB_TOPICS, List<IString>())
             .setReadOnly(true)
                 .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 0"))
-                .setDescription("List of currently used MQTT topics for publishing.");
+                .setDescription("List of currently used MQTT topics for publishing in TopicPerSignal mode.");
 
             objPtr.addProperty(builder.build());
         }

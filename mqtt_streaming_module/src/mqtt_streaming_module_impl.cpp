@@ -4,7 +4,7 @@
 #include <mqtt_streaming_module/constants.h>
 #include <mqtt_streaming_module/mqtt_streaming_module_impl.h>
 #include <mqtt_streaming_module/helper.h>
-#include <mqtt_streaming_module/mqtt_root_fb_impl.h>
+#include <mqtt_streaming_module/mqtt_client_fb_impl.h>
 #include <mqtt_streaming_module/version.h>
 #include <opendaq/address_info_factory.h>
 #include <opendaq/custom_log.h>
@@ -44,7 +44,7 @@ MqttStreamingModule::onCreateFunctionBlock(const StringPtr& id,
     if (!context.assigned())
         DAQ_THROW_EXCEPTION(InvalidParameterException, "Context is not available.");
 
-    FunctionBlockPtr fb = createWithImplementation<IFunctionBlock, MqttRootFbImpl>(context, parent, config);
+    FunctionBlockPtr fb = createWithImplementation<IFunctionBlock, MqttClientFbImpl>(context, parent, config);
 
     LOG_I("MQTT function block (GlobalId: {}) created", fb.getGlobalId());
 
@@ -53,7 +53,7 @@ MqttStreamingModule::onCreateFunctionBlock(const StringPtr& id,
 
 FunctionBlockTypePtr MqttStreamingModule::createFbType()
 {
-    return MqttRootFbImpl::CreateType();
+    return MqttClientFbImpl::CreateType();
 }
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

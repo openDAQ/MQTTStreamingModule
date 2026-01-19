@@ -89,10 +89,10 @@ int main(int argc, char* argv[])
     channels[3].setPropertyValue("Frequency", 20);
 
     // Create and configure MQTT server
-    const std::string rootFbName = "MQTTClientFB";
-    auto rootFbConfig = instance.getAvailableFunctionBlockTypes().get(rootFbName).createDefaultConfig();
-    rootFbConfig.setPropertyValue("BrokerAddress", appConfig.brokerAddress);
-    auto brokerFB = instance.addFunctionBlock(rootFbName, rootFbConfig);
+    const std::string clientFbName = "MQTTClientFB";
+    auto clientFbConfig = instance.getAvailableFunctionBlockTypes().get(clientFbName).createDefaultConfig();
+    clientFbConfig.setPropertyValue("BrokerAddress", appConfig.brokerAddress);
+    auto brokerFB = instance.addFunctionBlock(clientFbName, clientFbConfig);
     auto availableFbs = brokerFB.getAvailableFunctionBlockTypes();
     const std::string fbName = "MQTTJSONPublisherFB";
     std::cout << "Try to add the " << fbName << std::endl;

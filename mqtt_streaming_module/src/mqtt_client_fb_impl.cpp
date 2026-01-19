@@ -1,7 +1,7 @@
 #include "mqtt_streaming_module/constants.h"
 #include "mqtt_streaming_module/mqtt_subscriber_fb_impl.h"
 #include "mqtt_streaming_module/mqtt_publisher_fb_impl.h"
-#include <mqtt_streaming_module/mqtt_root_fb_impl.h>
+#include <mqtt_streaming_module/mqtt_client_fb_impl.h>
 #include <opendaq/function_block_type_factory.h>
 #include <boost/algorithm/string.hpp>
 
@@ -9,13 +9,13 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
 constexpr int MQTT_CLIENT_SYNC_DISCONNECT_TOUT = 3000;
 
-std::atomic<int> MqttRootFbImpl::localIndex = 0;
-std::vector<std::pair<MqttRootFbImpl::ConnectionStatus, std::string>> MqttRootFbImpl::connectionStatusMap =
+std::atomic<int> MqttClientFbImpl::localIndex = 0;
+std::vector<std::pair<MqttClientFbImpl::ConnectionStatus, std::string>> MqttClientFbImpl::connectionStatusMap =
     {{ConnectionStatus::Connected, "Connected"},
      {ConnectionStatus::Reconnecting, "Reconnecting"},
      {ConnectionStatus::Disconnected, "Disconnected"}};
 
-MqttRootFbImpl::MqttRootFbImpl(const ContextPtr& ctx, const ComponentPtr& parent, const PropertyObjectPtr& config)
+MqttClientFbImpl::MqttClientFbImpl(const ContextPtr& ctx, const ComponentPtr& parent, const PropertyObjectPtr& config)
     : FunctionBlock(CreateType(), ctx, parent, generateLocalId()),
       subscriber(std::make_shared<mqtt::MqttAsyncClient>()),
       connectTimeout(0),
@@ -41,7 +41,7 @@ MqttRootFbImpl::MqttRootFbImpl(const ContextPtr& ctx, const ComponentPtr& parent
     LOG_I("MQTT: Connection established");
 }
 
-void MqttRootFbImpl::removed()
+void MqttClientFbImpl::removed()
 {
     FunctionBlock::removed();
     LOG_I("MQTT: disconnecting from the MQTT broker...", connectionSettings.mqttUrl + ":" + std::to_string(connectionSettings.port));
@@ -56,7 +56,7 @@ void MqttRootFbImpl::removed()
     }
 }
 
-void MqttRootFbImpl::initNestedFbTypes()
+void MqttClientFbImpl::initNestedFbTypes()
 {
     nestedFbTypes = Dict<IString, IFunctionBlockType>();
     // Add a MQTT subscriber function block type
@@ -72,7 +72,7 @@ void MqttRootFbImpl::initNestedFbTypes()
     }
 }
 
-void MqttRootFbImpl::initMqttSubscriber()
+void MqttClientFbImpl::initMqttSubscriber()
 {
     const auto serverUrl = connectionSettings.mqttUrl + ((connectionSettings.port > 0) ? ":" + std::to_string(connectionSettings.port) : "");
     subscriber->setServerURL(serverUrl);
@@ -100,7 +100,7 @@ void MqttRootFbImpl::initMqttSubscriber()
     subscriber->connect();
 }
 
-void MqttRootFbImpl::initConnectionStatus()
+void MqttClientFbImpl::initConnectionStatus()
 {
     subscriber->setConnectionLostCb(
         [this](std::string msg)
@@ -111,7 +111,7 @@ void MqttRootFbImpl::initConnectionStatus()
         });
 }
 
-void MqttRootFbImpl::initProperties(const PropertyObjectPtr& config)
+void MqttClientFbImpl::initProperties(const PropertyObjectPtr& config)
 {
     for (const auto& prop : config.getAllProperties())
     {
@@ -148,7 +148,7 @@ void MqttRootFbImpl::initProperties(const PropertyObjectPtr& config)
     readProperties();
 }
 
-void MqttRootFbImpl::readProperties()
+void MqttClientFbImpl::readProperties()
 {
     connectionSettings.mqttUrl = objPtr.getPropertyValue(PROPERTY_NAME_CLIENT_BROKER_ADDRESS).asPtr<IString>().toStdString();
     connectionSettings.port = objPtr.getPropertyValue(PROPERTY_NAME_CLIENT_BROKER_PORT);
@@ -159,7 +159,7 @@ void MqttRootFbImpl::readProperties()
     connectTimeout = objPtr.getPropertyValue(PROPERTY_NAME_CLIENT_CONNECT_TIMEOUT);
 }
 
-bool MqttRootFbImpl::waitForConnection(const int timeoutMs)
+bool MqttClientFbImpl::waitForConnection(const int timeoutMs)
 {
     bool res =
         (connectedFuture.wait_for(std::chrono::milliseconds(timeoutMs)) == std::future_status::ready && connectedFuture.get() == true);
@@ -173,12 +173,12 @@ bool MqttRootFbImpl::waitForConnection(const int timeoutMs)
     return res;
 }
 
-DictPtr<IString, IFunctionBlockType> MqttRootFbImpl::onGetAvailableFunctionBlockTypes()
+DictPtr<IString, IFunctionBlockType> MqttClientFbImpl::onGetAvailableFunctionBlockTypes()
 {
     return nestedFbTypes;
 }
 
-FunctionBlockPtr MqttRootFbImpl::onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config)
+FunctionBlockPtr MqttClientFbImpl::onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config)
 {
     FunctionBlockPtr nestedFunctionBlock;
     {
@@ -212,12 +212,12 @@ FunctionBlockPtr MqttRootFbImpl::onAddFunctionBlock(const StringPtr& typeId, con
     return nestedFunctionBlock;
 }
 
-std::string MqttRootFbImpl::generateLocalId()
+std::string MqttClientFbImpl::generateLocalId()
 {
     return std::string(MQTT_LOCAL_CLIENT_FB_ID_PREFIX + std::to_string(localIndex++));
 }
 
-FunctionBlockTypePtr MqttRootFbImpl::CreateType()
+FunctionBlockTypePtr MqttClientFbImpl::CreateType()
 {
     auto config = PropertyObject();
     {

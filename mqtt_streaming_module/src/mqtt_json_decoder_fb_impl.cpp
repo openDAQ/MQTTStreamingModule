@@ -39,24 +39,33 @@ FunctionBlockTypePtr MqttJsonDecoderFbImpl::CreateType()
 {
     auto defaultConfig = PropertyObject();
     {
-        auto builder = StringPropertyBuilder(PROPERTY_NAME_DEC_VALUE_NAME, String("")).setDescription("");
+        auto builder =
+            StringPropertyBuilder(PROPERTY_NAME_DEC_VALUE_NAME, String(""))
+                .setDescription("Specifies the JSON field name from which value data will be extracted. This property is required. It "
+                                "should be contained in the incoming JSON messages. Otherwise, a parsing error will occur.");
         defaultConfig.addProperty(builder.build());
     }
 
     {
-        auto builder = StringPropertyBuilder(PROPERTY_NAME_DEC_TS_NAME, String("")).setDescription("");
+        auto builder =
+            StringPropertyBuilder(PROPERTY_NAME_DEC_TS_NAME, String(""))
+                .setDescription(
+                    "Specifies the JSON field name from which timestamp will be extracted. This property is "
+                    "optional. If it is set it should be contained in the incoming JSON messages. Otherwise, a parsing error will occur.");
         defaultConfig.addProperty(builder.build());
     }
 
     {
-        auto builder = StringPropertyBuilder(PROPERTY_NAME_DEC_UNIT, String("")).setDescription("");
+        auto builder = StringPropertyBuilder(PROPERTY_NAME_DEC_UNIT, String(""))
+                           .setDescription("Specifies the unit symbol for the decoded value. This property is optional.");
         defaultConfig.addProperty(builder.build());
     }
 
-    const auto fbType = FunctionBlockType(JSON_DECODER_FB_NAME,
-                                          JSON_DECODER_FB_NAME,
-                                          "",
-                                          defaultConfig);
+    const auto fbType =
+        FunctionBlockType(JSON_DECODER_FB_NAME,
+                          JSON_DECODER_FB_NAME,
+                          "The JSON decoder Function Block extracts data from a JSON string and builds a signal based on that data.",
+                          defaultConfig);
     return fbType;
 }
 

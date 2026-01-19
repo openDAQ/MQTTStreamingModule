@@ -26,7 +26,7 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-class MqttRootFbImpl : public FunctionBlock
+class MqttClientFbImpl : public FunctionBlock
 {
     enum class ConnectionStatus : EnumType
     {
@@ -36,7 +36,7 @@ class MqttRootFbImpl : public FunctionBlock
     };
 
 public:
-    explicit MqttRootFbImpl(const ContextPtr& ctx,
+    explicit MqttClientFbImpl(const ContextPtr& ctx,
                                        const ComponentPtr& parent,
                                        const PropertyObjectPtr& config);
 
@@ -45,7 +45,7 @@ public:
 protected:
     static std::atomic<int> localIndex;
     static std::string generateLocalId();
-    static std::vector<std::pair<MqttRootFbImpl::ConnectionStatus, std::string>> connectionStatusMap;
+    static std::vector<std::pair<MqttClientFbImpl::ConnectionStatus, std::string>> connectionStatusMap;
 
     void removed() override;
 
