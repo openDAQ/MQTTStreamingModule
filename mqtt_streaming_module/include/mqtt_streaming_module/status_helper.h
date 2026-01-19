@@ -62,8 +62,12 @@ public:
     void setStatus(T status, const std::string& message = "")
     {
         std::scoped_lock lock(statusMutex);
-        currentStatus = EnumerationWithIntValue(typeName, static_cast<Int>(status), typeManager);
-        statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).setStatusWithMessage(statusName, currentStatus, message);
+        const auto newStatus = EnumerationWithIntValue(typeName, static_cast<Int>(status), typeManager);
+        if (newStatus != currentStatus || message != this->message)
+        {
+            currentStatus = newStatus;
+            statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).setStatusWithMessage(statusName, currentStatus, message);
+        }
     }
     T getStatus()
     {
@@ -74,6 +78,7 @@ public:
 private:
     const std::string typeName;
     const std::string statusName;
+    std::string message;
     ComponentStatusContainerPtr statusContainer;
     const std::vector<std::pair<T, std::string>>& statusMap;
     EnumerationPtr currentStatus;
