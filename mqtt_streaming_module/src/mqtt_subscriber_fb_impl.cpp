@@ -165,16 +165,15 @@ void MqttSubscriberFbImpl::readProperties()
 {
     auto lock = this->getRecursiveConfigLock();
     topicForSubscribing.clear();
-    bool isPresent = false;
+    std::string topic;
     if (objPtr.hasProperty(PROPERTY_NAME_SUB_TOPIC))
     {
         auto topicStr = objPtr.getPropertyValue(PROPERTY_NAME_SUB_TOPIC).asPtrOrNull<IString>();
         if (topicStr.assigned())
-        {
-            isPresent = true;
-            setTopic(topicStr.toStdString());
-        }
+            topic = topicStr.toStdString();
     }
+    setTopic(topic);
+
     if (objPtr.hasProperty(PROPERTY_NAME_SUB_QOS))
     {
         auto qosProp = objPtr.getPropertyValue(PROPERTY_NAME_SUB_QOS).asPtrOrNull<IInteger>();
@@ -191,12 +190,6 @@ void MqttSubscriberFbImpl::readProperties()
         {
             this->enablePreview = previewProp.getValue(False);
         }
-    }
-    if (!isPresent)
-    {
-        LOG_W("\'{}\' property is missing!", PROPERTY_NAME_SUB_TOPIC);
-        setComponentStatus(ComponentStatus::Warning);
-        subscriptionStatus.setStatus(SubscriptionStatus::InvalidTopicName, "The topic property is not set!");
     }
 }
 
@@ -331,7 +324,7 @@ bool MqttSubscriberFbImpl::setTopic(std::string topic)
     }
     else
     {
-        setComponentStatus(ComponentStatus::Warning);
+        setComponentStatusWithMessage(ComponentStatus::Warning, validationStatus.msg);
         subscriptionStatus.setStatus(SubscriptionStatus::InvalidTopicName, validationStatus.msg);
     }
     return validationStatus.success;
@@ -362,7 +355,6 @@ FunctionBlockPtr MqttSubscriberFbImpl::onAddFunctionBlock(const StringPtr& typeI
             auto lock = this->getAcquisitionLock2();
             nestedFunctionBlocks.push_back(nestedFunctionBlock);
         }
-        setComponentStatus(ComponentStatus::Ok);
     }
     else
     {
