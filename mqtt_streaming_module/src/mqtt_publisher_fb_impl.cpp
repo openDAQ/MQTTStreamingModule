@@ -400,6 +400,9 @@ void MqttPublisherFbImpl::readProperties()
     config.periodMs = readProperty<int, IInteger>(PROPERTY_NAME_PUB_READ_PERIOD, DEFAULT_PUB_READ_PERIOD);
     config.topicName = readProperty<std::string, IString>(PROPERTY_NAME_PUB_TOPIC_NAME, globalId.toStdString());
     config.enablePreview = readProperty<bool, IBoolean>(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, false);
+    settingErrors.clear();
+    hasSettingError = false;
+
     if (tmpValueFieldName < static_cast<int>(SignalValueJSONKey::_count) && tmpValueFieldName >= 0)
     {
         config.valueFieldName = static_cast<SignalValueJSONKey>(tmpValueFieldName);
@@ -432,8 +435,6 @@ void MqttPublisherFbImpl::readProperties()
         hasEmptyTopic = false;
     }
 
-    settingErrors.clear();
-    hasSettingError = false;
     if (config.topicMode == TopicMode::Single || config.sharedTs)
     {
         auto result = mqtt::MqttDataWrapper::validateTopic(config.topicName, loggerComponent);
