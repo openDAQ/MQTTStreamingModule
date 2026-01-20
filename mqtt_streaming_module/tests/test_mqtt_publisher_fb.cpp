@@ -849,34 +849,53 @@ TEST_F(MqttPublisherFbTest, PreviewSignals)
     auto help = SignalHelper<double>();
 
     ASSERT_EQ(fb.getSignals().getCount(), 0u);
+    ASSERT_EQ(fb.getInputPorts().getCount(), 1u);
     fb.getInputPorts()[0].connect(help.signal0);
     ASSERT_EQ(fb.getSignals().getCount(), 0u);
+    ASSERT_EQ(fb.getInputPorts().getCount(), 2u);
+    fb.getInputPorts()[0].disconnect();
+    ASSERT_EQ(fb.getSignals().getCount(), 0u);
+    ASSERT_EQ(fb.getInputPorts().getCount(), 1u);
+    fb.getInputPorts()[0].connect(help.signal0);
+    ASSERT_EQ(fb.getSignals().getCount(), 0u);
+    ASSERT_EQ(fb.getInputPorts().getCount(), 2u);
 
     fb.getInputPorts()[1].connect(help.signal0);
     ASSERT_EQ(fb.getSignals().getCount(), 0u);
+    ASSERT_EQ(fb.getInputPorts().getCount(), 3u);
     ASSERT_NO_THROW(fb.setPropertyValue(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, True));
     ASSERT_EQ(fb.getSignals().getCount(), 2u);
+    ASSERT_EQ(fb.getInputPorts().getCount(), 3u);
     ASSERT_NO_THROW(fb.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1));
     ASSERT_EQ(fb.getSignals().getCount(), 1u);
+    ASSERT_EQ(fb.getInputPorts().getCount(), 3u);
     ASSERT_NO_THROW(fb.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0));
     ASSERT_EQ(fb.getSignals().getCount(), 2u);
+    ASSERT_EQ(fb.getInputPorts().getCount(), 3u);
     ASSERT_NO_THROW(fb.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1));
 
     // disconnection
     fb.getInputPorts()[1].disconnect();
     ASSERT_EQ(fb.getSignals().getCount(), 1u);
+    ASSERT_EQ(fb.getInputPorts().getCount(), 2u);
     // disconnection
     fb.getInputPorts()[0].disconnect();
     ASSERT_EQ(fb.getSignals().getCount(), 1u);
+    ASSERT_EQ(fb.getInputPorts().getCount(), 1u);
     ASSERT_NO_THROW(fb.setPropertyValue(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, False));
     ASSERT_EQ(fb.getSignals().getCount(), 0u);
+    ASSERT_EQ(fb.getInputPorts().getCount(), 1u);
     ASSERT_NO_THROW(fb.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0));
     fb.getInputPorts()[0].connect(help.signal0);
+    ASSERT_EQ(fb.getInputPorts().getCount(), 2u);
     fb.getInputPorts()[1].connect(help.signal1);
+    ASSERT_EQ(fb.getInputPorts().getCount(), 3u);
     fb.getInputPorts()[2].connect(help.signal0);
+    ASSERT_EQ(fb.getInputPorts().getCount(), 4u);
     ASSERT_EQ(fb.getSignals().getCount(), 0u);
     ASSERT_NO_THROW(fb.setPropertyValue(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, True));
     ASSERT_EQ(fb.getSignals().getCount(), 3u);
+    ASSERT_EQ(fb.getInputPorts().getCount(), 4u);
 }
 
 TEST_F(MqttPublisherFbTest, TopicsList)
