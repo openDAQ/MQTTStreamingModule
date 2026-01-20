@@ -34,6 +34,7 @@ class GroupSignalSharedTsHandler : public HandlerBase
 {
 public:
     explicit GroupSignalSharedTsHandler(SignalValueJSONKey signalNamesMode, std::string topic);
+    ~GroupSignalSharedTsHandler();
 
     MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) override;
     ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const override;
@@ -47,6 +48,7 @@ protected:
     const std::string topic;
     std::vector<void*> dataBuffers;
     daq::MultiReaderPtr reader;
+    std::mutex sync;
 
     template <typename T>
     std::string toString(const std::string& valueFieldName, void* data, SizeT offset);
@@ -55,6 +57,7 @@ protected:
     std::string buildTopicName();
     void createReader(const std::vector<SignalContext>& signalContexts);
     void allocateBuffers(const std::vector<SignalContext>& signalContexts);
+    void deallocateBuffers();
     static std::string messageFromFields(const std::vector<std::string>& fields);
     static TimestampTickStruct domainToTs(const MultiReaderStatusPtr status);
 };

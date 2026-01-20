@@ -18,9 +18,16 @@ GroupSignalSharedTsHandler::GroupSignalSharedTsHandler(SignalValueJSONKey signal
 {
 }
 
+GroupSignalSharedTsHandler::~GroupSignalSharedTsHandler()
+{
+    std::scoped_lock lock(sync);
+    deallocateBuffers();
+}
+
 MqttData GroupSignalSharedTsHandler::processSignalContexts(std::vector<SignalContext>& signalContexts)
 {
     MqttData messages;
+    std::scoped_lock lock(sync);
     if (!reader.assigned())
         return messages;
     auto dataAvailable = reader.getAvailableCount();
@@ -254,6 +261,7 @@ std::string GroupSignalSharedTsHandler::buildTopicName()
 
 void GroupSignalSharedTsHandler::createReader(const std::vector<SignalContext>& signalContexts)
 {
+    std::scoped_lock lock(sync);
     // signalContexts always contain an unconnected input port
     if (signalContexts.size() <= 1)
         return;
@@ -276,10 +284,7 @@ void GroupSignalSharedTsHandler::allocateBuffers(const std::vector<SignalContext
 {
     // Allocate buffers for each signal
     auto signalsCount = signalContexts.size() - 1;
-    for (size_t i = 0; i < dataBuffers.size(); ++i)
-    {
-        std::free(dataBuffers[i]);
-    }
+    deallocateBuffers();
 
     dataBuffers = std::vector<void*>(signalsCount, nullptr);
 
@@ -287,6 +292,16 @@ void GroupSignalSharedTsHandler::allocateBuffers(const std::vector<SignalContext
     {
         dataBuffers[i] = std::malloc(buffersSize * getSampleSize(signalContexts[i].inputPort.getSignal().getDescriptor().getSampleType()));
     }
+}
+
+void GroupSignalSharedTsHandler::deallocateBuffers()
+{
+    for (size_t i = 0; i < dataBuffers.size(); ++i)
+    {
+        std::free(dataBuffers[i]);
+        dataBuffers[i] = nullptr;
+    }
+    dataBuffers.clear();
 }
 
 std::string GroupSignalSharedTsHandler::messageFromFields(const std::vector<std::string>& fields)
