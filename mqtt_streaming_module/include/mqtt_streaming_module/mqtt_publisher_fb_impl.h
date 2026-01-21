@@ -112,6 +112,7 @@ private:
     void runReaderThread();
     void readerLoop();
     void sendMessages(const MqttData& data);
+    void removed() override;
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

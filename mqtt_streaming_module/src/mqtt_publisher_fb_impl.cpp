@@ -59,8 +59,20 @@ MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
 
 MqttPublisherFbImpl::~MqttPublisherFbImpl()
 {
+    if (running)
+    {
+        running = false;
+        readerThread.join();
+    }
+}
+
+void MqttPublisherFbImpl::removed()
+{
     running = false;
     readerThread.join();
+    auto lock = this->getRecursiveConfigLock();
+    handler = nullptr;
+    FunctionBlock::removed();
 }
 
 FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
