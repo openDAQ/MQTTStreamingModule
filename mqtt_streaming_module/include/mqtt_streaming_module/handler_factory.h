@@ -29,7 +29,7 @@ class HandlerFactory
 public:
     static std::unique_ptr<HandlerBase> create(const PublisherFbConfig config, const std::string& publisherFbGlobalId)
     {
-        if (config.sharedTs)
+        if (config.topicMode == TopicMode::Single)
         {
             return std::make_unique<GroupSignalSharedTsHandler>(config.valueFieldName,
                                                            config.topicName.empty() ? publisherFbGlobalId : config.topicName);
@@ -40,11 +40,6 @@ public:
                 return std::make_unique<AtomicSignalSampleArrayHandler>(config.valueFieldName, config.groupValuesPackSize);
             else
                 return std::make_unique<AtomicSignalAtomicSampleHandler>(config.valueFieldName);
-        }
-        else if (config.topicMode == TopicMode::Single)
-        {
-            return std::make_unique<SignalArrayAtomicSampleHandler>(config.valueFieldName,
-                                                     config.topicName.empty() ? publisherFbGlobalId : config.topicName);
         }
 
         return std::make_unique<AtomicSignalAtomicSampleHandler>(config.valueFieldName);

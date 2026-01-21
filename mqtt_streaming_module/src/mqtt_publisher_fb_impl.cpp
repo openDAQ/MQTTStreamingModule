@@ -84,13 +84,6 @@ FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
         defaultConfig.addProperty(builder.build());
     }
     {
-        auto builder = BoolPropertyBuilder(PROPERTY_NAME_PUB_SHARED_TS, False)
-                           .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 1"))
-                           .setDescription("Enables the use of a shared timestamp for all signals when publishing in SingleTopic mode. "
-                                           "By default it is set to false.");
-        defaultConfig.addProperty(builder.build());
-    }
-    {
         auto builder =
             BoolPropertyBuilder(PROPERTY_NAME_PUB_GROUP_VALUES, False)
                 .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 0"))
@@ -171,6 +164,18 @@ void MqttPublisherFbImpl::onDisconnected(const InputPortPtr& inputPort)
     LOG_T("Disconnected from port {}", inputPort.getLocalId());
     validateInputPorts();
     updateTopics();
+    updateStatuses();
+}
+
+void MqttPublisherFbImpl::propertyChanged()
+{
+    auto lock = this->getRecursiveConfigLock();
+    readProperties();
+    handler = HandlerFactory::create(this->config, globalId.toStdString());
+    updatePortsAndSignals(false);
+    validateInputPorts();
+    updateTopics();
+    updateSchema();
     updateStatuses();
 }
 
@@ -392,7 +397,6 @@ void MqttPublisherFbImpl::readProperties()
     auto lock = this->getRecursiveConfigLock();
     int tmpTopicMode = readProperty<int, IInteger>(PROPERTY_NAME_PUB_TOPIC_MODE, 0);
 
-    config.sharedTs = readProperty<bool, IBoolean>(PROPERTY_NAME_PUB_SHARED_TS, false);
     config.groupValues = readProperty<bool, IBoolean>(PROPERTY_NAME_PUB_GROUP_VALUES, false);
     int tmpValueFieldName = (readProperty<int, IInteger>(PROPERTY_NAME_PUB_VALUE_FIELD_NAME, 0));
     config.groupValuesPackSize = readProperty<size_t, IInteger>(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, DEFAULT_PUB_PACK_SIZE);
@@ -435,7 +439,7 @@ void MqttPublisherFbImpl::readProperties()
         hasEmptyTopic = false;
     }
 
-    if (config.topicMode == TopicMode::Single || config.sharedTs)
+    if (config.topicMode == TopicMode::Single)
     {
         auto result = mqtt::MqttDataWrapper::validateTopic(config.topicName, loggerComponent);
         hasSettingError = !result.success;
@@ -453,18 +457,6 @@ void MqttPublisherFbImpl::readProperties()
         hasSettingError = true;
         settingErrors.push_back("Reader period must be non-negative.");
     }
-}
-
-void MqttPublisherFbImpl::propertyChanged()
-{
-    auto lock = this->getRecursiveConfigLock();
-    readProperties();
-    handler = HandlerFactory::create(this->config, globalId.toStdString());
-    updatePortsAndSignals(false);
-    validateInputPorts();
-    updateTopics();
-    updateSchema();
-    updateStatuses();
 }
 
 template <typename retT, typename intfT>

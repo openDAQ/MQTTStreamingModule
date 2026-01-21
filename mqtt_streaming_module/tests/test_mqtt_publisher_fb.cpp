@@ -211,7 +211,6 @@ public:
     }
 
     void CreatePublisherFB(bool multiTopic,
-                           bool sharedTs,
                            bool groupV,
                            bool useSignalNames,
                            const std::string& topicName,
@@ -221,7 +220,6 @@ public:
     {
         auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, multiTopic ? 1 : 0);
-        config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, sharedTs ? True : False);
         config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES, groupV ? True : False);
         config.setPropertyValue(PROPERTY_NAME_PUB_VALUE_FIELD_NAME, useSignalNames ? 2 : 0);
         config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, valuePackSize);
@@ -521,16 +519,11 @@ TEST_F(MqttPublisherFbTest, DefaultConfig)
 
     ASSERT_TRUE(defaultConfig.assigned());
 
-    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 9u);
+    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 8u);
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_TOPIC_MODE));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_MODE).getValueType(), CoreType::ctInt);
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE).asPtr<IInteger>(), 0u);
-
-    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_SHARED_TS));
-    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_SHARED_TS).getValueType(), CoreType::ctBool);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_SHARED_TS).asPtr<IBoolean>(), False);
-    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_SHARED_TS).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_GROUP_VALUES));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES).getValueType(), CoreType::ctBool);
@@ -569,10 +562,6 @@ TEST_F(MqttPublisherFbTest, PropertyVisibility)
     daq::FunctionBlockTypePtr fbt = MqttPublisherFbImpl::CreateType();
     daq::PropertyObjectPtr defaultConfig = fbt.createDefaultConfig();
 
-    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_SHARED_TS).getVisible());
-    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1); // Set to Multi topic
-    ASSERT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_SHARED_TS).getVisible());
-
     defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0); // Set to Single topic
     defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES, True);
     ASSERT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getVisible());
@@ -599,7 +588,6 @@ TEST_F(MqttPublisherFbTest, Config)
     auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
 
     config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
-    config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, True);
     config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES, True);
     config.setPropertyValue(PROPERTY_NAME_PUB_VALUE_FIELD_NAME, 1);
     config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, 3);
@@ -631,7 +619,6 @@ TEST_F(MqttPublisherFbTest, Config)
     MqttPublisherFbImpl* ptr = reinterpret_cast<MqttPublisherFbImpl*>(fb.getObject());
     ASSERT_TRUE(ptr != nullptr);
     EXPECT_EQ(ptr->getFbConfig().topicMode, TopicMode::Single);
-    EXPECT_TRUE(ptr->getFbConfig().sharedTs);
     EXPECT_TRUE(ptr->getFbConfig().groupValues);
     EXPECT_TRUE(ptr->getFbConfig().enablePreview);
     EXPECT_EQ(ptr->getFbConfig().valueFieldName, SignalValueJSONKey::LocalID);
@@ -784,7 +771,8 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
     {
         daq::FunctionBlockPtr fb;
         auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
-        config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, True);
+        config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
+        config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, String(buildTopicName()));
         ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
         auto help = SignalHelper<double>();
 
@@ -800,7 +788,8 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
     {
         daq::FunctionBlockPtr fb;
         auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
-        config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, True);
+        config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
+        config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, String(buildTopicName()));
         ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
         auto help = SignalHelper<double>();
 
@@ -819,7 +808,8 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
     {
         daq::FunctionBlockPtr fb;
         auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
-        config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, True);
+        config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
+        config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, String(buildTopicName()));
         ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
         auto help = SignalHelper<double>();
 
@@ -843,7 +833,6 @@ TEST_F(MqttPublisherFbTest, PreviewSignals)
     daq::FunctionBlockPtr fb;
     auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
     config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0);
-    config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, False);
     config.setPropertyValue(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, False);
     ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
     auto help = SignalHelper<double>();
@@ -936,7 +925,7 @@ TEST_F(MqttPublisherFbTest, WrongConfig)
     StartUp();
     daq::FunctionBlockPtr fb;
     auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
-    config.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, True);
+    config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
     config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, String("/test/#"));
     ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
@@ -946,7 +935,7 @@ TEST_F(MqttPublisherFbTest, WrongConfig)
                                       static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Invalid),
                                       daqInstance.getContext().getTypeManager()));
 
-    fb.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, False);
+    fb.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0);
     SignalHelper<double> helper;
     fb.getInputPorts()[0].connect(helper.signal0);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
@@ -956,7 +945,7 @@ TEST_F(MqttPublisherFbTest, WrongConfig)
                                       static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
                                       daqInstance.getContext().getTypeManager()));
 
-    fb.setPropertyValue(PROPERTY_NAME_PUB_SHARED_TS, True);
+    fb.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
     fb.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, String("/test/+/test"));
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager()));
@@ -1105,7 +1094,7 @@ TEST_P(MqttPublisherFbPTest, TransferSingleGroupValues)
         {
             StartUp();
 
-            ASSERT_NO_THROW(CreatePublisherFB(false, false, true, false, buildTopicName(), packSize));
+            ASSERT_NO_THROW(CreatePublisherFB(false, true, false, buildTopicName(), packSize));
 
             fb.getInputPorts()[0].connect(help.signal0);
 
@@ -1161,7 +1150,7 @@ TEST_P(MqttPublisherFbPTest, TransferSharedTs)
         {
             StartUp();
             const std::string topic = buildTopicName();
-            ASSERT_NO_THROW(CreatePublisherFB(true, true, false, false, topic));
+            ASSERT_NO_THROW(CreatePublisherFB(true, false, false, topic));
 
             fb.getInputPorts()[0].connect(help.signal0);
             fb.getInputPorts()[1].connect(help.signal1);
@@ -1208,7 +1197,7 @@ TEST_P(MqttPublisherFbPTest, TransferSharedTs)
         param);
 }
 
-TEST_P(MqttPublisherFbPTest, TransferMultimessage)
+TEST_P(MqttPublisherFbPTest, DISABLED_TransferMultimessage)
 {
     constexpr size_t sampleCnt = 15;
     H param = GetParam();
@@ -1217,7 +1206,7 @@ TEST_P(MqttPublisherFbPTest, TransferMultimessage)
         {
             StartUp();
             const std::string topic = buildTopicName();
-            ASSERT_NO_THROW(CreatePublisherFB(true, false, false, false, topic));
+            ASSERT_NO_THROW(CreatePublisherFB(true, false, false, topic));
 
             fb.getInputPorts()[0].connect(help.signal0);
             fb.getInputPorts()[1].connect(help.signal1);

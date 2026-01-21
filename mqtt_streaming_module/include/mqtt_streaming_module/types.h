@@ -31,7 +31,6 @@ enum class SignalValueJSONKey {
 struct PublisherFbConfig {
     TopicMode topicMode;
     std::string topicName;
-    bool sharedTs;
     bool groupValues;
     SignalValueJSONKey valueFieldName;
     size_t groupValuesPackSize;

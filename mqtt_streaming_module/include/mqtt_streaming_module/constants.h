@@ -41,7 +41,6 @@ static constexpr const char* PROPERTY_NAME_DEC_UNIT = "Unit";
 
 static constexpr const char* PROPERTY_NAME_PUB_TOPIC_MODE = "TopicMode";
 static constexpr const char* PROPERTY_NAME_PUB_TOPIC_NAME = "Topic";
-static constexpr const char* PROPERTY_NAME_PUB_SHARED_TS = "SharedTimestamp";
 static constexpr const char* PROPERTY_NAME_PUB_GROUP_VALUES = "GroupValues";
 static constexpr const char* PROPERTY_NAME_PUB_VALUE_FIELD_NAME = "SignalValueJSONKey";
 static constexpr const char* PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE = "SamplesPerMessage";
