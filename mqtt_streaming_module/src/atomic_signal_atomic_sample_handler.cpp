@@ -8,8 +8,9 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-AtomicSignalAtomicSampleHandler::AtomicSignalAtomicSampleHandler(SignalValueJSONKey signalNamesMode)
-    : signalNamesMode(signalNamesMode)
+AtomicSignalAtomicSampleHandler::AtomicSignalAtomicSampleHandler(WeakRefPtr<IFunctionBlock> parentFb, SignalValueJSONKey signalNamesMode)
+    : HandlerBase(parentFb),
+      signalNamesMode(signalNamesMode)
 {
 }
 

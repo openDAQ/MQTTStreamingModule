@@ -11,8 +11,9 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-GroupSignalSharedTsHandler::GroupSignalSharedTsHandler(SignalValueJSONKey signalNamesMode, std::string topic)
-    : signalNamesMode(signalNamesMode),
+GroupSignalSharedTsHandler::GroupSignalSharedTsHandler(WeakRefPtr<IFunctionBlock> parentFb, SignalValueJSONKey signalNamesMode, std::string topic)
+    : HandlerBase(parentFb),
+      signalNamesMode(signalNamesMode),
       buffersSize(1000),
       topic(topic)
 {
@@ -22,6 +23,10 @@ GroupSignalSharedTsHandler::~GroupSignalSharedTsHandler()
 {
     std::scoped_lock lock(sync);
     deallocateBuffers();
+    if (reader.assigned())
+    {
+        reader.dispose();
+    }
 }
 
 MqttData GroupSignalSharedTsHandler::processSignalContexts(std::vector<SignalContext>& signalContexts)
@@ -267,7 +272,9 @@ void GroupSignalSharedTsHandler::createReader(const std::vector<SignalContext>& 
         return;
 
     if (reader.assigned())
-        reader.release();
+    {
+        reader.dispose();
+    }
 
     auto multiReaderBuilder = MultiReaderBuilder().setValueReadType(SampleType::Undefined).setDomainReadType(SampleType::UInt64);
     for (const auto& sContext : signalContexts)
@@ -277,6 +284,9 @@ void GroupSignalSharedTsHandler::createReader(const std::vector<SignalContext>& 
     }
 
     reader = multiReaderBuilder.build();
+    const auto parentFb = this->parentFb.getRef();
+    if (parentFb.assigned())
+        reader.setExternalListener(parentFb.asPtr<IInputPortNotifications>());
     allocateBuffers(signalContexts);
 }
 

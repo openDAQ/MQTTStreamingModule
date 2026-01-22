@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <opendaq/function_block_ptr.h>
 #include <mqtt_streaming_module/handler_base.h>
 #include <opendaq/multi_reader_ptr.h>
 
@@ -24,7 +25,7 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 class SignalArrayAtomicSampleHandler : public HandlerBase
 {
 public:
-    explicit SignalArrayAtomicSampleHandler(SignalValueJSONKey signalNamesMode, std::string topic);
+    explicit SignalArrayAtomicSampleHandler(WeakRefPtr<IFunctionBlock> parentFb, SignalValueJSONKey signalNamesMode, std::string topic);
 
     MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) override;
     ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const override;

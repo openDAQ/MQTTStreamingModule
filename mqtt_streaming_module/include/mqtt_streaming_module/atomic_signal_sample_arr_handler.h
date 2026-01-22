@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <opendaq/function_block_ptr.h>
 #include <mqtt_streaming_module/atomic_signal_atomic_sample_handler.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
@@ -23,7 +24,7 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 class AtomicSignalSampleArrayHandler : public AtomicSignalAtomicSampleHandler
 {
 public:
-    explicit AtomicSignalSampleArrayHandler(SignalValueJSONKey signalNamesMode, size_t packSize);
+    explicit AtomicSignalSampleArrayHandler(WeakRefPtr<IFunctionBlock> parentFb, SignalValueJSONKey signalNamesMode, size_t packSize);
     std::string getSchema() override;
 
 protected:

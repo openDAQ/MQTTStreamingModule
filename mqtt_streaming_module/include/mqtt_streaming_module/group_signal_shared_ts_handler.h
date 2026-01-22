@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <opendaq/function_block_ptr.h>
 #include <mqtt_streaming_module/handler_base.h>
 #include <opendaq/multi_reader_ptr.h>
 
@@ -33,7 +34,7 @@ struct TimestampTickStruct
 class GroupSignalSharedTsHandler : public HandlerBase
 {
 public:
-    explicit GroupSignalSharedTsHandler(SignalValueJSONKey signalNamesMode, std::string topic);
+    explicit GroupSignalSharedTsHandler(WeakRefPtr<IFunctionBlock> parentFb, SignalValueJSONKey signalNamesMode, std::string topic);
     ~GroupSignalSharedTsHandler();
 
     MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) override;

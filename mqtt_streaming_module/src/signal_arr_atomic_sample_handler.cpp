@@ -10,8 +10,9 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-SignalArrayAtomicSampleHandler::SignalArrayAtomicSampleHandler(SignalValueJSONKey signalNamesMode, std::string topic)
-    : signalNamesMode(signalNamesMode),
+SignalArrayAtomicSampleHandler::SignalArrayAtomicSampleHandler(WeakRefPtr<IFunctionBlock> parentFb, SignalValueJSONKey signalNamesMode, std::string topic)
+    : HandlerBase(parentFb),
+      signalNamesMode(signalNamesMode),
       topic(topic)
 {
 }

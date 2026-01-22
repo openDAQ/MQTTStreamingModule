@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <opendaq/function_block_ptr.h>
 #include "mqtt_streaming_module/common.h"
 #include <mqtt_streaming_module/types.h>
 #include <opendaq/sample_type_traits.h>
@@ -26,6 +27,7 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 class HandlerBase
 {
 public:
+    HandlerBase(WeakRefPtr<IFunctionBlock> parentFb) : parentFb(parentFb) {}
     virtual ~HandlerBase() = default;
     virtual MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) = 0;
     virtual ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const = 0;
@@ -34,6 +36,8 @@ public:
     virtual std::string getSchema() = 0;
 
 protected:
+    WeakRefPtr<IFunctionBlock> parentFb;
+
     static std::pair<uint64_t, uint64_t> calculateRatio(const DataDescriptorPtr descriptor)
     {
         const auto tickResolution = descriptor.getTickResolution().simplify();

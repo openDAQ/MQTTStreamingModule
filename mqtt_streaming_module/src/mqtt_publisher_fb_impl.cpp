@@ -49,7 +49,7 @@ MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
     else
         initProperties(type.createDefaultConfig());
 
-    handler = HandlerFactory::create(this->config, globalId.toStdString());
+    handler = HandlerFactory::create(this->template getWeakRefInternal<IFunctionBlock>(), this->config, globalId.toStdString());
     updatePortsAndSignals(true);
     validateInputPorts();
     updateSchema();
@@ -183,7 +183,7 @@ void MqttPublisherFbImpl::propertyChanged()
 {
     auto lock = this->getRecursiveConfigLock();
     readProperties();
-    handler = HandlerFactory::create(this->config, globalId.toStdString());
+    handler = HandlerFactory::create(this->template getWeakRefInternal<IFunctionBlock>(), this->config, globalId.toStdString());
     updatePortsAndSignals(false);
     validateInputPorts();
     updateTopics();
@@ -223,6 +223,7 @@ void MqttPublisherFbImpl::updatePortsAndSignals(bool reassignPorts)
 
     for (auto it = signalContexts.begin(); it != signalContexts.end();)
     {
+        it->inputPort.setListener(this->template borrowPtr<InputPortNotificationsPtr>());
         if (!it->inputPort.getSignal().assigned())
         {
             ++it;

@@ -27,22 +27,24 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 class HandlerFactory
 {
 public:
-    static std::unique_ptr<HandlerBase> create(const PublisherFbConfig config, const std::string& publisherFbGlobalId)
+    static std::unique_ptr<HandlerBase>
+    create(WeakRefPtr<IFunctionBlock> parentFb, const PublisherFbConfig config, const std::string& publisherFbGlobalId)
     {
         if (config.topicMode == TopicMode::Single)
         {
-            return std::make_unique<GroupSignalSharedTsHandler>(config.valueFieldName,
-                                                           config.topicName.empty() ? publisherFbGlobalId : config.topicName);
+            return std::make_unique<GroupSignalSharedTsHandler>(parentFb,
+                                                                config.valueFieldName,
+                                                                config.topicName.empty() ? publisherFbGlobalId : config.topicName);
         }
         else if (config.topicMode == TopicMode::PerSignal)
         {
             if (config.groupValues)
-                return std::make_unique<AtomicSignalSampleArrayHandler>(config.valueFieldName, config.groupValuesPackSize);
+                return std::make_unique<AtomicSignalSampleArrayHandler>(parentFb, config.valueFieldName, config.groupValuesPackSize);
             else
-                return std::make_unique<AtomicSignalAtomicSampleHandler>(config.valueFieldName);
+                return std::make_unique<AtomicSignalAtomicSampleHandler>(parentFb, config.valueFieldName);
         }
 
-        return std::make_unique<AtomicSignalAtomicSampleHandler>(config.valueFieldName);
+        return std::make_unique<AtomicSignalAtomicSampleHandler>(parentFb, config.valueFieldName);
     }
 };
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
