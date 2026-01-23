@@ -57,6 +57,12 @@ struct ProcedureStatus
         success = false;
         messages.push_back(msg);
     }
+
+    void merge(const ProcedureStatus& other)
+    {
+        success = success && other.success;
+        messages.insert(messages.end(), other.messages.begin(), other.messages.end());
+    }
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

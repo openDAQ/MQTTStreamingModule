@@ -744,15 +744,26 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
         ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
         ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStValid);
 
-        fb.getInputPorts()[1].connect(help.signal0);
+        fb.getInputPorts()[1].connect(help.signal1);
         ASSERT_EQ(fb.getInputPorts().getCount(), 3u);
         ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
         ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStValid);
+
+        fb.getInputPorts()[2].connect(help.signal0);
+        ASSERT_EQ(fb.getInputPorts().getCount(), 4u);
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStError);
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStInvalid);
         // disconnection
+        fb.getInputPorts()[1].disconnect();
+        ASSERT_EQ(fb.getInputPorts().getCount(), 3u);
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStError);
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStInvalid);
+
         fb.getInputPorts()[1].disconnect();
         ASSERT_EQ(fb.getInputPorts().getCount(), 2u);
         ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
         ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStValid);
+
         // connection without a domain signal
         fb.getInputPorts()[1].connect(help.signalWithoutDomain);
         ASSERT_EQ(fb.getInputPorts().getCount(), 3u);
@@ -821,6 +832,31 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
         ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStError);
         ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStInvalid);
         fb.getInputPorts()[1].disconnect();
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStValid);
+    }
+
+    {
+        daq::FunctionBlockPtr fb;
+        auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
+        config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, String(buildTopicName()));
+        ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
+        auto help = SignalHelper<double>();
+
+        auto signal0 = help.createSignal(DataDescriptorBuilder().setRule(LinearDataRule(1, 3)).setTickResolution(Ratio(1, 500)));
+        auto signal1 = help.createSignal(DataDescriptorBuilder().setRule(LinearDataRule(1, 3)).setTickResolution(Ratio(1, 500)));
+        signal0.setName("signal");
+        signal1.setName("signal");
+        fb.getInputPorts()[0].connect(signal0);
+        fb.getInputPorts()[1].connect(signal1);
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStValid);
+        fb.setPropertyValue(PROPERTY_NAME_PUB_VALUE_FIELD_NAME, 2); // Set to SignalName
+        ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStError);
+        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStInvalid);
+        fb.getInputPorts()[0].disconnect();
+        ASSERT_EQ(fb.getInputPorts().getCount(), 2u);
         ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"), comStOk);
         ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStValid);
     }

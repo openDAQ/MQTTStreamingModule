@@ -34,7 +34,6 @@ public:
     std::string getSchema() override;
 
 protected:
-    SignalValueJSONKey signalNamesMode;
     const std::string topic;
 
     std::string toString(const std::string valueFieldName, daq::DataPacketPtr packet);

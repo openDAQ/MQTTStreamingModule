@@ -11,8 +11,7 @@
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
 SignalArrayAtomicSampleHandler::SignalArrayAtomicSampleHandler(WeakRefPtr<IFunctionBlock> parentFb, SignalValueJSONKey signalNamesMode, std::string topic)
-    : HandlerBase(parentFb),
-      signalNamesMode(signalNamesMode),
+    : HandlerBase(parentFb, signalNamesMode),
       topic(topic)
 {
 }
@@ -61,8 +60,6 @@ ProcedureStatus SignalArrayAtomicSampleHandler::validateSignalContexts(const std
 
     static const std::set<SampleType> allowedSampleTypes{SampleType::Float64,
                                                          SampleType::Float32,
-                                                         SampleType::Float32,
-                                                         SampleType::Float64,
                                                          SampleType::UInt8,
                                                          SampleType::Int8,
                                                          SampleType::UInt16,
@@ -115,6 +112,7 @@ ProcedureStatus SignalArrayAtomicSampleHandler::validateSignalContexts(const std
             }
         }
     }
+    status.merge(HandlerBase::validateSignalContexts(signalContexts));
     return status;
 }
 

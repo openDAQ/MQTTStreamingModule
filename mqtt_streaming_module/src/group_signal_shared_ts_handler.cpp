@@ -12,8 +12,7 @@
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
 GroupSignalSharedTsHandler::GroupSignalSharedTsHandler(WeakRefPtr<IFunctionBlock> parentFb, SignalValueJSONKey signalNamesMode, std::string topic)
-    : HandlerBase(parentFb),
-      signalNamesMode(signalNamesMode),
+    : HandlerBase(parentFb, signalNamesMode),
       buffersSize(1000),
       topic(topic)
 {
@@ -154,6 +153,29 @@ ProcedureStatus GroupSignalSharedTsHandler::validateSignalContexts(const std::ve
     {
         status.addError(fmt::format("Connected signals have incompatible sample rates. This is not allowed."));
     }
+
+    std::unordered_set<std::string> namesSet;
+    for (const auto& sigCtx : signalContexts)
+    {
+        auto signal = sigCtx.inputPort.getSignal();
+        if (!signal.assigned())
+            continue;
+        std::string name = buildValueFieldName(signalNamesMode, signal);
+        if (namesSet.find(name) != namesSet.end())
+        {
+            std::string key;
+            if (signalNamesMode == SignalValueJSONKey::GlobalID)
+                key = "GlobalID";
+            else if (signalNamesMode == SignalValueJSONKey::LocalID)
+                key = "LocalID";
+            else
+                key = "name";
+            status.addError(
+                fmt::format("Connected signals have non-unique {} (\"{}\"). JSON field names cannot be built", key, name));
+        }
+        namesSet.insert(std::move(name));
+    }
+    status.merge(HandlerBase::validateSignalContexts(signalContexts));
     return status;
 }
 

@@ -27,16 +27,38 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 class HandlerBase
 {
 public:
-    HandlerBase(WeakRefPtr<IFunctionBlock> parentFb) : parentFb(parentFb) {}
+    HandlerBase(WeakRefPtr<IFunctionBlock> parentFb, SignalValueJSONKey signalNamesMode)
+        : parentFb(parentFb),
+          signalNamesMode(signalNamesMode)
+    {
+    }
     virtual ~HandlerBase() = default;
     virtual MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) = 0;
-    virtual ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const = 0;
+    virtual ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const
+    {
+        ProcedureStatus status{true, {}};
+        std::unordered_set<std::string> globalIdSet;
+        for (const auto& sigCtx : signalContexts)
+        {
+            auto signal = sigCtx.inputPort.getSignal();
+            if (!signal.assigned())
+                continue;
+            std::string globalId = signal.getGlobalId();
+            if (globalIdSet.find(globalId) != globalIdSet.end())
+            {
+                status.addError(fmt::format("Connected signals have non-unique GlobalIDs (\"{}\").", globalId));
+            }
+            globalIdSet.insert(std::move(globalId));
+        }
+        return status;
+    }
     virtual ProcedureStatus signalListChanged(std::vector<SignalContext>& signalContexts) = 0;
     virtual ListPtr<IString> getTopics(const std::vector<SignalContext>& signalContexts) = 0;
     virtual std::string getSchema() = 0;
 
 protected:
     WeakRefPtr<IFunctionBlock> parentFb;
+    SignalValueJSONKey signalNamesMode;
 
     static std::pair<uint64_t, uint64_t> calculateRatio(const DataDescriptorPtr descriptor)
     {

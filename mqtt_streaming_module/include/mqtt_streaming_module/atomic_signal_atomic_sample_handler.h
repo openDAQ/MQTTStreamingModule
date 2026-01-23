@@ -35,8 +35,6 @@ public:
     ListPtr<IString> getTopics(const std::vector<SignalContext>& signalContexts) override;
     std::string getSchema() override;
 protected:
-    SignalValueJSONKey signalNamesMode;
-
     virtual MqttData processSignalContext(SignalContext& signalContext);
     void
     processSignalDescriptorChanged(SignalContext& signalCtx, const DataDescriptorPtr& valueSigDesc, const DataDescriptorPtr& domainSigDesc);

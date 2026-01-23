@@ -44,7 +44,6 @@ public:
     std::string getSchema() override;
 
 protected:
-    SignalValueJSONKey signalNamesMode;
     const size_t buffersSize;
     const std::string topic;
     std::vector<void*> dataBuffers;
