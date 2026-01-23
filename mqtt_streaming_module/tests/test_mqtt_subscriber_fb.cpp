@@ -140,7 +140,7 @@ TEST_F(MqttSubscriberFbTest, CreationWithDefaultConfig)
     ASSERT_NO_THROW(subFb = clientMqttFb.addFunctionBlock(SUB_FB_NAME));
     EXPECT_EQ(subFb.getSignals().getCount(), 0u);
     ASSERT_EQ(subFb.getStatusContainer().getStatus("ComponentStatus"),
-              Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
+              Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager()));
 }
 
 TEST_F(MqttSubscriberFbTest, CreationWithPartialConfig)
@@ -179,13 +179,8 @@ TEST_F(MqttSubscriberFbTest, SubscriptionStatusWaitingForData)
     config.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, buildTopicName());
     daq::FunctionBlockPtr subFb;
     ASSERT_NO_THROW(subFb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config));
-    EXPECT_EQ(subFb.getStatusContainer().getStatus("ComponentStatus"),
+    ASSERT_EQ(subFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-
-    EXPECT_EQ(subFb.getStatusContainer().getStatus("SubscriptionStatus"),
-              EnumerationWithIntValue(MQTT_FB_SUB_STATUS_TYPE,
-                                      static_cast<Int>(MqttSubscriberFbImpl::SubscriptionStatus::WaitingForData),
-                                      daqInstance.getContext().getTypeManager()));
 }
 
 TEST_P(MqttSubscriberFbTopicPTest, CheckSubscriberFbTopic)
@@ -201,23 +196,9 @@ TEST_P(MqttSubscriberFbTopicPTest, CheckSubscriberFbTopic)
     ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config));
     auto signals = fb.getSignals();
     ASSERT_EQ(signals.getCount(), 1);
-    const auto expectedComponentStatus = result ? "Ok" : "Warning";
+    const auto expectedComponentStatus = result ? "Ok" : "Error";
     EXPECT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", expectedComponentStatus, daqInstance.getContext().getTypeManager()));
-    if (result)
-    {
-        EXPECT_NE(fb.getStatusContainer().getStatus("SubscriptionStatus"),
-                  EnumerationWithIntValue(MQTT_FB_SUB_STATUS_TYPE,
-                                          static_cast<Int>(MqttSubscriberFbImpl::SubscriptionStatus::InvalidTopicName),
-                                          daqInstance.getContext().getTypeManager()));
-    }
-    else
-    {
-        EXPECT_EQ(fb.getStatusContainer().getStatus("SubscriptionStatus"),
-                  EnumerationWithIntValue(MQTT_FB_SUB_STATUS_TYPE,
-                                          static_cast<Int>(MqttSubscriberFbImpl::SubscriptionStatus::InvalidTopicName),
-                                          daqInstance.getContext().getTypeManager()));
-    }
 }
 
 INSTANTIATE_TEST_SUITE_P(TopicTest,
@@ -533,17 +514,9 @@ TEST_F(MqttSubscriberFbTest, CheckRawFbFullDataTransferWithReconfiguring)
     auto singal = rawFB.getSignals()[0];
     auto reader = daq::PacketReader(singal);
 
-    const auto stHasData = EnumerationWithIntValue(MQTT_FB_SUB_STATUS_TYPE,
-                                                   static_cast<Int>(MqttSubscriberFbImpl::SubscriptionStatus::HasData),
-                                                   daqInstance.getContext().getTypeManager());
-
-    const auto stWaitData = EnumerationWithIntValue(MQTT_FB_SUB_STATUS_TYPE,
-                                                    static_cast<Int>(MqttSubscriberFbImpl::SubscriptionStatus::WaitingForData),
-                                                    daqInstance.getContext().getTypeManager());
-
     MqttAsyncClientWrapper publisher("testPublisherId");
     ASSERT_TRUE(publisher.connect("127.0.0.1"));
-    EXPECT_EQ(rawFB.getStatusContainer().getStatus("SubscriptionStatus"), stWaitData);
+    EXPECT_NE(rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Waiting for data"), std::string::npos);
 
     mqtt::MqttMessage msg = {topic0, dataToSend[0], 2, 0};
     ASSERT_TRUE(publisher.publishMsg(msg));
@@ -569,7 +542,8 @@ TEST_F(MqttSubscriberFbTest, CheckRawFbFullDataTransferWithReconfiguring)
 
     bool hasData = false;
     while (tmr.expired() == false && hasData == false)
-        hasData = rawFB.getStatusContainer().getStatus("SubscriptionStatus") == stHasData;
+        hasData = (rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Data has been received") != std::string::npos);
+
 
     EXPECT_TRUE(hasData);
 
@@ -582,7 +556,7 @@ TEST_F(MqttSubscriberFbTest, CheckRawFbFullDataTransferWithReconfiguring)
     ASSERT_NO_THROW(rawFB.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, topic1));
     EXPECT_EQ(rawFB.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    EXPECT_EQ(rawFB.getStatusContainer().getStatus("SubscriptionStatus"), stWaitData);
+    EXPECT_NE(rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Waiting for data"), std::string::npos);
 
     msg = {topic1, dataToSend[1], 2, 0};
     ASSERT_TRUE(publisher.publishMsg(msg));
@@ -590,7 +564,7 @@ TEST_F(MqttSubscriberFbTest, CheckRawFbFullDataTransferWithReconfiguring)
 
     hasData = false;
     while (tmr.expired() == false && hasData == false)
-        hasData = rawFB.getStatusContainer().getStatus("SubscriptionStatus") == stHasData;
+        hasData = (rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Data has been received") != std::string::npos);
 
     EXPECT_TRUE(hasData);
 

@@ -12,11 +12,6 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 constexpr int MQTT_FB_UNSUBSCRIBE_TOUT = 3000;
 
 std::atomic<int> MqttSubscriberFbImpl::localIndex = 0;
-std::vector<std::pair<MqttSubscriberFbImpl::SubscriptionStatus, std::string>> MqttSubscriberFbImpl::subscriptionStatusMap =
-    {{SubscriptionStatus::InvalidTopicName, "InvalidTopicName"},
-     {SubscriptionStatus::SubscribingError, "SubscribingError"},
-     {SubscriptionStatus::WaitingForData, "WaitingForData"},
-     {SubscriptionStatus::HasData, "HasData"}};
 
 MqttSubscriberFbImpl::MqttSubscriberFbImpl(const ContextPtr& ctx,
                                            const ComponentPtr& parent,
@@ -25,13 +20,8 @@ MqttSubscriberFbImpl::MqttSubscriberFbImpl(const ContextPtr& ctx,
                                            const PropertyObjectPtr& config)
     : FunctionBlock(type, ctx, parent, generateLocalId()),
       subscriber(subscriber),
-      subscriptionStatus(MQTT_FB_SUB_STATUS_TYPE,
-                         MQTT_FB_SUB_STATUS_NAME,
-                         statusContainer,
-                         subscriptionStatusMap,
-                         SubscriptionStatus::InvalidTopicName,
-                         context.getTypeManager()),
-      jsonDataWorker(loggerComponent)
+      jsonDataWorker(loggerComponent),
+      waitingForData(false)
 {
     initComponentStatus();
     initNestedFbTypes();
@@ -319,13 +309,13 @@ bool MqttSubscriberFbImpl::setTopic(std::string topic)
     {
         LOG_I("An MQTT topic: {}", topic);
         topicForSubscribing = std::move(topic);
-        setComponentStatus(ComponentStatus::Ok);
-        subscriptionStatus.setStatus(SubscriptionStatus::WaitingForData, "Subscribing to topic: " + topicForSubscribing);
+        setComponentStatusWithMessage(ComponentStatus::Ok, "Waiting for data for the topic: " + topicForSubscribing);
+        waitingForData = true;
     }
     else
     {
-        setComponentStatusWithMessage(ComponentStatus::Warning, validationStatus.msg);
-        subscriptionStatus.setStatus(SubscriptionStatus::InvalidTopicName, validationStatus.msg);
+        setComponentStatusWithMessage(ComponentStatus::Error, "Invalid topic name: " + validationStatus.msg);
+        waitingForData = false;
     }
     return validationStatus.success;
 }
@@ -383,9 +373,10 @@ void MqttSubscriberFbImpl::processMessage(const mqtt::MqttMessage& msg)
 {
     if (topicForSubscribing == msg.getTopic())
     {
-        if (subscriptionStatus.getStatus() == SubscriptionStatus::WaitingForData)
+        if (waitingForData)
         {
-            subscriptionStatus.setStatus(SubscriptionStatus::HasData);
+            setComponentStatusWithMessage(ComponentStatus::Ok, "Data has been received");
+            waitingForData = false;
         }
 
         std::string jsonObjStr(msg.getData().begin(), msg.getData().end());
@@ -443,16 +434,16 @@ MqttSubscriberFbImpl::CmdResult MqttSubscriberFbImpl::subscribeToTopic()
             if (auto subRes = subscriber->subscribe(topic, qos); subRes.success == false)
             {
                 LOG_W("Failed to subscribe to the topic: \"{}\"; reason: {}", topic, subRes.msg);
-                setComponentStatusWithMessage(ComponentStatus::Warning, "Some topics failed to subscribe!");
-                subscriptionStatus.setStatus(SubscriptionStatus::SubscribingError, "The reason: " + subRes.msg);
+                setComponentStatusWithMessage(ComponentStatus::Error, "Some topics failed to subscribe! The reason: " + subRes.msg);
+                waitingForData = false;
                 result = {false, "Failed to subscribe to the topic: \"" + topic + "\"; reason: " + subRes.msg};
             }
             else
             {
                 // subscriber->subscribe(...) is asynchronous. It puts command in queue and returns immediately.
                 LOG_D("Trying to subscribe to the topic: {}", topic);
-                setComponentStatus(ComponentStatus::Ok);
-                subscriptionStatus.setStatus(SubscriptionStatus::WaitingForData, "Topic: " + topic);
+                setComponentStatusWithMessage(ComponentStatus::Ok, "Waiting for data for the topic: " + topicForSubscribing);
+                waitingForData = true;
                 result = {true, "", result.token};
             }
         }
@@ -466,7 +457,6 @@ MqttSubscriberFbImpl::CmdResult MqttSubscriberFbImpl::subscribeToTopic()
     {
         const std::string msg = "MQTT subscriber client is not set!";
         setComponentStatusWithMessage(ComponentStatus::Error, msg);
-        subscriptionStatus.setStatus(SubscriptionStatus::SubscribingError, msg);
         result = {false, msg};
     }
     return result;
@@ -495,8 +485,7 @@ MqttSubscriberFbImpl::CmdResult MqttSubscriberFbImpl::unsubscribeFromTopic()
             {
                 const auto msg = fmt::format("Failed to unsubscribe from the topic \'{}\'; reason: {}", topic, unsubRes.msg);
                 LOG_W("{}", msg);
-                setComponentStatus(ComponentStatus::Warning);
-                subscriptionStatus.setStatus(SubscriptionStatus::SubscribingError, msg);
+                setComponentStatusWithMessage(ComponentStatus::Error, msg);
                 result = {false, msg};
             }
         }
@@ -505,7 +494,6 @@ MqttSubscriberFbImpl::CmdResult MqttSubscriberFbImpl::unsubscribeFromTopic()
     {
         const std::string msg = "MQTT subscriber client is not set!";
         setComponentStatusWithMessage(ComponentStatus::Error, msg);
-        subscriptionStatus.setStatus(SubscriptionStatus::SubscribingError, msg);
         result = {false, msg};
     }
     return result;

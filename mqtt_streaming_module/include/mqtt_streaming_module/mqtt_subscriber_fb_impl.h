@@ -20,7 +20,6 @@
 #include <mqtt_streaming_module/common.h>
 #include <opendaq/function_block_impl.h>
 #include "mqtt_streaming_module/constants.h"
-#include "mqtt_streaming_module/status_helper.h"
 #include <opendaq/function_block_impl.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
@@ -31,14 +30,6 @@ class MqttSubscriberFbImpl final : public FunctionBlock
     friend class MqttJsonDecoderFbHelper;
 
 public:
-    enum class SubscriptionStatus : EnumType
-    {
-        InvalidTopicName = 0,
-        SubscribingError,
-        WaitingForData,
-        HasData
-    };
-
     struct CmdResult
     {
         bool success = false;
@@ -65,11 +56,9 @@ public:
     DAQ_MQTT_STREAM_MODULE_API std::string getSubscribedTopic() const;
 
 protected:
-    static std::vector<std::pair<SubscriptionStatus, std::string>> subscriptionStatusMap;
     static std::atomic<int> localIndex;
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
-    StatusHelper<SubscriptionStatus> subscriptionStatus;
     int qos = DEFAULT_SUB_QOS;
     mqtt::MqttDataWrapper jsonDataWorker;
     std::string topicForSubscribing;
@@ -77,6 +66,7 @@ protected:
     std::vector<FunctionBlockPtr> nestedFunctionBlocks;
     SignalConfigPtr outputSignal;
     bool enablePreview;
+    std::atomic<bool> waitingForData;
 
     DAQ_MQTT_STREAM_MODULE_API void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg);
 
