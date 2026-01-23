@@ -236,7 +236,7 @@ std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper:
                     else
                     {
                         result.success = false;
-                        result.msg = fmt::format("Unsupported value type for '{}'.", name);
+                        result.msg += fmt::format("Unsupported value type for '{}'. ", name);
                         hasValue = false;
                     }
                 }
@@ -256,7 +256,7 @@ std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper:
                     else
                     {
                         result.success = false;
-                        result.msg = "Timestamp value type is not supported.";
+                        result.msg += "Timestamp value type is not supported. ";
                     }
                 }
                 else
@@ -269,12 +269,16 @@ std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper:
     catch (...)
     {
         result.success = false;
-        result.msg = "Error deserializing MQTT payload";
+        result.msg += "Error deserializing MQTT payload. ";
     }
     if (!hasValue || (!msgDescriptor.tsFieldName.empty() && !hasTS))
     {
         result.success = false;
-        result.msg = "Not all required fields are present in the JSON message.";
+        result.msg += "Not all required fields are present in the JSON message. ";
+        if (!hasValue)
+            result.msg += fmt::format("Couldn't extract value field (\"{}\") from the JSON message. ", msgDescriptor.valueFieldName);
+        if (!msgDescriptor.tsFieldName.empty() && !hasTS)
+            result.msg += fmt::format("Couldn't extract timestamp field (\"{}\") from the JSON message. ", msgDescriptor.tsFieldName);
     }
 
     if (result.success)

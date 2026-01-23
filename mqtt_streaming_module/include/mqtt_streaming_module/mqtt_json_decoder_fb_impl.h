@@ -16,7 +16,6 @@
 
 #pragma once
 #include "MqttDataWrapper.h"
-#include "mqtt_streaming_module/status_helper.h"
 #include <mqtt_streaming_module/common.h>
 #include <opendaq/function_block_impl.h>
 
@@ -48,23 +47,19 @@ protected:
         std::string tsFieldName;
         std::string unitSymbol;
     };
-    struct ConfigStatus {
-        bool configValid;
-        std::string configMsg;
-        bool waitingData;
-        bool parsingSucceeded;
-        std::string parsingMsg;
-    };
+
     static std::atomic<int> localIndex;
-    static std::vector<std::pair<ParsingStatus, std::string>> parsingStatusMap;
 
     mqtt::MqttDataWrapper jsonDataWorker;
     SignalConfigPtr outputSignal;
     SignalConfigPtr outputDomainSignal;
+    std::atomic<bool> waitingData;
+    std::atomic<bool> configValid;
+    std::string configMsg;
+    std::atomic<bool> parsingSucceeded;
+    std::string parsingMsg;
 
     FbConfig config;
-    StatusHelper<ParsingStatus> parsingStatus;
-    ConfigStatus configStatus;
 
     static std::string generateLocalId();
 

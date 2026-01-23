@@ -65,14 +65,12 @@ static const char* MQTT_LOCAL_JSON_DECODER_FB_ID_PREFIX = "MQTTJSONDecoderFB";
 static const char* MQTT_CLIENT_FB_CON_STATUS_TYPE = "BrokerConnectionStatusType";
 static const char* MQTT_PUB_FB_SIG_STATUS_TYPE = "MQTTSignalStatusType";
 static const char* MQTT_PUB_FB_PUB_STATUS_TYPE = "MQTTPublishingStatusType";
-static const char* MQTT_FB_PARSING_STATUS_TYPE = "MQTTParsingStatusType";
 static const char* MQTT_PUB_FB_SET_STATUS_TYPE = "MQTTSettingStatusType";
 
 
 static const char* MQTT_CLIENT_FB_CON_STATUS_NAME = "ConnectionStatus";
 static const char* MQTT_PUB_FB_SIG_STATUS_NAME = "SignalStatus";
 static const char* MQTT_PUB_FB_PUB_STATUS_NAME = "PublishingStatus";
-static const char* MQTT_FB_PARSING_STATUS_NAME = "ParsingStatus";
 static const char* MQTT_PUB_FB_SET_STATUS_NAME = "SettingStatus";
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

@@ -451,10 +451,7 @@ TEST_F(MqttJsonDecoderFbTest, Config)
     EXPECT_EQ(fb.getSignals().getCount(), 1u);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::WaitingForData),
-                                      daqInstance.getContext().getTypeManager()));
+    EXPECT_NE(fb.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Waiting for data"), std::string::npos);
     const auto allProperties = fb.getAllProperties();
     ASSERT_EQ(allProperties.getCount(), config.getAllProperties().getCount());
 
@@ -475,10 +472,7 @@ TEST_F(MqttJsonDecoderFbTest, CreationWithDefaultConfig)
     EXPECT_EQ(fb.getSignals().getCount(), 1u);
     EXPECT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager()));
-    ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::InvalidParamaters),
-                                      daqInstance.getContext().getTypeManager()));
+    EXPECT_NE(fb.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Configuration is invalid"), std::string::npos);
 }
 
 TEST_F(MqttJsonDecoderFbTest, CreationWithPartialConfig)
@@ -493,10 +487,7 @@ TEST_F(MqttJsonDecoderFbTest, CreationWithPartialConfig)
         EXPECT_EQ(fb.getSignals().getCount(), 1u);
         ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
                   Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-                  EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                          static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::WaitingForData),
-                                          daqInstance.getContext().getTypeManager()));
+        EXPECT_NE(fb.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Waiting for data"), std::string::npos);
         subMqttFb.removeFunctionBlock(fb);
     }
     {
@@ -507,10 +498,7 @@ TEST_F(MqttJsonDecoderFbTest, CreationWithPartialConfig)
         EXPECT_EQ(fb.getSignals().getCount(), 1u);
         ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
                   Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager()));
-        ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-                  EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                          static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::InvalidParamaters),
-                                          daqInstance.getContext().getTypeManager()));
+        EXPECT_NE(fb.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Configuration is invalid"), std::string::npos);
         subMqttFb.removeFunctionBlock(fb);
     }
 }
@@ -523,10 +511,7 @@ TEST_P(MqttJsonFbDoubleDataPTest, DataTransferOneSignalDouble)
     ASSERT_TRUE(compareData(dataToSend, dataToReceive));
     ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
-    ASSERT_EQ(decoderObj.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingSuccedeed),
-                                      decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 }
 
 TEST_P(MqttJsonFbDoubleDataPTest, DataTransferOneSignalDoubleWithoutDomain)
@@ -537,10 +522,7 @@ TEST_P(MqttJsonFbDoubleDataPTest, DataTransferOneSignalDoubleWithoutDomain)
     ASSERT_TRUE(compareData(dataToSend, dataToReceive));
     ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
-    ASSERT_EQ(decoderObj.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingSuccedeed),
-                                      decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 }
 
 INSTANTIATE_TEST_SUITE_P(DataTransferOneSignalDouble,
@@ -555,10 +537,7 @@ TEST_P(MqttJsonFbIntDataPTest, DataTransferOneSignalInt)
     ASSERT_TRUE(compareData(dataToSend, dataToReceive));
     ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
-    ASSERT_EQ(decoderObj.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingSuccedeed),
-                                      decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 }
 
 TEST_P(MqttJsonFbIntDataPTest, DataTransferOneSignalIntWithoutDomain)
@@ -569,10 +548,7 @@ TEST_P(MqttJsonFbIntDataPTest, DataTransferOneSignalIntWithoutDomain)
     ASSERT_TRUE(compareData(dataToSend, dataToReceive));
     ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
-    ASSERT_EQ(decoderObj.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingSuccedeed),
-                                      decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 }
 
 INSTANTIATE_TEST_SUITE_P(DataTransferOneSignalInt,
@@ -587,10 +563,7 @@ TEST_P(MqttJsonFbStringDataPTest, DataTransferOneSignalString)
     ASSERT_TRUE(compareData(dataToSend, dataToReceive));
     ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
-    ASSERT_EQ(decoderObj.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingSuccedeed),
-                                      decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 }
 
 TEST_P(MqttJsonFbStringDataPTest, DataTransferOneSignalStringWithoutDomain)
@@ -601,10 +574,7 @@ TEST_P(MqttJsonFbStringDataPTest, DataTransferOneSignalStringWithoutDomain)
     ASSERT_TRUE(compareData(dataToSend, dataToReceive));
     ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
-    ASSERT_EQ(decoderObj.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingSuccedeed),
-                                      decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 }
 
 INSTANTIATE_TEST_SUITE_P(DataTransferOneSignalString,
@@ -619,10 +589,7 @@ TEST_P(MqttJsonFbStringTsPTest, DataTransferOneSignalIntDomainString)
     ASSERT_TRUE(compareData(dataToSend, dataToReceive));
     ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
-    ASSERT_EQ(decoderObj.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingSuccedeed),
-                                      decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 }
 
 INSTANTIATE_TEST_SUITE_P(DataTransferOneSignalInt,
@@ -677,28 +644,19 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferSeveralSignals)
     EXPECT_TRUE(compareData(DATA_DOUBLE_INT_0, dataToReceive[0]));
     ASSERT_EQ(decoderFb0.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    ASSERT_EQ(decoderFb0.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingSuccedeed),
-                                      daqInstance.getContext().getTypeManager()));
+    EXPECT_NE(decoderFb0.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 
     EXPECT_EQ(DATA_DOUBLE_INT_1.size(), dataToReceive[1].size());
     EXPECT_TRUE(compareData(DATA_DOUBLE_INT_1, dataToReceive[1]));
     ASSERT_EQ(decoderFb1.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    ASSERT_EQ(decoderFb1.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingSuccedeed),
-                                      daqInstance.getContext().getTypeManager()));
+    EXPECT_NE(decoderFb1.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 
     EXPECT_EQ(DATA_DOUBLE_INT_2.size(), dataToReceive[2].size());
     EXPECT_TRUE(compareData(DATA_DOUBLE_INT_2, dataToReceive[2], false));
     ASSERT_EQ(decoderFb2.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    ASSERT_EQ(decoderFb2.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingSuccedeed),
-                                      daqInstance.getContext().getTypeManager()));
+    EXPECT_NE(decoderFb2.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 
 }
 
@@ -721,11 +679,8 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferMissingFieldOneSignal)
     std::vector<std::pair<double, uint64_t>> dataToReceive = read<std::pair<double, uint64_t>>(reader, signal, 0);
     ASSERT_EQ(dataToReceive.size(), 0);
     ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
-              Enumeration("ComponentStatusType", "Warning", decoderObj.getContext().getTypeManager()));
-    ASSERT_EQ(decoderObj.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingFailed),
-                                      decoderObj.getContext().getTypeManager()));
+              Enumeration("ComponentStatusType", "Error", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing failed"), std::string::npos);
 }
 
 TEST_F(MqttJsonDecoderFbTest, DataTransferMissingFieldSeveralSignals)
@@ -775,27 +730,18 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferMissingFieldSeveralSignals)
     EXPECT_TRUE(compareData(DATA_DOUBLE_INT_0, dataToReceive[0]));
     ASSERT_EQ(decoderFb0.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    ASSERT_EQ(decoderFb0.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingSuccedeed),
-                                      daqInstance.getContext().getTypeManager()));
+    EXPECT_NE(decoderFb0.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 
     EXPECT_EQ(0u, dataToReceive[1].size());
     ASSERT_EQ(decoderFb1.getStatusContainer().getStatus("ComponentStatus"),
-              Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
-    ASSERT_EQ(decoderFb1.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingFailed),
-                                      daqInstance.getContext().getTypeManager()));
+              Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager()));
+    EXPECT_NE(decoderFb1.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing failed"), std::string::npos);
 
     EXPECT_EQ(DATA_DOUBLE_INT_2.size(), dataToReceive[2].size());
     EXPECT_TRUE(compareData(DATA_DOUBLE_INT_2, dataToReceive[2], false));
     ASSERT_EQ(decoderFb2.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    ASSERT_EQ(decoderFb2.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingSuccedeed),
-                                      daqInstance.getContext().getTypeManager()));
+    EXPECT_NE(decoderFb2.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 }
 
 TEST_F(MqttJsonFbCommunicationTest, FullDataTransfer)
@@ -816,10 +762,7 @@ TEST_F(MqttJsonFbCommunicationTest, FullDataTransfer)
     ASSERT_TRUE(compareData(DATA_DOUBLE_INT_0, result.dataReceived));
     ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    ASSERT_EQ(decoderObj.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingSuccedeed),
-                                      daqInstance.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 }
 
 TEST_F(MqttJsonFbCommunicationTest, FullDataTransferFor2MqttFbs)
@@ -848,10 +791,7 @@ TEST_F(MqttJsonFbCommunicationTest, FullDataTransferFor2MqttFbs)
     EXPECT_TRUE(compareData(DATA_DOUBLE_INT_0, result0.dataReceived));
     ASSERT_EQ(decoderFb0.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    ASSERT_EQ(decoderFb0.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingSuccedeed),
-                                      daqInstance.getContext().getTypeManager()));
+    EXPECT_NE(decoderFb0.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 
     ASSERT_FALSE(result1.mqttFbProblem);
     ASSERT_FALSE(result1.publishingProblem);
@@ -859,10 +799,7 @@ TEST_F(MqttJsonFbCommunicationTest, FullDataTransferFor2MqttFbs)
     EXPECT_TRUE(compareData(DATA_DOUBLE_INT_1, result1.dataReceived));
     ASSERT_EQ(decoderFb1.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
-    ASSERT_EQ(decoderFb1.getStatusContainer().getStatus(MQTT_FB_PARSING_STATUS_NAME),
-              EnumerationWithIntValue(MQTT_FB_PARSING_STATUS_TYPE,
-                                      static_cast<Int>(MqttJsonDecoderFbImpl::ParsingStatus::ParsingSuccedeed),
-                                      daqInstance.getContext().getTypeManager()));
+    EXPECT_NE(decoderFb1.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 }
 
 TEST_F(MqttJsonDecoderFbTest, RemovingNestedFunctionBlock)
