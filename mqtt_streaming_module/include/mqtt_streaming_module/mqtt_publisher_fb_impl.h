@@ -17,7 +17,6 @@
 #pragma once
 #include "MqttAsyncClient.h"
 #include "MqttDataWrapper.h"
-#include "mqtt_streaming_helper/timer.h"
 #include "mqtt_streaming_module/handler_base.h"
 #include "mqtt_streaming_module/status_helper.h"
 #include <mqtt_streaming_module/common.h>
@@ -91,14 +90,14 @@ private:
     StatusHelper<SignalStatus> signalStatus;
     StatusHelper<PublishingStatus> publishingStatus;
     StatusHelper<SettingStatus> settingStatus;
-    std::atomic<uint64_t> skippedMsgCnt;
-    std::atomic<uint64_t> publishedMsgCnt;
+    std::atomic<bool> hasSkippedMsg;
     std::string lastSkippedReason;
-    helper::utils::Timer publishingStatusTimer;
     SignalConfigPtr commonPreviewSignal;
 
     static std::string generateLocalId();
-    void updatePublishingStatus(bool force);
+    void updateComponentStatus();
+    void updatePublishingStatus();
+    std::string buildPublishingStatusMessage();
     void initProperties(const PropertyObjectPtr& config);
     void readProperties();
     void propertyChanged();

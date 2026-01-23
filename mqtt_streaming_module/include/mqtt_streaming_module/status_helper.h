@@ -41,6 +41,7 @@ public:
     {
         addTypesToTypeManager(typeName, statusName, statusMap, typeManager);
         currentStatus = EnumerationWithIntValue(typeName, static_cast<Int>(initState), typeManager);
+        currentMessage = "";
         statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).addStatus(statusName, currentStatus);
     }
 
@@ -59,15 +60,18 @@ public:
         }
     }
 
-    void setStatus(T status, const std::string& message = "")
+    bool setStatus(T status, const std::string& message = "")
     {
         std::scoped_lock lock(statusMutex);
         const auto newStatus = EnumerationWithIntValue(typeName, static_cast<Int>(status), typeManager);
-        if (newStatus != currentStatus || message != this->message)
+        bool changed = (newStatus != currentStatus || message != currentMessage);
+        if (changed)
         {
             currentStatus = newStatus;
+            currentMessage = message;
             statusContainer.template asPtr<IComponentStatusContainerPrivate>(true).setStatusWithMessage(statusName, currentStatus, message);
         }
+        return changed;
     }
     T getStatus()
     {
@@ -78,7 +82,7 @@ public:
 private:
     const std::string typeName;
     const std::string statusName;
-    std::string message;
+    std::string currentMessage;
     ComponentStatusContainerPtr statusContainer;
     const std::vector<std::pair<T, std::string>>& statusMap;
     EnumerationPtr currentStatus;

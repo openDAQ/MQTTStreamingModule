@@ -40,8 +40,7 @@ MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
                     settingStatusMap,
                     SettingStatus::Valid,
                     context.getTypeManager()),
-      skippedMsgCnt(0),
-      publishingStatusTimer(helper::utils::Timer(1000, false))
+      hasSkippedMsg(false)
 {
     initComponentStatus();
     if (config.assigned())
@@ -59,7 +58,7 @@ MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
 
 MqttPublisherFbImpl::~MqttPublisherFbImpl()
 {
-    if (running)
+    if (readerThread.joinable())
     {
         running = false;
         readerThread.join();
@@ -68,10 +67,15 @@ MqttPublisherFbImpl::~MqttPublisherFbImpl()
 
 void MqttPublisherFbImpl::removed()
 {
-    running = false;
-    readerThread.join();
-    auto lock = this->getRecursiveConfigLock();
-    handler = nullptr;
+    if (readerThread.joinable())
+    {
+        running = false;
+        readerThread.join();
+    }
+    {
+        auto lock = this->getRecursiveConfigLock();
+        handler = nullptr;
+    }
     FunctionBlock::removed();
 }
 
@@ -281,7 +285,6 @@ void MqttPublisherFbImpl::updateStatuses()
         std::string allMessages;
         for (const auto& msg : errors)
         {
-            LOG_E("{}", msg);
             allMessages += msg + "; ";
         }
         return allMessages;
@@ -309,37 +312,20 @@ void MqttPublisherFbImpl::updateStatuses()
         settingStatus.setStatus(SettingStatus::Valid);
     }
 
-    if (hasSignalError)
+    if (hasSkippedMsg)
     {
-        setComponentStatusWithMessage(ComponentStatus::Error, "Some connected signals were invalidated!");
-    }
-    else if (hasSettingError)
-    {
-        setComponentStatusWithMessage(ComponentStatus::Error, "Some property has wrong value!");
-    }
-    else if (signalContexts.size() == 1)        // no one input port is connected
-    {
-        setComponentStatusWithMessage(ComponentStatus::Warning, "No input ports are connected!");
-    }
-    else if (hasEmptyTopic)
-    {
-        setComponentStatusWithMessage(ComponentStatus::Warning, "Topic property is empty! Using FB Global ID as topic name.");
-    }
-    else if (skippedMsgCnt != 0)
-    {
-        setComponentStatusWithMessage(ComponentStatus::Warning, "Some messages were not published!");
+        publishingStatus.setStatus(PublishingStatus::SampleSkipped, buildPublishingStatusMessage());
     }
     else
     {
-        setComponentStatus(ComponentStatus::Ok);
+        publishingStatus.setStatus(PublishingStatus::Ok);
     }
-    updatePublishingStatus(true);
+    updateComponentStatus();
 }
 
 void MqttPublisherFbImpl::validateInputPorts()
 {
-    skippedMsgCnt = 0;
-    publishedMsgCnt = 0;
+    hasSkippedMsg = false;
     if (signalContexts.size() == 1)     // no one input port is connected
     {
         hasSignalError = false;
@@ -506,7 +492,7 @@ void MqttPublisherFbImpl::readerLoop()
                 msgs = handler->processSignalContexts(signalContexts);
             }
             sendMessages(msgs);
-            updatePublishingStatus(false);
+            updatePublishingStatus();
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(config.periodMs));
     }
@@ -525,13 +511,8 @@ void MqttPublisherFbImpl::sendMessages(const MqttData& data)
         auto status = mqttClient->publish(topic, (void*)msg.c_str(), msg.length(), config.qos);
         if (!status.success)
         {
-            ++skippedMsgCnt;
+            hasSkippedMsg = true;
             lastSkippedReason = std::move(status.msg);
-            LOG_W("Failed to publish data to {}; reason - {}", topic, lastSkippedReason);
-        }
-        else
-        {
-            ++publishedMsgCnt;
         }
     }
 }
@@ -541,25 +522,69 @@ std::string MqttPublisherFbImpl::generateLocalId()
     return std::string(MQTT_LOCAL_PUB_FB_ID_PREFIX + std::to_string(localIndex++));
 }
 
-void MqttPublisherFbImpl::updatePublishingStatus(bool force)
+void MqttPublisherFbImpl::updateComponentStatus()
 {
-    if (publishingStatusTimer.expired() || force)
+    std::string componentMsg;
+    if (hasSignalError)
     {
-        publishingStatusTimer.restart();
-        if (skippedMsgCnt != 0)
-        {
-            if (statusContainer.getStatus("ComponentStatus") == ComponentStatus::Ok)
-                setComponentStatusWithMessage(ComponentStatus::Warning, "Some messages were not published!");
-            publishingStatus.setStatus(PublishingStatus::SampleSkipped,
-                                fmt::format("Published: {}; Skipped: {}; last reason - {}",
-                                            publishedMsgCnt.load(),
-                                            skippedMsgCnt.load(),
-                                            lastSkippedReason));
-        }
-        else
-        {
-            publishingStatus.setStatus(PublishingStatus::Ok, fmt::format("Published: {};", publishedMsgCnt.load()));
-        }
+        componentMsg.append("Signal status is invalid: ");
+        for (const auto& m : signalErrors)
+            componentMsg.append(m + "; ");
     }
+    else if (signalContexts.size() == 1)        // no one input port is connected
+    {
+        componentMsg.append("No input ports are connected! ");
+    }
+
+    if (hasSettingError)
+    {
+        componentMsg.append("Settings are invalid: ");
+        for (const auto& m : settingErrors)
+            componentMsg.append(m + "; ");
+    }
+
+    if (hasEmptyTopic)
+    {
+        componentMsg.append("Topic property is empty! Using FB Global ID as topic name. ");
+    }
+
+    if (hasSkippedMsg)
+    {
+        componentMsg.append("Publishing warning: ");
+        componentMsg.append(buildPublishingStatusMessage());
+    }
+
+    if (hasSignalError || hasSettingError)
+    {
+        setComponentStatusWithMessage(ComponentStatus::Error, componentMsg);
+    }
+    else if (signalContexts.size() == 1 || hasEmptyTopic || hasSkippedMsg)
+    {
+        setComponentStatusWithMessage(ComponentStatus::Warning, componentMsg);
+    }
+    else
+    {
+        setComponentStatus(ComponentStatus::Ok);
+    }
+}
+
+void MqttPublisherFbImpl::updatePublishingStatus()
+{
+    bool changed = false;
+    if (hasSkippedMsg)
+    {
+        changed = publishingStatus.setStatus(PublishingStatus::SampleSkipped, buildPublishingStatusMessage());
+    }
+    else
+    {
+        changed = publishingStatus.setStatus(PublishingStatus::Ok);
+    }
+    if (changed)
+        updateComponentStatus();
+}
+
+inline std::string MqttPublisherFbImpl::buildPublishingStatusMessage()
+{
+    return fmt::format("Some sample were not published! Last reason is \"{}\"", lastSkippedReason);
 }
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
