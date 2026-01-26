@@ -1,6 +1,5 @@
 #include "MqttDataWrapper.h"
 
-#include "rapidjson/writer.h"
 #include <boost/algorithm/string.hpp>
 #include <coreobjects/unit_factory.h>
 #include <opendaq/binary_data_packet_factory.h>
@@ -14,10 +13,101 @@
 #include <timestampConverter.h>
 #include <variant>
 
+namespace{
+
+template <typename T, typename IsFn, typename GetFn>
+std::vector<T> parseHomogeneousArrayInternal(
+    const rapidjson::Value::ConstArray& arr,
+    IsFn isValid,
+    GetFn getValue)
+{
+    std::vector<T> out;
+    out.reserve(arr.Size());
+
+    for (const auto& x : arr)
+    {
+        if (!isValid(x))
+            return std::vector<T>{};
+
+        out.push_back(getValue(x));
+    }
+    return out;
+}
+
+template <typename T>
+std::pair<mqtt::MqttDataWrapper::CmdResult, std::vector<T>> parseHomogeneousArray(
+    const rapidjson::Value::ConstArray& arr)
+{
+    return std::pair{mqtt::MqttDataWrapper::CmdResult{false, {}}, std::vector<T>{}};
+}
+
+template <>
+std::pair<mqtt::MqttDataWrapper::CmdResult, std::vector<int64_t>> parseHomogeneousArray(
+    const rapidjson::Value::ConstArray& arr)
+{
+    std::pair<mqtt::MqttDataWrapper::CmdResult, std::vector<int64_t>> result{{true, {}}, {}};
+    result.second = parseHomogeneousArrayInternal<int64_t>(
+        arr,
+        [](const auto& x) { return x.IsInt64() || x.IsUint64(); },
+        [](const auto& x) { return x.GetInt64(); });
+    if (result.second.empty())
+    {
+        result.first.addError("Mixed types in value array (expected integers). ");
+    }
+    return result;
+}
+
+template <>
+std::pair<mqtt::MqttDataWrapper::CmdResult, std::vector<uint64_t>> parseHomogeneousArray(
+    const rapidjson::Value::ConstArray& arr)
+{
+    std::pair<mqtt::MqttDataWrapper::CmdResult, std::vector<uint64_t>> result{{true, {}}, {}};
+    result.second = parseHomogeneousArrayInternal<uint64_t>(
+        arr,
+        [](const auto& x) { return x.IsUint64(); },
+        [](const auto& x) { return x.GetUint64(); });
+    if (result.second.empty())
+    {
+        result.first.addError("Mixed types in value array (expected unsigned integers). ");
+    }
+    return result;
+}
+
+template <>
+std::pair<mqtt::MqttDataWrapper::CmdResult, std::vector<double>> parseHomogeneousArray(
+    const rapidjson::Value::ConstArray& arr)
+{
+    std::pair<mqtt::MqttDataWrapper::CmdResult, std::vector<double>> result{{true, {}}, {}};
+    result.second = parseHomogeneousArrayInternal<double>(
+        arr,
+        [](const auto& x) { return x.IsDouble(); },
+        [](const auto& x) { return x.GetDouble(); });
+    if (result.second.empty())
+    {
+        result.first.addError("Mixed types in value array (expected doubles). ");
+    }
+    return result;
+}
+
+template <>
+std::pair<mqtt::MqttDataWrapper::CmdResult, std::vector<std::string>> parseHomogeneousArray(
+    const rapidjson::Value::ConstArray& arr)
+{
+    std::pair<mqtt::MqttDataWrapper::CmdResult, std::vector<std::string>> result{{true, {}}, {}};
+    result.second = parseHomogeneousArrayInternal<std::string>(
+        arr,
+        [](const auto& x) { return x.IsString(); },
+        [](const auto& x) { return std::string{x.GetString()}; });
+    if (result.second.empty())
+    {
+        result.first.addError("Mixed types in value array (expected strings). ");
+    }
+    return result;
+}
+}
+
 namespace mqtt
 {
-
-static const char* TOPIC_ALL_SIGNALS_PREFIX = "openDAQ";
 
 MqttDataWrapper::MqttDataWrapper(daq::LoggerComponentPtr loggerComponent)
     : loggerComponent(loggerComponent)
@@ -183,11 +273,6 @@ MqttDataWrapper::CmdResult MqttDataWrapper::createAndSendDataPacket(const std::s
     return status;
 }
 
-// bool MqttDataWrapper::hasDomainSignal(const SignalId& signalId) const
-// {
-//     return (msgDescriptor.signalName == signalId.signalName) ? !msgDescriptor.tsFieldName.empty() : false;
-// }
-
 void MqttDataWrapper::setValueFieldName(std::string valueFieldName)
 {
     msgDescriptor.valueFieldName = std::move(valueFieldName);
@@ -198,22 +283,24 @@ void MqttDataWrapper::setTimestampFieldName(std::string tsFieldName)
     msgDescriptor.tsFieldName = std::move(tsFieldName);
 }
 
-std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper::extractDataSamples(const MqttMsgDescriptor& msgDescriptor, const std::string& json)
+std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper::extractDataSamples(const MqttMsgDescriptor& msgDescriptor,
+                                                                                                    const std::string& json)
 {
-    using ValueVariant = std::variant<int64_t, double, std::string>;
+    using ValueVariant = std::variant<std::vector<int64_t>, std::vector<double>, std::vector<std::string>>;
     ValueVariant value{};
     std::vector<DataPackets> outputData;
-    uint64_t ts = 0;
+    std::vector<uint64_t> ts;
     bool hasTS = false;
     bool hasValue = false;
     CmdResult result(true);
+
     try
     {
         rapidjson::Document jsonDocument;
         jsonDocument.Parse(json);
         if (jsonDocument.HasParseError())
         {
-            return std::pair{CmdResult(false, "Error parsing mqtt payload as JSON"), outputData};
+            return std::pair{result.addError("Error parsing mqtt payload as JSON"), outputData};
         }
 
         if (jsonDocument.IsObject())
@@ -224,39 +311,115 @@ std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper:
                 if (!msgDescriptor.valueFieldName.empty() && name == msgDescriptor.valueFieldName)
                 {
                     const auto& v = jsonDocument[name];
-                    hasValue = true;
-                    if (v.IsInt64())
-                        value = v.GetInt64();
-                    else if (v.IsUint64())
-                        value = static_cast<int64_t>(v.GetUint64());
-                    else if (v.IsDouble())
-                        value = v.GetDouble();
-                    else if (v.IsString())
-                        value = std::string(v.GetString());
+                    if (v.IsArray())
+                    {
+                        const auto& arr = v.GetArray();
+                        if (arr.Empty())
+                        {
+                            result.addError("Value field is an array but it is empty. ");
+                        }
+                        else if (arr[0].IsInt64() || arr[0].IsUint64())
+                        {
+                            auto [parsingStatus, out] = parseHomogeneousArray<int64_t>(arr);
+                            result.merge(parsingStatus);
+                            hasValue = parsingStatus.success;
+                            if (parsingStatus.success)
+                                value = std::move(out);
+                        }
+                        else if (arr[0].IsDouble())
+                        {
+                            auto [parsingStatus, out] = parseHomogeneousArray<double>(arr);
+                            result.merge(parsingStatus);
+                            hasValue = parsingStatus.success;
+                            if (parsingStatus.success)
+                                value = std::move(out);
+                        }
+                        else if (arr[0].IsString())
+                        {
+                            auto [parsingStatus, out] = parseHomogeneousArray<std::string>(arr);
+                            result.merge(parsingStatus);
+                            hasValue = parsingStatus.success;
+                            if (parsingStatus.success)
+                                value = std::move(out);
+                        }
+                        else
+                        {
+                            result.addError(fmt::format("Unsupported value type for '{}' array. ", name));
+                        }
+                    }
                     else
                     {
-                        result.success = false;
-                        result.msg += fmt::format("Unsupported value type for '{}'. ", name);
-                        hasValue = false;
+                        hasValue = true;
+                        if (v.IsInt64())
+                            value = std::vector<int64_t>{v.GetInt64()};
+                        else if (v.IsUint64())
+                            value = std::vector<int64_t>{static_cast<int64_t>(v.GetUint64())};
+                        else if (v.IsDouble())
+                            value = std::vector<double>{v.GetDouble()};
+                        else if (v.IsString())
+                            value = std::vector<std::string>{std::string(v.GetString())};
+                        else
+                        {
+                            result.addError(fmt::format("Unsupported value type for '{}'. ", name));
+                            hasValue = false;
+                        }
                     }
                 }
                 else if (!msgDescriptor.tsFieldName.empty() && name == msgDescriptor.tsFieldName)
                 {
-                    if (jsonDocument[name].IsInt() || jsonDocument[name].IsUint64() ||
-                        jsonDocument[name].IsInt64())
+                    const auto& tsField = jsonDocument[name];
+                    if (tsField.IsArray())
                     {
-                        ts = mqtt::utils::numericToMicroseconds(jsonDocument[name].GetUint64());
-                        hasTS = true;
-                    }
-                    else if (jsonDocument[name].IsString())
-                    {
-                        ts = utils::toUnixTicks(jsonDocument[name].GetString());
-                        hasTS = true;
+                        const auto& arr = tsField.GetArray();
+                        if (arr.Empty())
+                        {
+                            result.addError("Timestamp field is an array but it is empty. ");
+                        }
+                        else if (arr[0].IsInt() || arr[0].IsUint64() || arr[0].IsInt64())
+                        {
+                            auto [parsingStatus, out] = parseHomogeneousArray<uint64_t>(arr);
+                            result.merge(parsingStatus);
+                            hasTS = parsingStatus.success;
+                            if (parsingStatus.success)
+                                ts = std::move(out);
+
+                            std::for_each(ts.begin(), ts.end(), [](auto& val) { val = mqtt::utils::numericToMicroseconds(val); });
+                        }
+                        else if (arr[0].IsString())
+                        {
+                            std::vector<std::string> stringTs;
+                            auto [parsingStatus, out] = parseHomogeneousArray<std::string>(arr);
+                            result.merge(parsingStatus);
+                            hasTS = parsingStatus.success;
+                            if (parsingStatus.success)
+                                stringTs = std::move(out);
+                            ts.reserve(stringTs.size());
+                            std::for_each(stringTs.cbegin(),
+                                          stringTs.cend(),
+                                          [&ts](const auto& val) { ts.push_back(utils::toUnixTicks(val)); });
+                            hasTS = true;
+                        }
+                        else
+                        {
+                            result.addError("Timestamp value type is not supported. ");
+                        }
                     }
                     else
                     {
-                        result.success = false;
-                        result.msg += "Timestamp value type is not supported. ";
+                        if (tsField.IsInt() || tsField.IsUint64() || tsField.IsInt64())
+                        {
+                            ts.push_back(mqtt::utils::numericToMicroseconds(tsField.GetUint64()));
+                            hasTS = true;
+                        }
+                        else if (tsField.IsString())
+                        {
+                            ts.push_back(utils::toUnixTicks(tsField.GetString()));
+                            hasTS = true;
+                        }
+                        else
+                        {
+                            result.addError("Timestamp value type is not supported. ");
+                        }
                     }
                 }
                 else
@@ -268,35 +431,47 @@ std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper:
     }
     catch (...)
     {
-        result.success = false;
-        result.msg += "Error deserializing MQTT payload. ";
+        result.addError("Error deserializing MQTT payload. ");
     }
     if (!hasValue || (!msgDescriptor.tsFieldName.empty() && !hasTS))
     {
-        result.success = false;
-        result.msg += "Not all required fields are present in the JSON message. ";
+        result.addError("Not all required fields are present in the JSON message. ");
         if (!hasValue)
-            result.msg += fmt::format("Couldn't extract value field (\"{}\") from the JSON message. ", msgDescriptor.valueFieldName);
+            result.addError(fmt::format("Couldn't extract value field (\"{}\") from the JSON message. ", msgDescriptor.valueFieldName));
         if (!msgDescriptor.tsFieldName.empty() && !hasTS)
-            result.msg += fmt::format("Couldn't extract timestamp field (\"{}\") from the JSON message. ", msgDescriptor.tsFieldName);
+            result.addError(fmt::format("Couldn't extract timestamp field (\"{}\") from the JSON message. ", msgDescriptor.tsFieldName));
     }
 
     if (result.success)
     {
-        // TODO : value [1, 2, 3, ...] support
-        DataPackets dataPackets;
         std::visit(
-            [&](auto&& val)
+            [&](auto&& values)
             {
-                using T = std::decay_t<decltype(val)>;
-                if (hasTS)
-                    dataPackets = buildDataPackets(val, ts);
+                using T = std::decay_t<decltype(values)>;
+                if (hasTS && ts.size() != values.size())
+                {
+                    result.addError("Timestamp and value array sizes do not match. ");
+                    return;
+                }
+                if constexpr (std::is_same_v<T, std::vector<std::string>>)
+                {
+                    for (size_t i = 0; i < values.size(); ++i)
+                    {
+                        DataPackets dp = hasTS ? buildDataPackets(values[i], ts[i]) : buildDataPackets(values[i]);
+
+                        if (dp.dataPacket.assigned())
+                            outputData.push_back(std::move(dp));
+                    }
+                }
                 else
-                    dataPackets = buildDataPackets(val);
+                {
+                    DataPackets dp = hasTS ? buildDataPackets(values, ts) : buildDataPackets(values);
+
+                    if (dp.dataPacket.assigned())
+                        outputData.push_back(std::move(dp));
+                }
             },
             value);
-        if (dataPackets.dataPacket.assigned())
-            outputData.push_back(std::move(dataPackets));
     }
     return std::pair{result, outputData};
 }
@@ -312,7 +487,7 @@ void MqttDataWrapper::sendDataSamples(const DataPackets& dataPackets)
 
 template <typename T>
 DataPackets
-MqttDataWrapper::buildDataPackets(T value, uint64_t timestamp)
+MqttDataWrapper::buildDataPackets(const T& value, uint64_t timestamp)
 {
     DataPackets dataPackets;
 
@@ -324,7 +499,19 @@ MqttDataWrapper::buildDataPackets(T value, uint64_t timestamp)
 
 template <typename T>
 DataPackets
-MqttDataWrapper::buildDataPackets(T value)
+MqttDataWrapper::buildDataPackets(const T& value, const std::vector<uint64_t>& timestamp)
+{
+    DataPackets dataPackets;
+
+    dataPackets.domainDataPacket = buildDomainDataPacket(outputSignal, timestamp);
+    dataPackets.dataPacket = buildDataPacket(outputSignal, value, dataPackets.domainDataPacket);
+
+    return dataPackets;
+}
+
+template <typename T>
+DataPackets
+MqttDataWrapper::buildDataPackets(const T& value)
 {
     DataPackets dataPackets;
     dataPackets.dataPacket = buildDataPacket(outputSignal, value, daq::DataPacketPtr());
@@ -376,11 +563,12 @@ bool MqttDataWrapper::isTypeTheSame(daq::SampleType sampleType)
     return false;
 }
 
-template<typename T>
-daq::DataPacketPtr MqttDataWrapper::buildDataPacket(daq::GenericSignalConfigPtr<> signalConfig, T value, const daq::DataPacketPtr domainPacket)
+template <typename T>
+daq::DataPacketPtr MqttDataWrapper::buildDataPacket(daq::GenericSignalConfigPtr<> signalConfig, const T& value, const daq::DataPacketPtr domainPacket)
 {
     const auto curType = signalConfig.getDescriptor().getSampleType();
-    if (isTypeTheSame<T>(curType) == false)
+    using ActualType = sample_type_t<T>;
+    if (!isTypeTheSame<ActualType>(curType))
     {
         if constexpr (std::is_same_v<T, std::string>)
         {
@@ -391,47 +579,63 @@ daq::DataPacketPtr MqttDataWrapper::buildDataPacket(daq::GenericSignalConfigPtr<
         }
         else
         {
-            auto descriptor = DataDescriptorBuilderCopy(signalConfig.getDescriptor()).setSampleType(daq::SampleTypeFromType<T>::SampleType).build();
+            auto descriptor =
+                DataDescriptorBuilderCopy(signalConfig.getDescriptor()).setSampleType(daq::SampleTypeFromType<ActualType>::SampleType).build();
             signalConfig.setDescriptor(descriptor);
         }
     }
-    daq::DataPacketPtr  dataPacket = createEmptyDataPacket<T>(signalConfig, domainPacket, value);
+
+    auto dataPacket = createEmptyDataPacket<T>(signalConfig, domainPacket, value);
     copyDataIntoPacket(dataPacket, value);
     return dataPacket;
 }
 
 template<typename T>
-daq::DataPacketPtr MqttDataWrapper::createEmptyDataPacket(const daq::GenericSignalConfigPtr<> signalConfig, const daq::DataPacketPtr domainPacket, T value)
+daq::DataPacketPtr MqttDataWrapper::createEmptyDataPacket(const daq::GenericSignalConfigPtr<> signalConfig, const daq::DataPacketPtr domainPacket, const T& value)
 {
     daq::DataPacketPtr dataPacket;
-    if constexpr (std::is_same_v<T, std::string>)
+    uint64_t size = 1;
+    using ActualType = sample_type_t<T>;
+    if constexpr (is_std_vector_v<T> || std::is_same_v<ActualType, std::string>)
     {
-        dataPacket = daq::BinaryDataPacket(domainPacket, signalConfig.getDescriptor(), value.size());
+        size = value.size();
+    }
+
+    if constexpr (std::is_same_v<ActualType, std::string>)
+    {
+        dataPacket = daq::BinaryDataPacket(domainPacket, signalConfig.getDescriptor(), size);
     }
     else
     {
         if (signalConfig.getDomainSignal().assigned() && domainPacket.assigned())
         {
-            dataPacket = DataPacketWithDomain(domainPacket, signalConfig.getDescriptor(), 1);
+            dataPacket = DataPacketWithDomain(domainPacket, signalConfig.getDescriptor(), size);
         }
         else
         {
-            dataPacket = DataPacket(signalConfig.getDescriptor(), 1);
+            dataPacket = DataPacket(signalConfig.getDescriptor(), size);
         }
     }
+
     return dataPacket;
 }
 
 template <typename T>
-void MqttDataWrapper::copyDataIntoPacket(daq::DataPacketPtr dataPacket, T value)
+void MqttDataWrapper::copyDataIntoPacket(daq::DataPacketPtr dataPacket, const T& value)
 {
     if (!dataPacket.assigned())
         return;
-    if constexpr (std::is_same_v<T, std::string>)
+
+    using ActualType = sample_type_t<T>;
+    if constexpr (is_std_vector_v<T> && !std::is_same_v<ActualType, std::string>)
     {
-        memcpy(dataPacket.getData(), value.c_str(), value.size());
+        std::memcpy(dataPacket.getRawData(), value.data(), value.size() * sizeof(ActualType));
     }
-    else
+    else if constexpr (!is_std_vector_v<T> && std::is_same_v<ActualType, std::string>)
+    {
+        std::memcpy(dataPacket.getData(), value.c_str(), value.size());
+    }
+    else if constexpr (!is_std_vector_v<T> && !std::is_same_v<ActualType, std::string>)
     {
         auto outputData = reinterpret_cast<T*>(dataPacket.getRawData());
         *outputData = value;
@@ -445,6 +649,18 @@ daq::DataPacketPtr MqttDataWrapper::buildDomainDataPacket(daq::GenericSignalConf
     {
         dataPacket = daq::DataPacket(signalConfig.getDomainSignal().getDescriptor(), 1);
         std::memcpy(dataPacket.getRawData(), &timestamp, sizeof(timestamp));
+    }
+
+    return dataPacket;
+}
+
+daq::DataPacketPtr MqttDataWrapper::buildDomainDataPacket(daq::GenericSignalConfigPtr<> signalConfig, const std::vector<uint64_t>& timestamp)
+{
+    daq::DataPacketPtr dataPacket;
+    if (signalConfig.getDomainSignal().assigned())
+    {
+        dataPacket = daq::DataPacket(signalConfig.getDomainSignal().getDescriptor(), timestamp.size());
+        std::memcpy(dataPacket.getRawData(), timestamp.data(), timestamp.size() * sizeof(uint64_t));
     }
 
     return dataPacket;

@@ -16,15 +16,109 @@
 using namespace daq;
 using namespace daq::modules::mqtt_streaming_module;
 
+namespace
+{
 template <typename T>
-struct is_pair : std::false_type {};
+struct is_pair : std::false_type
+{
+};
 
 template <typename T1, typename T2>
-struct is_pair<std::pair<T1, T2>> : std::true_type {};
+struct is_pair<std::pair<T1, T2>> : std::true_type
+{
+};
 
 bool almostEqual(double a, double b, double relEpsilon = 1e-9, double absEpsilon = 1e-12)
 {
     return std::fabs(a - b) <= std::max(absEpsilon, relEpsilon * std::max(std::fabs(a), std::fabs(b)));
+}
+template <typename T>
+bool almostEqual(const std::vector<T>& a, const std::vector<T>& b, double relEpsilon = 1e-9, double absEpsilon = 1e-12)
+{
+    if (a.size() != b.size())
+        return false;
+    for (size_t i = 0; i < a.size(); ++i)
+    {
+        if (!almostEqual(a[i], b[i], relEpsilon, absEpsilon))
+            return false;
+    }
+    return true;
+}
+
+template <typename T>
+bool equal(const std::vector<T>& a, const std::vector<T>& b)
+{
+    if (a.size() != b.size())
+        return false;
+    if constexpr (std::is_same_v<double, T> || std::is_same_v<float, T>)
+    {
+        return almostEqual(a, b);
+    }
+    else
+    {
+        return a == b;
+    }
+}
+
+template <typename T>
+bool equal(T a, T b)
+{
+    if constexpr (std::is_same_v<double, T> || std::is_same_v<float, T>)
+    {
+        return almostEqual(a, b);
+    }
+    else
+    {
+        return a == b;
+    }
+}
+
+template <typename T>
+bool equalTs(T a, T b)
+{
+    const auto convertedA = mqtt::utils::numericToMicroseconds(a);
+    const auto convertedB = mqtt::utils::numericToMicroseconds(b);
+    return (convertedA == convertedB && convertedA != 0);
+}
+
+template <typename T>
+bool equalTs(const std::vector<T>& a, const std::vector<T>& b)
+{
+    if (a.size() != b.size())
+        return false;
+    for (size_t i = 0; i < a.size(); ++i)
+    {
+        if (!equalTs<T>(a[i], b[i]))
+            return false;
+    }
+    return true;
+}
+
+bool equalTs(const std::string& a, uint64_t b)
+{
+    return (mqtt::utils::toUnixTicks(a) == b && b != 0);
+}
+
+bool equalTs(uint64_t b, const std::string& a)
+{
+    return equalTs(a, b);
+}
+
+bool equalTs(const std::vector<std::string>& a, const std::vector<uint64_t>& b)
+{
+    if (a.size() != b.size())
+        return false;
+    for (size_t i = 0; i < a.size(); ++i)
+    {
+        if (!equalTs(a[i], b[i]))
+            return false;
+    }
+    return true;
+}
+
+bool equalTs(const std::vector<uint64_t>& b, const std::vector<std::string>& a)
+{
+    return equalTs(a, b);
 }
 
 std::string doubleToString(double value, int precision = 12)
@@ -33,6 +127,225 @@ std::string doubleToString(double value, int precision = 12)
     out << std::fixed << std::setprecision(precision) << value;
     return out.str();
 }
+
+template <typename vT, typename tsT>
+void merge(const std::vector<std::pair<vT, tsT>>& input, std::vector<std::pair<std::vector<vT>, std::vector<tsT>>>& output)
+{
+    std::vector<vT> data;
+    std::vector<tsT> ts;
+    for (const auto& [sData, sTs] : input)
+    {
+        data.push_back(sData);
+        ts.push_back(sTs);
+    }
+    output.emplace_back(std::pair(std::move(data), std::move(ts)));
+}
+
+template <typename T>
+std::string replacePlaceholder(const std::string& jsonTemplate, const std::string& ph, const T& value)
+{
+    std::string result = jsonTemplate;
+    size_t pos = result.find(ph);
+    if (pos != std::string::npos)
+    {
+        std::string replacement;
+        if constexpr (std::is_same_v<T, std::string>)
+        {
+            replacement = '"' + value + '"';
+        }
+        else if constexpr (std::is_same_v<T, double> || std::is_same_v<T, float>)
+        {
+            replacement = doubleToString(value);
+        }
+        else if constexpr (mqtt::is_std_vector_v<T>)
+        {
+            replacement = "[";
+            for (size_t i = 0; i < value.size(); ++i)
+            {
+                if (i > 0)
+                    replacement += ", ";
+                if constexpr (std::is_same_v<mqtt::sample_type_t<T>, double> || std::is_same_v<mqtt::sample_type_t<T>, float>)
+                    replacement += doubleToString(value[i]);
+                else if constexpr (std::is_same_v<mqtt::sample_type_t<T>, std::string>)
+                    replacement += '"' + value[i] + '"';
+                else
+                    replacement += std::to_string(value[i]);
+            }
+            replacement += "]";
+        }
+        else
+        {
+            replacement = std::to_string(value);
+        }
+        result.replace(pos, ph.length(), replacement);
+    }
+    return result;
+}
+
+template <typename vT, typename tsT>
+std::vector<std::string> replacePlaceholders(const std::vector<std::pair<vT, tsT>>& data, const std::string& jsonTemplate)
+{
+    std::vector<std::string> result;
+    for (const auto& [value, ts] : data)
+    {
+        auto str = replacePlaceholder(jsonTemplate, "<placeholder_value>", value);
+        str = replacePlaceholder(str, "<placeholder_ts>", ts);
+        result.push_back(str);
+    }
+    return result;
+}
+
+std::string extractFieldName(std::string jsonTemplate, const std::string& valuePh)
+{
+    std::string result;
+    size_t pos = jsonTemplate.find(valuePh);
+    if (pos == std::string::npos)
+        return "";
+    size_t posEnd = jsonTemplate.rfind("\"", pos);
+    if (posEnd == std::string::npos)
+        return "";
+    size_t posStart = jsonTemplate.rfind("\"", posEnd - 1);
+    if (posStart == std::string::npos)
+        return "";
+    ++posStart;
+    result = jsonTemplate.substr(posStart, posEnd - posStart);
+    return result;
+}
+
+template <typename vT, typename tsT0, typename tsT1>
+bool compareData(const std::vector<std::pair<vT, tsT0>>& data0, const std::vector<std::pair<vT, tsT1>>& data1, bool compareTs = true)
+{
+    if (data0.size() != data1.size())
+        return false;
+    for (std::size_t i = 0; i < data0.size(); ++i)
+    {
+        const auto& [value0, ts0] = data0[i];
+        const auto& [value1, ts1] = data1[i];
+        if (!equal(value0, value1))
+            return false;
+        if (compareTs)
+        {
+            if (!equalTs(ts0, ts1))
+                return false;
+        }
+    }
+    return true;
+}
+
+template <typename vT, typename tsT>
+bool compareData(const std::vector<std::pair<vT, tsT>>& data0, const std::vector<vT>& data1)
+{
+    if (data0.size() != data1.size())
+        return false;
+    for (std::size_t i = 0; i < data0.size(); ++i)
+    {
+        const auto& [value0, _] = data0[i];
+        const auto& value1 = data1[i];
+
+        if (!equal(value0, value1))
+            return false;
+    }
+    return true;
+}
+
+template <typename T>
+bool copyData(T& destination, const DataPacketPtr source)
+{
+    auto checkType = [](SampleType type) -> bool
+    {
+        switch (type)
+        {
+            case SampleType::Float32:
+            case SampleType::Float64:
+            case SampleType::UInt8:
+            case SampleType::Int8:
+            case SampleType::UInt16:
+            case SampleType::Int16:
+            case SampleType::UInt32:
+            case SampleType::Int32:
+            case SampleType::UInt64:
+            case SampleType::Int64:
+            case SampleType::RangeInt64:
+            case SampleType::ComplexFloat32:
+            case SampleType::ComplexFloat64:
+                return true;
+            case SampleType::String:
+            case SampleType::Binary:
+            case SampleType::Struct:
+            case SampleType::Invalid:
+            case SampleType::Null:
+            case SampleType::_count:
+                return false;
+        }
+        return true;
+    };
+
+    const auto dataType = source.getDataDescriptor().getSampleType();
+    if (checkType(dataType) && getSampleSize(dataType) != sizeof(mqtt::sample_type_t<T>))
+        return false;
+    if constexpr (std::is_same_v<T, std::string>)
+    {
+        destination = std::string(static_cast<char*>(source.getData()), source.getDataSize());
+    }
+    else if constexpr (mqtt::is_std_vector_v<T>)
+    {
+        destination.resize(source.getSampleCount());
+        memcpy(destination.data(), source.getRawData(), source.getSampleCount() * getSampleSize(dataType));
+    }
+    else
+    {
+        memcpy(&destination, source.getData(), sizeof(destination));
+    }
+    return true;
+}
+
+template <typename T>
+std::vector<T> read(PacketReaderPtr reader, const SignalPtr signal, int timeoutMs = 1000)
+{
+    std::vector<T> result;
+
+    auto timer = helper::utils::Timer(timeoutMs);
+    while (!reader.getEmpty() || !timer.expired())
+    {
+        if (reader.getEmpty())
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            continue;
+        }
+        auto packet = reader.read();
+        if (packet.getType() == PacketType::Event)
+        {
+            continue;
+        }
+
+        if (packet.getType() == PacketType::Data)
+        {
+            const auto dataPacket = packet.asPtr<IDataPacket>();
+            if constexpr (is_pair<T>::value)
+            {
+                T dataToReceiveEntry;
+                bool ok = true;
+                ok &= copyData(dataToReceiveEntry.first, dataPacket);
+                if (signal.getDomainSignal().assigned())
+                    ok &= copyData(dataToReceiveEntry.second, dataPacket.getDomainPacket());
+                if (!ok)
+                    break;
+                result.push_back(dataToReceiveEntry);
+            }
+            else
+            {
+                T dataToReceiveEntry;
+                bool ok = copyData(dataToReceiveEntry, dataPacket);
+                if (!ok)
+                    break;
+                result.push_back(dataToReceiveEntry);
+            }
+        }
+    }
+
+    return result;
+}
+} // namespace
 
 namespace daq::modules::mqtt_streaming_module
 {
@@ -90,59 +403,6 @@ public:
         return std::string(::testing::UnitTest::GetInstance()->current_test_info()->name()) + "_ClientId";
     }
 
-    template <typename T> std::string replacePlaceholder(const std::string& jsonTemplate, const std::string& ph, const T& value)
-    {
-        std::string result = jsonTemplate;
-        size_t pos = result.find(ph);
-        if (pos != std::string::npos)
-        {
-            std::string replacement;
-            if constexpr (std::is_same_v<T, std::string>)
-            {
-                replacement = '"' + value + '"';
-            }
-            else if constexpr (std::is_same_v<T, double> || std::is_same_v<T, float>)
-            {
-                replacement = doubleToString(value);
-            }
-            else
-            {
-                replacement = std::to_string(value);
-            }
-            result.replace(pos, ph.length(), replacement);
-        }
-        return result;
-    }
-
-    template <typename vT, typename tsT> std::vector<std::string> replacePlaceholders(const std::vector<std::pair<vT, tsT>>& data, const std::string& jsonTemplate)
-    {
-        std::vector<std::string> result;
-        for (const auto& [value, ts] : data)
-        {
-            auto str = replacePlaceholder(jsonTemplate, "<placeholder_value>", value);
-            str = replacePlaceholder(str, "<placeholder_ts>", ts);
-            result.push_back(str);
-        }
-        return result;
-    }
-
-    std::string extractFieldName(std::string jsonTemplate, const std::string& valuePh)
-    {
-        std::string result;
-        size_t pos = jsonTemplate.find(valuePh);
-        if (pos == std::string::npos)
-            return "";
-        size_t posEnd = jsonTemplate.rfind("\"", pos);
-        if (posEnd == std::string::npos)
-            return "";
-        size_t posStart = jsonTemplate.rfind("\"", posEnd - 1);
-        if (posStart == std::string::npos)
-            return "";
-        ++posStart;
-        result = jsonTemplate.substr(posStart, posEnd - posStart);
-        return result;
-    }
-
     template <typename vT, typename tsT>
     std::vector<std::pair<vT, uint64_t>> transferData(const std::vector<std::pair<vT, tsT>>& data, const std::string& jsonDataTemplate)
     {
@@ -150,166 +410,16 @@ public:
     }
 
     template <typename vT, typename tsT>
+    std::vector<std::pair<std::vector<vT>, std::vector<uint64_t>>>
+    transferData(const std::vector<std::pair<std::vector<vT>, std::vector<tsT>>>& data, const std::string& jsonDataTemplate)
+    {
+        return transferData<std::vector<vT>, std::vector<tsT>, std::pair<std::vector<vT>, std::vector<uint64_t>>>(data, jsonDataTemplate);
+    }
+
+    template <typename vT, typename tsT>
     std::vector<vT> transferDataWithoutDomain(const std::vector<std::pair<vT, tsT>>& data, const std::string& jsonDataTemplate)
     {
         return transferData<vT, tsT, vT>(data, jsonDataTemplate);
-    }
-
-    template <typename vT, typename tsT>
-    bool compareData(const std::vector<std::pair<vT, tsT>>& data0, const std::vector<std::pair<vT, uint64_t>>& data1, bool compareTs = true)
-    {
-        if (data0.size() != data1.size())
-            return false;
-        for (std::size_t i = 0; i < data0.size(); ++i)
-        {
-            const auto& [value0, ts0] = data0[i];
-            const auto& [value1, ts1] = data1[i];
-            if constexpr (std::is_same_v<vT, double>)
-            {
-                if (!almostEqual(static_cast<double>(value0), static_cast<double>(value1)))
-                    return false;
-            }
-            else
-            {
-                if (value0 != value1)
-                    return false;
-            }
-            if (compareTs)
-            {
-                if constexpr (std::is_same_v<tsT, uint64_t>)
-                {
-                    if (mqtt::utils::numericToMicroseconds(ts0) != ts1 && ts1 != 0)
-                        return false;
-                }
-                else if constexpr (std::is_same_v<tsT, std::string>)
-                {
-                    if (mqtt::utils::toUnixTicks(ts0) != ts1 && ts1 != 0)
-                        return false;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    template <typename vT, typename tsT>
-    bool compareData(const std::vector<std::pair<vT, tsT>>& data0, const std::vector<vT>& data1)
-    {
-        if (data0.size() != data1.size())
-            return false;
-        for (std::size_t i = 0; i < data0.size(); ++i)
-        {
-            const auto& [value0, ts0] = data0[i];
-            const auto& value1 = data1[i];
-            if constexpr (std::is_same_v<vT, double>)
-            {
-                if (!almostEqual(static_cast<double>(value0), static_cast<double>(value1)))
-                    return false;
-            }
-            else
-            {
-                if (value0 != value1)
-                    return false;
-            }
-        }
-        return true;
-    }
-
-    template <typename T>
-    bool copyData(T& destination, const DataPacketPtr source)
-    {
-        auto checkType = [](SampleType type) -> bool
-        {
-            switch (type)
-            {
-                case SampleType::Float32:
-                case SampleType::Float64:
-                case SampleType::UInt8:
-                case SampleType::Int8:
-                case SampleType::UInt16:
-                case SampleType::Int16:
-                case SampleType::UInt32:
-                case SampleType::Int32:
-                case SampleType::UInt64:
-                case SampleType::Int64:
-                case SampleType::RangeInt64:
-                case SampleType::ComplexFloat32:
-                case SampleType::ComplexFloat64:
-                    return true;
-                case SampleType::String:
-                case SampleType::Binary:
-                case SampleType::Struct:
-                case SampleType::Invalid:
-                case SampleType::Null:
-                case SampleType::_count:
-                    return false;
-            }
-            return true;
-        };
-
-        const auto dataType = source.getDataDescriptor().getSampleType();
-        if (checkType(dataType) && getSampleSize(dataType) != sizeof(destination))
-            return false;
-        if constexpr (std::is_same_v<T, std::string>)
-        {
-            destination = std::string(static_cast<char*>(source.getData()), source.getDataSize());
-        }
-        else
-        {
-            memcpy(&destination, source.getData(), sizeof(destination));
-        }
-        return true;
-    }
-
-    template <typename T>
-    std::vector<T> read(PacketReaderPtr reader, const SignalPtr signal, int timeoutMs = 1000)
-    {
-        std::vector<T> result;
-
-        auto timer = helper::utils::Timer(timeoutMs);
-        while (!reader.getEmpty() || !timer.expired())
-        {
-            if (reader.getEmpty())
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(20));
-                continue;
-            }
-            auto packet = reader.read();
-            if (packet.getType() == PacketType::Event)
-            {
-                continue;
-            }
-
-            if (packet.getType() == PacketType::Data)
-            {
-                const auto dataPacket = packet.asPtr<IDataPacket>();
-                if constexpr (is_pair<T>::value)
-                {
-                    T dataToReceiveEntry;
-                    bool ok = true;
-                    ok &= copyData(dataToReceiveEntry.first, dataPacket);
-                    if (signal.getDomainSignal().assigned())
-                        ok &= copyData(dataToReceiveEntry.second, dataPacket.getDomainPacket());
-                    if (!ok)
-                        break;
-                    result.push_back(dataToReceiveEntry);
-
-                }
-                else
-                {
-                    T dataToReceiveEntry;
-                    bool ok = copyData(dataToReceiveEntry, dataPacket);
-                    if (!ok)
-                        break;
-                    result.push_back(dataToReceiveEntry);
-                }
-            }
-        }
-
-        return result;
     }
 
 private:
@@ -528,6 +638,81 @@ TEST_P(MqttJsonFbDoubleDataPTest, DataTransferOneSignalDoubleWithoutDomain)
 INSTANTIATE_TEST_SUITE_P(DataTransferOneSignalDouble,
                          MqttJsonFbDoubleDataPTest,
                          ::testing::Values(DATA_DOUBLE_INT_0, DATA_DOUBLE_INT_1, DATA_DOUBLE_INT_2));
+
+TEST_F(MqttJsonDecoderFbTest, DataTransferOneSignalDoubleArray)
+{
+    std::vector<std::pair<std::vector<double>, std::vector<uint64_t>>> dataToSend;
+    merge(DATA_DOUBLE_INT_0, dataToSend);
+    merge(DATA_DOUBLE_INT_1, dataToSend);
+    merge(DATA_DOUBLE_INT_2, dataToSend);
+
+    auto dataToReceive = transferData(dataToSend, VALID_JSON_DATA_0);
+    ASSERT_EQ(dataToSend.size(), dataToReceive.size());
+    ASSERT_TRUE(compareData(dataToSend, dataToReceive));
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
+}
+
+TEST_F(MqttJsonDecoderFbTest, DataTransferOneSignalDoubleArrayWithoutDomain)
+{
+    std::vector<std::pair<std::vector<double>, std::vector<uint64_t>>> dataToSend;
+    merge(DATA_DOUBLE_INT_0, dataToSend);
+    merge(DATA_DOUBLE_INT_1, dataToSend);
+    merge(DATA_DOUBLE_INT_2, dataToSend);
+
+    auto dataToReceive = transferDataWithoutDomain(dataToSend, VALID_JSON_DATA_1);
+    ASSERT_EQ(dataToSend.size(), dataToReceive.size());
+    ASSERT_TRUE(compareData(dataToSend, dataToReceive));
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
+}
+
+TEST_F(MqttJsonDecoderFbTest, DataTransferOneSignalIntArray)
+{
+    std::vector<std::pair<std::vector<int64_t>, std::vector<uint64_t>>> dataToSend;
+    merge(DATA_INT_INT_0, dataToSend);
+    merge(DATA_INT_INT_1, dataToSend);
+    merge(DATA_INT_INT_2, dataToSend);
+
+    auto dataToReceive = transferData(dataToSend, VALID_JSON_DATA_0);
+    ASSERT_EQ(dataToSend.size(), dataToReceive.size());
+    ASSERT_TRUE(compareData(dataToSend, dataToReceive));
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
+}
+
+TEST_F(MqttJsonDecoderFbTest, DataTransferOneSignalIntArrayWithoutDomain)
+{
+    std::vector<std::pair<std::vector<int64_t>, std::vector<uint64_t>>> dataToSend;
+    merge(DATA_INT_INT_0, dataToSend);
+    merge(DATA_INT_INT_1, dataToSend);
+    merge(DATA_INT_INT_2, dataToSend);
+
+    auto dataToReceive = transferDataWithoutDomain(dataToSend, VALID_JSON_DATA_1);
+    ASSERT_EQ(dataToSend.size(), dataToReceive.size());
+    ASSERT_TRUE(compareData(dataToSend, dataToReceive));
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
+}
+
+TEST_F(MqttJsonDecoderFbTest, DataTransferOneSignalDoubleArrayDomainString)
+{
+    std::vector<std::pair<std::vector<double>, std::vector<std::string>>> dataToSend;
+    merge(DATA_DOUBLE_STR_0, dataToSend);
+    merge(DATA_DOUBLE_STR_1, dataToSend);
+    merge(DATA_DOUBLE_STR_2, dataToSend);
+
+    auto dataToReceive = transferData<>(dataToSend, VALID_JSON_DATA_0);
+    ASSERT_EQ(dataToSend.size(), dataToReceive.size());
+    ASSERT_TRUE(compareData(dataToSend, dataToReceive));
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
+}
 
 TEST_P(MqttJsonFbIntDataPTest, DataTransferOneSignalInt)
 {
