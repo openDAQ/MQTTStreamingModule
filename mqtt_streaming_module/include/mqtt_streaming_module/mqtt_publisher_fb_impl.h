@@ -86,7 +86,7 @@ private:
     std::vector<std::string> signalErrors;
     std::vector<std::string> settingErrors;
     std::unique_ptr<HandlerBase> handler;
-    std::mutex statusMutex;
+    std::mutex processingMutex;
     StatusHelper<SignalStatus> signalStatus;
     StatusHelper<PublishingStatus> publishingStatus;
     StatusHelper<SettingStatus> settingStatus;

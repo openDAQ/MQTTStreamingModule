@@ -74,6 +74,7 @@ void MqttPublisherFbImpl::removed()
     }
     {
         auto lock = this->getRecursiveConfigLock();
+        auto lockProcessing = std::scoped_lock(processingMutex);
         handler = nullptr;
     }
     FunctionBlock::removed();
@@ -164,6 +165,7 @@ PublisherFbConfig MqttPublisherFbImpl::getFbConfig() const
 void MqttPublisherFbImpl::onConnected(const InputPortPtr& inputPort)
 {
     auto lock = this->getRecursiveConfigLock();
+    auto lockProcessing = std::scoped_lock(processingMutex);
 
     updatePortsAndSignals(true);
     LOG_T("Connected to port {}", inputPort.getLocalId());
@@ -175,6 +177,7 @@ void MqttPublisherFbImpl::onConnected(const InputPortPtr& inputPort)
 void MqttPublisherFbImpl::onDisconnected(const InputPortPtr& inputPort)
 {
     auto lock = this->getRecursiveConfigLock();
+    auto lockProcessing = std::scoped_lock(processingMutex);
 
     updatePortsAndSignals(true);
     LOG_T("Disconnected from port {}", inputPort.getLocalId());
@@ -186,6 +189,8 @@ void MqttPublisherFbImpl::onDisconnected(const InputPortPtr& inputPort)
 void MqttPublisherFbImpl::propertyChanged()
 {
     auto lock = this->getRecursiveConfigLock();
+    auto lockProcessing = std::scoped_lock(processingMutex);
+
     readProperties();
     handler = HandlerFactory::create(this->template getWeakRefInternal<IFunctionBlock>(), this->config, globalId.toStdString());
     updatePortsAndSignals(false);
@@ -393,7 +398,6 @@ void MqttPublisherFbImpl::initProperties(const PropertyObjectPtr& config)
 
 void MqttPublisherFbImpl::readProperties()
 {
-    auto lock = this->getRecursiveConfigLock();
     int tmpTopicMode = readProperty<int, IInteger>(PROPERTY_NAME_PUB_TOPIC_MODE, 0);
 
     config.groupValues = readProperty<bool, IBoolean>(PROPERTY_NAME_PUB_GROUP_VALUES, false);
@@ -486,7 +490,7 @@ void MqttPublisherFbImpl::readerLoop()
     {
         {
             MqttData msgs;
-            auto lock = this->getRecursiveConfigLock();
+            auto lockProcessing = std::scoped_lock(processingMutex);
             if (hasSignalError == false && hasSettingError == false)
             {
                 msgs = handler->processSignalContexts(signalContexts);
