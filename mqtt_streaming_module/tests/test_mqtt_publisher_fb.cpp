@@ -73,22 +73,32 @@ public:
         return data;
     }
 
-    void send(const std::vector<std::pair<T, uint64_t>>& data) const
+    void send(const std::vector<std::pair<T, uint64_t>>& data, size_t packSize = 3) const
     {
-        for (size_t i = 0; i < data.size(); i++)
+        if (packSize == 0)
+            packSize = 1;
+        auto sendPacket = [this](SignalConfigPtr signal, const std::vector<T>& data, DataPacketPtr domainPacket)
         {
-            auto sendPacket = [this](SignalConfigPtr signal, T data, DataPacketPtr domainPacket)
+            auto dataPacket = DataPacketWithDomain(domainPacket, signal0.getDescriptor(), data.size());
+            copyData(dataPacket, data);
+            signal.sendPacket(dataPacket);
+        };
+        for (size_t i = 0; i < data.size(); i += packSize)
+        {
+            std::vector<T> dataPack;
+            std::vector<uint64_t> tsPack;
+            for (size_t j = 0; j < packSize && (j + i) < data.size(); j++)
             {
-                auto dataPacket = DataPacketWithDomain(domainPacket, signal0.getDescriptor(), 1);
-                copyData(dataPacket, data);
-                signal.sendPacket(dataPacket);
-            };
-            auto domainPacket = DataPacket(signal0.getDomainSignal().getDescriptor(), 1, i);
-            memcpy(domainPacket.getData(), &(data[i].second), sizeof(uint64_t));
+                dataPack.push_back(data[j + i].first);
+                tsPack.push_back(data[j + i].second);
+            }
+
+            auto domainPacket = DataPacket(signal0.getDomainSignal().getDescriptor(), tsPack.size(), i);
+            memcpy(domainPacket.getData(), tsPack.data(), sizeof(uint64_t) * tsPack.size());
             SignalConfigPtr dSignal = signal0.getDomainSignal();
             dSignal.sendPacket(domainPacket);
-            sendPacket(signal0, data[i].first, domainPacket);
-            sendPacket(signal1, data[i].first, domainPacket);
+            sendPacket(signal0, dataPack, domainPacket);
+            sendPacket(signal1, dataPack, domainPacket);
         }
     }
 
@@ -140,7 +150,7 @@ protected:
     bool copyData(DataPacketPtr destination, const T& source) const
     {
         const auto dataType = destination.getDataDescriptor().getSampleType();
-        if (checkType(dataType) && getSampleSize(dataType) != sizeof(source))
+        if (checkType(dataType) && getSampleSize(dataType) != sizeof(mqtt::sample_type_t<T>))
             return false;
         if constexpr (std::is_same_v<T, std::string>)
         {
@@ -149,6 +159,22 @@ protected:
         else
         {
             memcpy(destination.getData(), &source, sizeof(source));
+        }
+        return true;
+    }
+
+    bool copyData(DataPacketPtr destination, const std::vector<T>& source) const
+    {
+        const auto dataType = destination.getDataDescriptor().getSampleType();
+        if (checkType(dataType) && getSampleSize(dataType) != sizeof(mqtt::sample_type_t<T>))
+            return false;
+        if constexpr (std::is_same_v<mqtt::sample_type_t<T>, std::string>)
+        {
+            return false;
+        }
+        else
+        {
+            memcpy(destination.getRawData(), source.data(), source.size() * sizeof(T));
         }
         return true;
     }
@@ -1001,7 +1027,7 @@ TEST_F(MqttPublisherFbTest, WrongConfig)
 
 TEST_F(MqttPublisherFbTest, TransferSingle0)
 {
-    const size_t sampleCnt0 = 15;
+    const size_t sampleCnt0 = 14;
     const size_t sampleCnt1 = sampleCnt0 * 2;
     SignalHelper<double> helpDouble{};
     SignalHelper<uint64_t> helpUint{};

@@ -135,10 +135,10 @@ std::string SignalArrayAtomicSampleHandler::getSchema()
 std::string SignalArrayAtomicSampleHandler::toString(const std::string valueFieldName, daq::DataPacketPtr packet)
 {
     std::string result;
-    std::string data = HandlerBase::toString(packet);
+    std::string data = HandlerBase::toString(packet, 0);
     if (auto domainPacket = packet.getDomainPacket(); domainPacket.assigned())
     {
-        uint64_t ts = convertToEpoch(domainPacket);
+        uint64_t ts = convertToEpoch(domainPacket, 0);
         result = fmt::format("{{\"{}\" : {}, \"timestamp\": {}}}", valueFieldName, data, ts);
     }
     else

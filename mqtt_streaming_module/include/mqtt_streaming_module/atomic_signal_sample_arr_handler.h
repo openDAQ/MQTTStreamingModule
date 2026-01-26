@@ -31,8 +31,9 @@ protected:
     size_t packSize;
 
     MqttData processSignalContext(SignalContext& signalContext) override;
-    MqttDataSample processDataPackets(SignalContext& signalContext, const std::vector<DataPacketPtr>& dataPacket);
-    std::string toString(const std::string valueFieldName, const std::vector<DataPacketPtr>& dataPackets);
+    MqttDataSample processDataPackets(SignalContext& signalContext);
+    std::string toString(const std::string valueFieldName, SignalContext& signalContext);
+    std::pair<DataPacketPtr, size_t> getSample(SignalContext& signalContext);
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

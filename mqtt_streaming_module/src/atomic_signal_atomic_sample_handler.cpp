@@ -108,7 +108,9 @@ MqttData AtomicSignalAtomicSampleHandler::processSignalContext(SignalContext& si
         }
         else if (packet.getType() == PacketType::Data)
         {
-            messages.emplace_back(processDataPacket(signalContext, packet.asPtr<IDataPacket>()));
+            auto dataPacket = packet.asPtr<IDataPacket>();
+            for (size_t i = 0; i < dataPacket.getSampleCount(); ++i)
+                messages.emplace_back(processDataPacket(signalContext, dataPacket, i));
         }
 
         packet = conn.dequeue();
@@ -122,13 +124,13 @@ void AtomicSignalAtomicSampleHandler::processSignalDescriptorChanged(SignalConte
 {
 }
 
-std::string AtomicSignalAtomicSampleHandler::toString(const std::string valueFieldName, daq::DataPacketPtr packet)
+std::string AtomicSignalAtomicSampleHandler::toString(const std::string valueFieldName, daq::DataPacketPtr packet, size_t offset)
 {
     std::string result;
-    std::string data = HandlerBase::toString(packet);
+    std::string data = HandlerBase::toString(packet, offset);
     if (auto domainPacket = packet.getDomainPacket(); domainPacket.assigned())
     {
-        uint64_t ts = convertToEpoch(domainPacket);
+        uint64_t ts = convertToEpoch(domainPacket, offset);
         result = fmt::format("{{\"{}\" : {}, \"timestamp\": {}}}", valueFieldName, data, ts);
     }
     else
@@ -144,11 +146,11 @@ std::string AtomicSignalAtomicSampleHandler::buildTopicName(const SignalContext&
     return signalContext.inputPort.getSignal().getGlobalId().toStdString();
 }
 
-MqttDataSample AtomicSignalAtomicSampleHandler::processDataPacket(SignalContext& signalContext, const DataPacketPtr& dataPacket)
+MqttDataSample AtomicSignalAtomicSampleHandler::processDataPacket(SignalContext& signalContext, const DataPacketPtr& dataPacket, size_t offset)
 {
     const auto signal = signalContext.inputPort.getSignal();
     std::string valueFieldName = buildValueFieldName(signalNamesMode, signal);
-    auto msg = toString(valueFieldName, dataPacket);
+    auto msg = toString(valueFieldName, dataPacket, offset);
     std::string topic = buildTopicName(signalContext);
     return MqttDataSample{signalContext.previewSignal, topic, msg};
 }

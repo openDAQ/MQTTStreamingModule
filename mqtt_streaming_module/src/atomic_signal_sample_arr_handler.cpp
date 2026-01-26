@@ -52,12 +52,12 @@ MqttData AtomicSignalSampleArrayHandler::processSignalContext(SignalContext& sig
         }
         else if (packet.getType() == PacketType::Data)
         {
-            signalContext.data.push_back(packet.asPtr<IDataPacket>());
-            if (signalContext.data.size() >= packSize)
-            {
-                messages.emplace_back(processDataPackets(signalContext, signalContext.data));
-                signalContext.data.clear();
-            }
+            auto dataPacket = packet.asPtr<IDataPacket>();
+            signalContext.data.push_back(dataPacket);
+            signalContext.dataSize += dataPacket.getSampleCount();
+            while (signalContext.dataSize >= packSize)
+                messages.emplace_back(processDataPackets(signalContext));
+
         }
 
         packet = conn.dequeue();
@@ -65,32 +65,50 @@ MqttData AtomicSignalSampleArrayHandler::processSignalContext(SignalContext& sig
     return messages;
 }
 
-std::string AtomicSignalSampleArrayHandler::toString(const std::string valueFieldName, const std::vector<DataPacketPtr>& dataPackets)
+std::pair<DataPacketPtr, size_t> AtomicSignalSampleArrayHandler::getSample(SignalContext& signalContext)
+{
+    if (signalContext.data.empty())
+        return {nullptr, 0};
+    auto dataPacket = signalContext.data.front();
+    size_t offset = signalContext.offset++;
+    signalContext.dataSize--;
+    if (signalContext.offset == dataPacket.getSampleCount())
+    {
+        signalContext.data.pop_front();
+        signalContext.offset = 0;
+    }
+    return {dataPacket, offset};
+}
+
+std::string AtomicSignalSampleArrayHandler::toString(const std::string valueFieldName, SignalContext& signalContext)
 {
     std::ostringstream dataOss;
     std::ostringstream tsOss;
     bool hasDomain = true;
     dataOss << "[";
     tsOss << "[";
-    for (size_t i = 0; i < dataPackets.size(); ++i)
+    size_t commonCnt = 0;
+    while (commonCnt < packSize)
     {
-        if (i > 0)
+        auto [dataPacket, offset] = getSample(signalContext);
+        if (commonCnt > 0)
         {
             dataOss << ", ";
             tsOss << ", ";
         }
 
-        dataOss << HandlerBase::toString(dataPackets[i]);
+        dataOss << HandlerBase::toString(dataPacket, offset);
 
-        if (auto domainPacket = dataPackets[i].getDomainPacket(); domainPacket.assigned())
+        if (auto domainPacket = dataPacket.getDomainPacket(); domainPacket.assigned())
         {
-            uint64_t ts = convertToEpoch(domainPacket);
+            uint64_t ts = convertToEpoch(domainPacket, offset);
             tsOss << std::to_string(ts);
         }
         else
         {
             hasDomain = false;
         }
+        commonCnt++;
     }
     dataOss << "]";
     tsOss << "]";
@@ -103,13 +121,13 @@ std::string AtomicSignalSampleArrayHandler::toString(const std::string valueFiel
     return result;
 }
 
-MqttDataSample AtomicSignalSampleArrayHandler::processDataPackets(SignalContext& signalContext, const std::vector<DataPacketPtr>& dataPacket)
+MqttDataSample AtomicSignalSampleArrayHandler::processDataPackets(SignalContext& signalContext)
 {
-    if (dataPacket.empty())
+    if (signalContext.data.empty())
         return MqttDataSample{nullptr, "", ""};
     const auto signal = signalContext.inputPort.getSignal();
     std::string valueFieldName = buildValueFieldName(signalNamesMode, signal);
-    auto msg = toString(valueFieldName, dataPacket);
+    auto msg = toString(valueFieldName, signalContext);
     std::string topic = buildTopicName(signalContext);
     return MqttDataSample{signalContext.previewSignal, topic, msg};
 }

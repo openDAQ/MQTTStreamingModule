@@ -72,7 +72,7 @@ protected:
         return std::pair<uint64_t, uint64_t>{num, den};
     }
 
-    static uint64_t convertToEpoch(const DataPacketPtr domainPacket)
+    static uint64_t convertToEpoch(const DataPacketPtr domainPacket, size_t offset)
     {
         constexpr uint64_t US_IN_S = 1'000'000; // amount microseconds in a second
         const auto tickResolution = domainPacket.getDataDescriptor().getTickResolution().simplify();
@@ -84,14 +84,14 @@ protected:
 
         uint64_t ts = 0;
         if (domainPacket.getDataDescriptor().getSampleType() == SampleType::UInt64)
-            ts = *(static_cast<uint64_t*>(domainPacket.getData()));
+            ts = *(static_cast<uint64_t*>(domainPacket.getData()) + offset);
         else if (domainPacket.getDataDescriptor().getSampleType() == SampleType::Int64)
-            ts = *(static_cast<int64_t*>(domainPacket.getData()));
+            ts = *(static_cast<int64_t*>(domainPacket.getData()) + offset);
         ts = ts * num / den; // us
         return ts;
     }
 
-    static std::string toString(const DataPacketPtr& dataPacket)
+    static std::string toString(const DataPacketPtr& dataPacket, size_t offset)
     {
         auto sampleType = dataPacket.getDataDescriptor().getSampleType();
         std::string data("unsupported");
@@ -99,34 +99,34 @@ protected:
         switch (sampleType)
         {
             case SampleType::Float64:
-                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Float64>::Type*>(dataPacket.getData())));
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Float64>::Type*>(dataPacket.getData()) + offset));
                 break;
             case SampleType::Float32:
-                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Float32>::Type*>(dataPacket.getData())));
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Float32>::Type*>(dataPacket.getData()) + offset));
                 break;
             case SampleType::UInt64:
-                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt64>::Type*>(dataPacket.getData())));
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt64>::Type*>(dataPacket.getData()) + offset));
                 break;
             case SampleType::Int64:
-                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Int64>::Type*>(dataPacket.getData())));
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Int64>::Type*>(dataPacket.getData()) + offset));
                 break;
             case SampleType::UInt32:
-                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt32>::Type*>(dataPacket.getData())));
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt32>::Type*>(dataPacket.getData()) + offset));
                 break;
             case SampleType::Int32:
-                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Int32>::Type*>(dataPacket.getData())));
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Int32>::Type*>(dataPacket.getData()) + offset));
                 break;
             case SampleType::UInt16:
-                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt16>::Type*>(dataPacket.getData())));
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt16>::Type*>(dataPacket.getData()) + offset));
                 break;
             case SampleType::Int16:
-                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Int16>::Type*>(dataPacket.getData())));
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Int16>::Type*>(dataPacket.getData()) + offset));
                 break;
             case SampleType::UInt8:
-                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt8>::Type*>(dataPacket.getData())));
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::UInt8>::Type*>(dataPacket.getData()) + offset));
                 break;
             case SampleType::Int8:
-                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Int8>::Type*>(dataPacket.getData())));
+                data = std::to_string(*(static_cast<SampleTypeToType<SampleType::Int8>::Type*>(dataPacket.getData()) + offset));
                 break;
             case SampleType::String:
             case SampleType::Binary:
