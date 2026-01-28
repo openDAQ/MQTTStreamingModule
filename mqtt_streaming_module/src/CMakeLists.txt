@@ -19,6 +19,7 @@ set(SRC_Include common.h
                 signal_arr_atomic_sample_handler.h
                 types.h
                 status_helper.h
+                status_adaptor.h
 )
 
 set(SRC_Srcs module_dll.cpp
@@ -42,6 +43,7 @@ source_group("common" FILES ${MODULE_HEADERS_DIR}/common.h
                             ${MODULE_HEADERS_DIR}/helper.h
                             ${MODULE_HEADERS_DIR}/types.h
                             ${MODULE_HEADERS_DIR}/status_helper.h
+                            ${MODULE_HEADERS_DIR}/status_adaptor.h
                             helper.cpp
 )
 

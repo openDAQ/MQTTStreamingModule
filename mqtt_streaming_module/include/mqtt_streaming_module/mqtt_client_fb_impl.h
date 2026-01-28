@@ -21,20 +21,13 @@
 #include <mqtt_streaming_module/common.h>
 #include <opendaq/function_block_impl.h>
 #include <opendaq/streaming_ptr.h>
-#include <mqtt_streaming_module/status_helper.h>
+#include <mqtt_streaming_module/status_adaptor.h>
 
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
 class MqttClientFbImpl : public FunctionBlock
 {
-    enum class ConnectionStatus : EnumType
-    {
-        Connected = 0,
-        Reconnecting,
-        Disconnected
-    };
-
 public:
     explicit MqttClientFbImpl(const ContextPtr& ctx,
                                        const ComponentPtr& parent,
@@ -45,7 +38,6 @@ public:
 protected:
     static std::atomic<int> localIndex;
     static std::string generateLocalId();
-    static std::vector<std::pair<MqttClientFbImpl::ConnectionStatus, std::string>> connectionStatusMap;
 
     void removed() override;
 
@@ -61,7 +53,7 @@ protected:
 
     DictObjectPtr<IDict, IString, IFunctionBlockType> nestedFbTypes;
 
-    StatusHelper<ConnectionStatus> connectionStatus;
+    StatusAdaptor connectionStatus;
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
     Mqtt::Utils::Settings::MqttConnectionSettings connectionSettings;

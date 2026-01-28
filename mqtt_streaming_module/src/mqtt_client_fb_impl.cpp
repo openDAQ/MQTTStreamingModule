@@ -10,20 +10,15 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 constexpr int MQTT_CLIENT_SYNC_DISCONNECT_TOUT = 3000;
 
 std::atomic<int> MqttClientFbImpl::localIndex = 0;
-std::vector<std::pair<MqttClientFbImpl::ConnectionStatus, std::string>> MqttClientFbImpl::connectionStatusMap =
-    {{ConnectionStatus::Connected, "Connected"},
-     {ConnectionStatus::Reconnecting, "Reconnecting"},
-     {ConnectionStatus::Disconnected, "Disconnected"}};
 
 MqttClientFbImpl::MqttClientFbImpl(const ContextPtr& ctx, const ComponentPtr& parent, const PropertyObjectPtr& config)
     : FunctionBlock(CreateType(), ctx, parent, generateLocalId()),
       subscriber(std::make_shared<mqtt::MqttAsyncClient>()),
       connectTimeout(0),
-      connectionStatus(MQTT_CLIENT_FB_CON_STATUS_TYPE,
+      connectionStatus("ConnectionStatusType",
                        MQTT_CLIENT_FB_CON_STATUS_NAME,
                        statusContainer,
-                       connectionStatusMap,
-                       ConnectionStatus::Disconnected,
+                       "Reconnecting",
                        context.getTypeManager())
 {
     initComponentStatus();
@@ -89,7 +84,7 @@ void MqttClientFbImpl::initMqttSubscriber()
             bool expected = false;
             if (connectedDone.compare_exchange_strong(expected, true))
             {
-                connectionStatus.setStatus(ConnectionStatus::Connected);
+                connectionStatus.setStatus("Connected");
                 connectedPromise.set_value(true);
                 std::scoped_lock lock(componentStatusSync);
                 setComponentStatus(ComponentStatus::Ok);
@@ -105,7 +100,7 @@ void MqttClientFbImpl::initConnectionStatus()
     subscriber->setConnectionLostCb(
         [this](std::string msg)
         {
-            connectionStatus.setStatus(ConnectionStatus::Reconnecting, msg);
+            connectionStatus.setStatus("Reconnecting", msg);
             std::scoped_lock lock(componentStatusSync);
             setComponentStatusWithMessage(ComponentStatus::Error, "Connection lost");
         });
@@ -166,7 +161,7 @@ bool MqttClientFbImpl::waitForConnection(const int timeoutMs)
     subscriber->setConnectedCb(
         [this]
         {
-            connectionStatus.setStatus(ConnectionStatus::Connected);
+            connectionStatus.setStatus("Connected");
             std::scoped_lock lock(componentStatusSync);
             setComponentStatus(ComponentStatus::Ok);
         });
