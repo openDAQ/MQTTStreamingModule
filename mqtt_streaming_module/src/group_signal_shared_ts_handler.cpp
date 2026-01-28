@@ -37,7 +37,7 @@ MqttData GroupSignalSharedTsHandler::processSignalContexts(std::vector<SignalCon
     auto dataAvailable = reader.getAvailableCount();
     auto count = std::min(SizeT{buffersSize}, dataAvailable);
     auto status = reader.read(dataBuffers.data(), &count);
-    if (status.getReadStatus() == ReadStatus::Ok && count > 0)
+    if (count > 0)
     {
         const auto tsStruct = domainToTs(status);
         for (SizeT sampleCnt = 0; sampleCnt < count; ++sampleCnt)

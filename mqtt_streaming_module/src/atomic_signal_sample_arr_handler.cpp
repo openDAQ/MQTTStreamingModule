@@ -4,6 +4,7 @@
 #include <opendaq/event_packet_params.h>
 #include <opendaq/event_packet_ptr.h>
 #include <opendaq/sample_type_traits.h>
+#include <set>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -11,6 +12,27 @@ AtomicSignalSampleArrayHandler::AtomicSignalSampleArrayHandler(WeakRefPtr<IFunct
     : AtomicSignalAtomicSampleHandler(parentFb, signalNamesMode),
       packSize(packSize > 0 ? packSize : 1)
 {
+}
+
+ProcedureStatus AtomicSignalSampleArrayHandler::signalListChanged(std::vector<SignalContext>& signalContexts)
+{
+    std::set<std::string> set;
+    for (const auto& buf : signalBuffers)
+        set.insert(buf.first);
+
+    for (auto& sigCtx : signalContexts)
+    {
+        const auto signal = sigCtx.inputPort.getSignal();
+        if (!signal.assigned())
+            continue;
+        auto& buffer = signalBuffers[signal.getGlobalId().toStdString()];
+        buffer.clear();
+        set.erase(signal.getGlobalId().toStdString());
+    }
+    for (const auto& el : set)
+        signalBuffers.erase(el);
+
+    return ProcedureStatus{true, {}};
 }
 
 std::string AtomicSignalSampleArrayHandler::getSchema()
@@ -53,9 +75,10 @@ MqttData AtomicSignalSampleArrayHandler::processSignalContext(SignalContext& sig
         else if (packet.getType() == PacketType::Data)
         {
             auto dataPacket = packet.asPtr<IDataPacket>();
-            signalContext.data.push_back(dataPacket);
-            signalContext.dataSize += dataPacket.getSampleCount();
-            while (signalContext.dataSize >= packSize)
+            const auto sigGlobalId = signalContext.inputPort.getSignal().getGlobalId().toStdString();
+            signalBuffers[sigGlobalId].data.push_back(dataPacket);
+            signalBuffers[sigGlobalId].dataSize += dataPacket.getSampleCount();
+            while (signalBuffers[sigGlobalId].dataSize >= packSize)
                 messages.emplace_back(processDataPackets(signalContext));
 
         }
@@ -67,17 +90,25 @@ MqttData AtomicSignalSampleArrayHandler::processSignalContext(SignalContext& sig
 
 std::pair<DataPacketPtr, size_t> AtomicSignalSampleArrayHandler::getSample(SignalContext& signalContext)
 {
-    if (signalContext.data.empty())
+    const auto sigGlobalId = signalContext.inputPort.getSignal().getGlobalId().toStdString();
+    if (signalBuffers[sigGlobalId].data.empty())
         return {nullptr, 0};
-    auto dataPacket = signalContext.data.front();
-    size_t offset = signalContext.offset++;
-    signalContext.dataSize--;
-    if (signalContext.offset == dataPacket.getSampleCount())
+    auto dataPacket = signalBuffers[sigGlobalId].data.front();
+    size_t offset = signalBuffers[sigGlobalId].offset++;
+    signalBuffers[sigGlobalId].dataSize--;
+    if (signalBuffers[sigGlobalId].offset == dataPacket.getSampleCount())
     {
-        signalContext.data.pop_front();
-        signalContext.offset = 0;
+        signalBuffers[sigGlobalId].data.pop_front();
+        signalBuffers[sigGlobalId].offset = 0;
     }
     return {dataPacket, offset};
+}
+
+void AtomicSignalSampleArrayHandler::processSignalDescriptorChanged(SignalContext& signalCtx,
+                                                                    const DataDescriptorPtr& valueSigDesc,
+                                                                    const DataDescriptorPtr& domainSigDesc)
+{
+    signalBuffers[signalCtx.inputPort.getSignal().getGlobalId().toStdString()].clear();
 }
 
 std::string AtomicSignalSampleArrayHandler::toString(const std::string valueFieldName, SignalContext& signalContext)
@@ -123,7 +154,7 @@ std::string AtomicSignalSampleArrayHandler::toString(const std::string valueFiel
 
 MqttDataSample AtomicSignalSampleArrayHandler::processDataPackets(SignalContext& signalContext)
 {
-    if (signalContext.data.empty())
+    if (signalBuffers[signalContext.inputPort.getSignal().getGlobalId().toStdString()].data.empty())
         return MqttDataSample{nullptr, "", ""};
     const auto signal = signalContext.inputPort.getSignal();
     std::string valueFieldName = buildValueFieldName(signalNamesMode, signal);

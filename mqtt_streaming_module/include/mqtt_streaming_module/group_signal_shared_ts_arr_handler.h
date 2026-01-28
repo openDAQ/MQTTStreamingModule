@@ -21,6 +21,7 @@
 #include <mqtt_streaming_module/handler_base.h>
 #include <opendaq/function_block_ptr.h>
 #include <opendaq/multi_reader_ptr.h>
+#include <list>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 

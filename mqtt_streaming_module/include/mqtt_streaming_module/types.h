@@ -4,7 +4,6 @@
 #include <opendaq/data_packet_ptr.h>
 #include <opendaq/input_port_config_ptr.h>
 #include <opendaq/signal_config_ptr.h>
-#include <list>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -44,10 +43,11 @@ struct SignalContext
 {
     size_t index;
     InputPortConfigPtr inputPort;
-    std::list<DataPacketPtr> data;
-    size_t dataSize = 0;
-    size_t offset = 0;
     SignalConfigPtr previewSignal;
+    SignalContext(size_t index, InputPortConfigPtr inputPort, SignalConfigPtr previewSignal)
+        : index(index), inputPort(inputPort), previewSignal(previewSignal)
+    {
+    }
 };
 
 struct ProcedureStatus

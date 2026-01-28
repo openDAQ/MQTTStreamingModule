@@ -276,7 +276,7 @@ void MqttPublisherFbImpl::updatePortsAndSignals(bool reassignPorts)
     if (reassignPorts)
     {
         const auto inputPort = createAndAddInputPort(fmt::format("Input{}", size_t(inputPortCount)), PacketReadyNotification::SameThread);
-        signalContexts.emplace_back(SignalContext{size_t(inputPortCount++), inputPort, {}, 0, 0, nullptr});
+        signalContexts.emplace_back(size_t(inputPortCount++), inputPort, nullptr);
     }
 }
 
