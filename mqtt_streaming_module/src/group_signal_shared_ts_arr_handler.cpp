@@ -40,6 +40,20 @@ MqttData GroupSignalSharedTsArrHandler::processSignalContexts(std::vector<Signal
         tsBuilder.append(tsStruct, count);
     }
 
+    if (status.getReadStatus() == ReadStatus::Event)
+    {
+        for (const auto& ev : status.getEventPackets())
+        {
+            if (ev.second.getEventId() == event_packet_id::DATA_DESCRIPTOR_CHANGED)
+            {
+
+            }
+        }
+    }
+
+    if (!status.getValid())
+        createReaderInternal(signalContexts);
+
     while (!tsBuilder.empty())
     {
         std::vector<std::string> fields;

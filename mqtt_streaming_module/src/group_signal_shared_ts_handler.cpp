@@ -57,6 +57,20 @@ MqttData GroupSignalSharedTsHandler::processSignalContexts(std::vector<SignalCon
         }
     }
 
+    if (status.getReadStatus() == ReadStatus::Event)
+    {
+        for (const auto& ev : status.getEventPackets())
+        {
+            if (ev.second.getEventId() == event_packet_id::DATA_DESCRIPTOR_CHANGED)
+            {
+
+            }
+        }
+    }
+
+    if (!status.getValid())
+        createReaderInternal(signalContexts);
+
     return messages;
 }
 

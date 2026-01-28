@@ -70,6 +70,7 @@ MqttData AtomicSignalSampleArrayHandler::processSignalContext(SignalContext& sig
                 DataDescriptorPtr valueSignalDescriptor = eventPacket.getParameters().get(event_packet_param::DATA_DESCRIPTOR);
                 DataDescriptorPtr domainSignalDescriptor = eventPacket.getParameters().get(event_packet_param::DOMAIN_DATA_DESCRIPTOR);
                 processSignalDescriptorChanged(signalContext, valueSignalDescriptor, domainSignalDescriptor);
+                break;
             }
         }
         else if (packet.getType() == PacketType::Data)
