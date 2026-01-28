@@ -222,7 +222,7 @@ void MqttPublisherFbImpl::updatePortsAndSignals(bool reassignPorts)
     {
         if (config.topicMode == TopicMode::Single && !commonPreviewSignal.assigned())
         {
-            const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::Binary).build();
+            const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::String).build();
             commonPreviewSignal = createAndAddSignal(fmt::format("{}{}", PUB_PREVIEW_SIGNAL_NAME, "Common"), signalDsc);
         }
     }
@@ -250,7 +250,7 @@ void MqttPublisherFbImpl::updatePortsAndSignals(bool reassignPorts)
             {
                 if (!it->previewSignal.assigned() || (commonPreviewSignal.assigned() && commonPreviewSignal == it->previewSignal))
                 {
-                    const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::Binary).build();
+                    const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::String).build();
                     it->previewSignal = createAndAddSignal(fmt::format("{}{}", PUB_PREVIEW_SIGNAL_NAME, size_t(it->index)), signalDsc);
                 }
             }

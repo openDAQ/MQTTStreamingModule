@@ -117,6 +117,13 @@ FunctionBlockTypePtr MqttSubscriberFbImpl::CreateType()
         defaultConfig.addProperty(builder.build());
     }
     {
+        auto builder = BoolPropertyBuilder(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING, False)
+                           .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_SUB_PREVIEW_SIGNAL))
+                           .setDescription("Specifies whether the preview signal data type is string. "
+                                           "By default it is set to false.");
+        defaultConfig.addProperty(builder.build());
+    }
+    {
         auto builder =
             StringPropertyBuilder(PROPERTY_NAME_SUB_JSON_CONFIG, String(""))
                 .setDescription("JSON configuration string that defines an MQTT topic and corresponding signals to subscribe to.");
@@ -179,6 +186,15 @@ void MqttSubscriberFbImpl::readProperties()
         if (previewProp.assigned())
         {
             this->enablePreview = previewProp.getValue(False);
+        }
+    }
+
+    if (objPtr.hasProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING))
+    {
+        auto isStringProp = objPtr.getPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING).asPtrOrNull<IBoolean>();
+        if (isStringProp.assigned())
+        {
+            this->previewIsString = isStringProp.getValue(False);
         }
     }
 }
@@ -289,7 +305,15 @@ void MqttSubscriberFbImpl::propertyChanged()
     if (enablePreview)
     {
         if (!outputSignal.assigned())
+        {
             createSignals();
+        }
+        else if ((outputSignal.getDescriptor().getSampleType() == SampleType::String) != previewIsString)
+        {
+            outputSignal.setDescriptor(DataDescriptorBuilderCopy(outputSignal.getDescriptor())
+                                           .setSampleType(previewIsString ? SampleType::String : SampleType::Binary)
+                                           .build());
+        }
     }
     else
     {
@@ -405,7 +429,7 @@ void MqttSubscriberFbImpl::createSignals()
     auto lock = this->getRecursiveConfigLock(); // ???
     if (enablePreview)
     {
-        const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::Binary).build();
+        const auto signalDsc = DataDescriptorBuilder().setSampleType(previewIsString ? SampleType::String : SampleType::Binary).build();
         outputSignal = createAndAddSignal(DEFAULT_VALUE_SIGNAL_LOCAL_ID, signalDsc);
     }
 }

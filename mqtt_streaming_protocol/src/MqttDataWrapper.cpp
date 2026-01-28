@@ -564,25 +564,16 @@ bool MqttDataWrapper::isTypeTheSame(daq::SampleType sampleType)
 }
 
 template <typename T>
-daq::DataPacketPtr MqttDataWrapper::buildDataPacket(daq::GenericSignalConfigPtr<> signalConfig, const T& value, const daq::DataPacketPtr domainPacket)
+daq::DataPacketPtr
+MqttDataWrapper::buildDataPacket(daq::GenericSignalConfigPtr<> signalConfig, const T& value, const daq::DataPacketPtr domainPacket)
 {
     const auto curType = signalConfig.getDescriptor().getSampleType();
     using ActualType = sample_type_t<T>;
     if (!isTypeTheSame<ActualType>(curType))
     {
-        if constexpr (std::is_same_v<T, std::string>)
-        {
-            // because daq::SampleType::String is not implemented properly, we use Binary type for string data
-            // daq::SampleType::BinaryData != daq::SampleType::String
-            auto descriptor = DataDescriptorBuilderCopy(signalConfig.getDescriptor()).setSampleType(daq::SampleType::Binary).build();
-            signalConfig.setDescriptor(descriptor);
-        }
-        else
-        {
-            auto descriptor =
-                DataDescriptorBuilderCopy(signalConfig.getDescriptor()).setSampleType(daq::SampleTypeFromType<ActualType>::SampleType).build();
-            signalConfig.setDescriptor(descriptor);
-        }
+        auto descriptor =
+            DataDescriptorBuilderCopy(signalConfig.getDescriptor()).setSampleType(daq::SampleTypeFromType<ActualType>::SampleType).build();
+        signalConfig.setDescriptor(descriptor);
     }
 
     auto dataPacket = createEmptyDataPacket<T>(signalConfig, domainPacket, value);

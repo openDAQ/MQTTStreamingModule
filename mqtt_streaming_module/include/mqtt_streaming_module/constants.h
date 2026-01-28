@@ -34,6 +34,7 @@ static constexpr const char* PROPERTY_NAME_SUB_JSON_CONFIG_FILE = "JSONConfigFil
 static constexpr const char* PROPERTY_NAME_SUB_QOS = "QoS";
 static constexpr const char* PROPERTY_NAME_SUB_TOPIC = "Topic";
 static constexpr const char* PROPERTY_NAME_SUB_PREVIEW_SIGNAL = "EnablePreviewSignal";
+static constexpr const char* PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING = "MessageIsString";
 
 static constexpr const char* PROPERTY_NAME_DEC_VALUE_NAME = "ValueKey";
 static constexpr const char* PROPERTY_NAME_DEC_TS_NAME = "DomainKey";

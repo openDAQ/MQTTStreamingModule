@@ -90,7 +90,7 @@ TEST_F(MqttSubscriberFbTest, DefaultConfig)
 
     ASSERT_TRUE(defaultConfig.assigned());
 
-    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 5u);
+    EXPECT_EQ(defaultConfig.getAllProperties().getCount(), 6u);
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_JSON_CONFIG));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_JSON_CONFIG).getValueType(), CoreType::ctString);
@@ -111,6 +111,22 @@ TEST_F(MqttSubscriberFbTest, DefaultConfig)
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL).getValueType(), CoreType::ctBool);
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL).asPtr<IBoolean>().getValue(False), False);
+
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING));
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING).getValueType(), CoreType::ctBool);
+    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING).asPtr<IBoolean>().getValue(False), False);
+}
+
+TEST_F(MqttSubscriberFbTest, PropertyVisibility)
+{
+    daq::DictPtr<daq::IString, daq::IFunctionBlockType> fbTypes;
+    daq::FunctionBlockTypePtr fbt = MqttSubscriberFbImpl::CreateType();
+    daq::PropertyObjectPtr defaultConfig = fbt.createDefaultConfig();
+
+    defaultConfig.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, True);
+    ASSERT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING).getVisible());
+    defaultConfig.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, False);
+    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING).getVisible());
 }
 
 TEST_F(MqttSubscriberFbTest, Config)
@@ -168,6 +184,21 @@ TEST_F(MqttSubscriberFbTest, CreationWithCustomConfig)
     EXPECT_EQ(subFb.getSignals().getCount(), 1u);
     ASSERT_EQ(subFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+}
+
+TEST_F(MqttSubscriberFbTest, PreviewSignal)
+{
+    StartUp();
+    daq::FunctionBlockPtr subFb;
+    auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(SUB_FB_NAME).createDefaultConfig();
+    config.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, True);
+    config.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING, False);
+    config.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, buildTopicName());
+    ASSERT_NO_THROW(subFb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config));
+    ASSERT_EQ(subFb.getSignals().getCount(), 1u);
+    EXPECT_EQ(subFb.getSignals()[0].getDescriptor().getSampleType(), daq::SampleType::Binary);
+    subFb.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING, True);
+    EXPECT_EQ(subFb.getSignals()[0].getDescriptor().getSampleType(), daq::SampleType::String);
 }
 
 TEST_F(MqttSubscriberFbTest, SubscriptionStatusWaitingForData)
