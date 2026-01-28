@@ -193,6 +193,10 @@ TimestampTickStruct GroupSignalSharedTsHandler::domainToTs(const MultiReaderStat
     res.ratioDen = descriptor.getTickResolution().getDenominator();
     res.multiplier = 1'000'000; // amount of us in a second
     res.delta = descriptor.getRule().getParameters().get("delta").getValue<uint64_t>(0);
+
+    const uint64_t g = std::gcd(res.multiplier, res.ratioDen);
+    res.multiplier /= g;
+    res.ratioDen /= g;
     return res;
 }
 
@@ -273,9 +277,6 @@ std::string GroupSignalSharedTsHandler::toString(const std::string& valueFieldNa
 std::string GroupSignalSharedTsHandler::tsToString(TimestampTickStruct tsStruct, SizeT offset)
 {
     // const uint64_t epochTime = (firstTick + delta * offset) * ratioNum * US_IN_S / ratioDen;    // us
-    const uint64_t g = std::gcd(tsStruct.multiplier, tsStruct.ratioDen);
-    tsStruct.multiplier /= g;
-    tsStruct.ratioDen /= g;
     return fmt::format("\"timestamp\" : {}",
                        std::to_string(((tsStruct.firstTick + tsStruct.delta * offset) * tsStruct.ratioNum * tsStruct.multiplier) /
                                       tsStruct.ratioDen));
@@ -289,6 +290,11 @@ std::string GroupSignalSharedTsHandler::buildTopicName()
 void GroupSignalSharedTsHandler::createReader(const std::vector<SignalContext>& signalContexts)
 {
     std::scoped_lock lock(sync);
+    createReaderInternal(signalContexts);
+}
+
+void GroupSignalSharedTsHandler::createReaderInternal(const std::vector<SignalContext>& signalContexts)
+{
     // signalContexts always contain an unconnected input port
     if (signalContexts.size() <= 1)
         return;

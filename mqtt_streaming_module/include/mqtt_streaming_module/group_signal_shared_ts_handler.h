@@ -29,6 +29,13 @@ struct TimestampTickStruct
     uint64_t ratioNum;
     uint64_t ratioDen;
     uint64_t multiplier;
+
+    uint64_t tsToTicks(size_t offset) const
+    {
+        // const uint64_t epochTime = (firstTick + delta * offset) * ratioNum * US_IN_S / ratioDen;    // us
+        uint64_t res = ((firstTick + delta * offset) * ratioNum * multiplier) / ratioDen;
+        return res;
+    }
 };
 
 class GroupSignalSharedTsHandler : public HandlerBase
@@ -56,6 +63,7 @@ protected:
     std::string tsToString(TimestampTickStruct tsStruct, SizeT offset);
     std::string buildTopicName();
     void createReader(const std::vector<SignalContext>& signalContexts);
+    void createReaderInternal(const std::vector<SignalContext>& signalContexts);
     void allocateBuffers(const std::vector<SignalContext>& signalContexts);
     void deallocateBuffers();
     static std::string messageFromFields(const std::vector<std::string>& fields);

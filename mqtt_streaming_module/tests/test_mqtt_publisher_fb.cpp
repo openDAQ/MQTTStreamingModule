@@ -347,6 +347,58 @@ public:
 
     template <typename T>
     std::vector<std::string>
+    expectedMsgsForSharedTsArr(const std::string& signalName0, const std::string& signalName1, std::vector<std::pair<T, uint64_t>> data, size_t packSize)
+    {
+        std::vector<std::string> msgs;
+        const std::string PUBLISHER_SINGLE_MSG = "{<placeholder_signal0> : <placeholder_value0>, <placeholder_signal1> : "
+                                                 "<placeholder_value1>, \"timestamp\" : <placeholder_ts>}";
+
+        std::vector<std::string> values;
+        std::vector<std::string> tss;
+
+
+        for (size_t j = 0; j < data.size(); j += packSize)
+        {
+            std::ostringstream ossData;
+            std::ostringstream ossTs;
+            ossData << "[";
+            ossTs << "[";
+            for (size_t i = 0; i < packSize; ++i)
+            {
+                if (i > 0)
+                {
+                    ossData << ", ";
+                    ossTs << ", ";
+                }
+                const auto& [value, ts] = data[i + j];
+
+                ossData << valueToString<T>(value, false);
+                ossTs << valueToString<uint64_t>(ts * 1000, false);
+            }
+            ossData << "]";
+            ossTs << "]";
+            values.push_back(std::move(ossData).str());
+            tss.push_back(std::move(ossTs).str());
+        }
+
+        std::vector<std::string> messages;
+        {
+            for (size_t i = 0; i < values.size(); ++i)
+            {
+                auto msg = PUBLISHER_SINGLE_MSG;
+                msg = replacePlaceholder(msg, "<placeholder_signal0>", signalName0);
+                msg = replacePlaceholder(msg, "<placeholder_signal1>", signalName1);
+                msg = replacePlaceholder(msg, "<placeholder_value0>", values[i], false);
+                msg = replacePlaceholder(msg, "<placeholder_value1>", values[i], false);
+                msg = replacePlaceholder(msg, "<placeholder_ts>", tss[i], false);
+                messages.push_back(std::move(msg));
+            }
+        }
+        return messages;
+    }
+
+    template <typename T>
+    std::vector<std::string>
     expectedMsgsForMultimsg(const std::string& signalName0, const std::string& signalName1, std::vector<std::pair<T, uint64_t>> data)
     {
         std::vector<std::string> msgs;
@@ -380,32 +432,42 @@ public:
     }
 
     template <typename vT>
-    static std::string replacePlaceholder(const std::string& jsonTemplate, const std::string& ph, const vT& value)
+    static std::string valueToString(const vT& value, bool quoteString = true)
+    {
+        std::string result;
+        if constexpr (std::is_same_v<vT, std::string>)
+        {
+            if (quoteString)
+                result = '"' + value + '"';
+            else
+                result = value;
+        }
+        else if constexpr (std::is_same_v<vT, double> || std::is_same_v<vT, float>)
+        {
+            result = doubleToString(value, 6);
+        }
+        else
+        {
+            result = std::to_string(value);
+        }
+        return result;
+    }
+
+    template <typename vT>
+    static std::string replacePlaceholder(const std::string& jsonTemplate, const std::string& ph, const vT& value, bool quoteString = true)
     {
         std::string result = jsonTemplate;
         size_t pos = result.find(ph);
         if (pos != std::string::npos)
         {
-            std::string replacement;
-            if constexpr (std::is_same_v<vT, std::string>)
-            {
-                replacement = '"' + value + '"';
-            }
-            else if constexpr (std::is_same_v<vT, double> || std::is_same_v<vT, float>)
-            {
-                replacement = doubleToString(value, 6);
-            }
-            else
-            {
-                replacement = std::to_string(value);
-            }
+            std::string replacement = valueToString<vT>(value, quoteString);
             result.replace(pos, ph.length(), replacement);
         }
         return result;
     }
 
     template <typename vT>
-    static std::string replacePlaceholder(const std::string& jsonTemplate, const std::string& ph, const std::vector<vT>& values)
+    static std::string replacePlaceholder(const std::string& jsonTemplate, const std::string& ph, const std::vector<vT>& values, bool quoteString = true)
     {
         std::string result = jsonTemplate;
         size_t pos = result.find(ph);
@@ -417,18 +479,7 @@ public:
             {
                 if (i > 0)
                     replacement += ", ";
-                if constexpr (std::is_same_v<vT, std::string>)
-                {
-                    replacement += '"' + values[i] + '"';
-                }
-                else if constexpr (std::is_same_v<vT, double> || std::is_same_v<vT, float>)
-                {
-                    replacement += doubleToString(values[i], 6);
-                }
-                else
-                {
-                    replacement += std::to_string(values[i]);
-                }
+                replacement += valueToString<vT>(values[i], quoteString);
             }
             replacement += "]";
 
@@ -587,20 +638,6 @@ TEST_F(MqttPublisherFbTest, PropertyVisibility)
     daq::DictPtr<daq::IString, daq::IFunctionBlockType> fbTypes;
     daq::FunctionBlockTypePtr fbt = MqttPublisherFbImpl::CreateType();
     daq::PropertyObjectPtr defaultConfig = fbt.createDefaultConfig();
-
-    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0); // Set to Single topic
-    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES, True);
-    ASSERT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getVisible());
-    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1); // Set to Multi topic
-    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getVisible());
-    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1); // Set to Single topic
-    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES, True);
-    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getVisible());
-
-    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0); // Set to Single topic
-    ASSERT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES).getVisible());
-    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1); // Set to Multi topic
-    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES).getVisible());
 
     defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0); // Set to Single topic
     ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_NAME).getVisible());
@@ -1226,6 +1263,63 @@ TEST_P(MqttPublisherFbPTest, TransferSharedTs)
             const auto data = help.generateTestData(sampleCnt);
             const std::vector<std::string> messages =
                 expectedMsgsForSharedTs(help.signal0.getGlobalId().toStdString(), help.signal1.getGlobalId().toStdString(), data);
+            auto ok = transfer(topic, messages, help, data);
+            ASSERT_TRUE(ok);
+            ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+                      Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+            ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+                      EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                              static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
+                                              daqInstance.getContext().getTypeManager()));
+            ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_PUB_STATUS_NAME),
+                      EnumerationWithIntValue(MQTT_PUB_FB_PUB_STATUS_TYPE,
+                                              static_cast<Int>(MqttPublisherFbImpl::PublishingStatus::Ok),
+                                              daqInstance.getContext().getTypeManager()));
+
+            while (!reader.getEmpty())
+            {
+                auto packet = reader.read();
+                if (const auto eventPacket = packet.asPtrOrNull<IEventPacket>(); eventPacket.assigned())
+                {
+                    continue;
+                }
+                if (const auto dataPacket = packet.asPtrOrNull<IDataPacket>(); dataPacket.assigned())
+                {
+                    std::vector<uint8_t> readData(dataPacket.getDataSize());
+                    memcpy(readData.data(), dataPacket.getData(), dataPacket.getDataSize());
+                    dataToReceive.emplace_back(readData.cbegin(), readData.cend());
+                }
+            }
+            ASSERT_EQ(messages.size(), dataToReceive.size());
+            ASSERT_EQ(messages, dataToReceive);
+        },
+        param);
+}
+
+TEST_P(MqttPublisherFbPTest, TransferSharedTsArr)
+{
+    constexpr size_t sampleCnt = 15;
+    constexpr size_t packSize = 3;
+    H param = GetParam();
+    std::visit(
+        [&](auto& help)
+        {
+            StartUp();
+            const std::string topic = buildTopicName();
+            ASSERT_NO_THROW(CreatePublisherFB(true, true, false, topic, packSize));
+
+            fb.getInputPorts()[0].connect(help.signal0);
+            fb.getInputPorts()[1].connect(help.signal1);
+
+            auto signalList = List<ISignal>();
+            fb->getSignals(&signalList);
+            auto reader = daq::PacketReader(signalList[0]);
+            std::vector<std::string> dataToReceive;
+            ASSERT_TRUE(CreateSubscriber());
+
+            const auto data = help.generateTestData(sampleCnt);
+            const std::vector<std::string> messages =
+                expectedMsgsForSharedTsArr(help.signal0.getGlobalId().toStdString(), help.signal1.getGlobalId().toStdString(), data, packSize);
             auto ok = transfer(topic, messages, help, data);
             ASSERT_TRUE(ok);
             ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),

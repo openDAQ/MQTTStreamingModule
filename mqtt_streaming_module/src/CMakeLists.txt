@@ -15,6 +15,7 @@ set(SRC_Include common.h
                 atomic_signal_atomic_sample_handler.h
                 atomic_signal_sample_arr_handler.h
                 group_signal_shared_ts_handler.h
+                group_signal_shared_ts_arr_handler.h
                 signal_arr_atomic_sample_handler.h
                 types.h
                 status_helper.h
@@ -30,6 +31,7 @@ set(SRC_Srcs module_dll.cpp
              atomic_signal_atomic_sample_handler.cpp
              atomic_signal_sample_arr_handler.cpp
              group_signal_shared_ts_handler.cpp
+             group_signal_shared_ts_arr_handler.cpp
              signal_arr_atomic_sample_handler.cpp
 )
 
@@ -64,10 +66,12 @@ source_group("handlers" FILES ${MODULE_HEADERS_DIR}/handler_base.h
                             ${MODULE_HEADERS_DIR}/atomic_signal_atomic_sample_handler.h
                             ${MODULE_HEADERS_DIR}/atomic_signal_sample_arr_handler.h
                             ${MODULE_HEADERS_DIR}/group_signal_shared_ts_handler.h
+                            ${MODULE_HEADERS_DIR}/group_signal_shared_ts_arr_handler.h
                             ${MODULE_HEADERS_DIR}/signal_arr_atomic_sample_handler.h
                             atomic_signal_atomic_sample_handler.cpp
                             atomic_signal_sample_arr_handler.cpp
                             group_signal_shared_ts_handler.cpp
+                            group_signal_shared_ts_arr_handler.cpp
                             signal_arr_atomic_sample_handler.cpp
 )
 

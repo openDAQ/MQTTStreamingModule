@@ -101,27 +101,24 @@ FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
         defaultConfig.addProperty(builder.build());
     }
     {
+        auto builder = SelectionPropertyBuilder(PROPERTY_NAME_PUB_VALUE_FIELD_NAME, List<IString>("GlobalID", "LocalID", "Name"), 0)
+        .setDescription("Describes how to name a JSON value field. By default it is set to GlobalID.");
+        defaultConfig.addProperty(builder.build());
+    }
+    {
         auto builder =
             BoolPropertyBuilder(PROPERTY_NAME_PUB_GROUP_VALUES, False)
-                .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 0"))
                 .setDescription(
-                    "Enables the use of a sample pack for a signal when publishing in TopicPerSignal mode. By default it is set to false.");
+                    "Enables the use of a sample pack for a signal. By default it is set to false.");
         defaultConfig.addProperty(builder.build());
     }
     {
-        auto builder = SelectionPropertyBuilder(PROPERTY_NAME_PUB_VALUE_FIELD_NAME, List<IString>("GlobalID", "LocalID", "Name"), 0)
-                           .setDescription("Describes how to name a JSON value field. By default it is set to GlobalID.");
-        defaultConfig.addProperty(builder.build());
-    }
-    {
-        auto builder =
-            IntPropertyBuilder(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, DEFAULT_PUB_PACK_SIZE)
-                .setMinValue(1)
-                .setVisible(EvalValue(std::string("($") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 0) && " + std::string("($") +
-                                      PROPERTY_NAME_PUB_GROUP_VALUES + ")"))
-                .setDescription(fmt::format("Set the size of the sample pack when publishing grouped values in TopicPerSignal mode. "
-                                            "By default it is set to {}.",
-                                            DEFAULT_PUB_PACK_SIZE));
+        auto builder = IntPropertyBuilder(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, DEFAULT_PUB_PACK_SIZE)
+                           .setMinValue(1)
+                           .setVisible(EvalValue(std::string("($") + PROPERTY_NAME_PUB_GROUP_VALUES + ")"))
+                           .setDescription(fmt::format("Set the size of the sample pack when publishing grouped values. "
+                                                       "By default it is set to {}.",
+                                                       DEFAULT_PUB_PACK_SIZE));
         defaultConfig.addProperty(builder.build());
     }
     {
