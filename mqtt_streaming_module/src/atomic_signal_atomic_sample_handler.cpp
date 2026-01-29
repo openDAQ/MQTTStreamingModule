@@ -19,8 +19,7 @@ MqttData AtomicSignalAtomicSampleHandler::processSignalContexts(std::vector<Sign
     for (auto& sigCtx : signalContexts)
     {
         auto msgs = processSignalContext(sigCtx);
-        messages.reserve(messages.size() + msgs.size());
-        messages.insert(messages.end(), std::make_move_iterator(msgs.begin()), std::make_move_iterator(msgs.end()));
+        messages.merge(std::move(msgs));
     }
     return messages;
 }
@@ -104,6 +103,7 @@ MqttData AtomicSignalAtomicSampleHandler::processSignalContext(SignalContext& si
                 DataDescriptorPtr valueSignalDescriptor = eventPacket.getParameters().get(event_packet_param::DATA_DESCRIPTOR);
                 DataDescriptorPtr domainSignalDescriptor = eventPacket.getParameters().get(event_packet_param::DOMAIN_DATA_DESCRIPTOR);
                 processSignalDescriptorChanged(signalContext, valueSignalDescriptor, domainSignalDescriptor);
+                messages.needRevalidation = true;
                 break;
             }
         }
@@ -111,7 +111,7 @@ MqttData AtomicSignalAtomicSampleHandler::processSignalContext(SignalContext& si
         {
             auto dataPacket = packet.asPtr<IDataPacket>();
             for (size_t i = 0; i < dataPacket.getSampleCount(); ++i)
-                messages.emplace_back(processDataPacket(signalContext, dataPacket, i));
+                messages.data.emplace_back(processDataPacket(signalContext, dataPacket, i));
         }
 
         packet = conn.dequeue();

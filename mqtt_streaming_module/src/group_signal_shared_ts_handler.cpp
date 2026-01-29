@@ -53,23 +53,11 @@ MqttData GroupSignalSharedTsHandler::processSignalContexts(std::vector<SignalCon
             fields.emplace_back(tsToString(tsStruct, sampleCnt));
             std::string topic = buildTopicName();
             std::string msg = messageFromFields(fields);
-            messages.emplace_back(MqttDataSample{signalContexts[0].previewSignal, std::move(topic), std::move(msg)});
+            messages.data.emplace_back(MqttDataSample{signalContexts[0].previewSignal, std::move(topic), std::move(msg)});
         }
     }
 
-    if (status.getReadStatus() == ReadStatus::Event)
-    {
-        for (const auto& ev : status.getEventPackets())
-        {
-            if (ev.second.getEventId() == event_packet_id::DATA_DESCRIPTOR_CHANGED)
-            {
-
-            }
-        }
-    }
-
-    if (!status.getValid())
-        createReaderInternal(signalContexts);
+    messages.needRevalidation = processEvents(status);
 
     return messages;
 }
@@ -214,6 +202,25 @@ TimestampTickStruct GroupSignalSharedTsHandler::domainToTs(const MultiReaderStat
     return res;
 }
 
+bool GroupSignalSharedTsHandler::processEvents(const MultiReaderStatusPtr& status)
+{
+    bool result;
+    if (status.getReadStatus() == ReadStatus::Event)
+    {
+        bool descChanged = std::any_of(status.getEventPackets().begin(),
+                                       status.getEventPackets().end(),
+                                       [](const auto& evPair)
+                                       {
+                                           const auto& ev = evPair.second;
+                                           return (ev.getEventId() == event_packet_id::DATA_DESCRIPTOR_CHANGED);
+                                       });
+        result = !firstDescriptorChange && descChanged;
+        firstDescriptorChange &= !descChanged;
+    }
+    result &= !status.getValid();
+    return result;
+}
+
 ProcedureStatus GroupSignalSharedTsHandler::signalListChanged(std::vector<SignalContext>& signalContexts)
 {
     ProcedureStatus status{true, {}};
@@ -324,7 +331,7 @@ void GroupSignalSharedTsHandler::createReaderInternal(const std::vector<SignalCo
         if (sContext.inputPort.getSignal().assigned())
             multiReaderBuilder.addInputPort(sContext.inputPort);
     }
-
+    firstDescriptorChange = true;
     reader = multiReaderBuilder.build();
     const auto parentFb = this->parentFb.getRef();
     if (parentFb.assigned())

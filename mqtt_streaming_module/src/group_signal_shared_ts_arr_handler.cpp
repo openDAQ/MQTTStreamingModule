@@ -40,19 +40,7 @@ MqttData GroupSignalSharedTsArrHandler::processSignalContexts(std::vector<Signal
         tsBuilder.append(tsStruct, count);
     }
 
-    if (status.getReadStatus() == ReadStatus::Event)
-    {
-        for (const auto& ev : status.getEventPackets())
-        {
-            if (ev.second.getEventId() == event_packet_id::DATA_DESCRIPTOR_CHANGED)
-            {
-
-            }
-        }
-    }
-
-    if (!status.getValid())
-        createReaderInternal(signalContexts);
+    messages.needRevalidation = processEvents(status);
 
     while (!tsBuilder.empty())
     {
@@ -63,7 +51,7 @@ MqttData GroupSignalSharedTsArrHandler::processSignalContexts(std::vector<Signal
             fields.emplace_back(dataBuilders[signalCnt].getPack(valueFieldName));
         }
         fields.emplace_back(tsBuilder.getPack());
-        messages.emplace_back(MqttDataSample{signalContexts[0].previewSignal, buildTopicName(), messageFromFields(fields)});
+        messages.data.emplace_back(MqttDataSample{signalContexts[0].previewSignal, buildTopicName(), messageFromFields(fields)});
     }
     return messages;
 }

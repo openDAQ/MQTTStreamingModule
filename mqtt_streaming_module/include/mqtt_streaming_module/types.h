@@ -13,7 +13,17 @@ struct MqttDataSample {
     std::string message;
 };
 
-using MqttData = std::vector<MqttDataSample>;
+struct MqttData {
+    std::vector<MqttDataSample> data;
+    bool needRevalidation = false;
+
+    void merge(MqttData&& other)
+    {
+        data.reserve(data.size() + other.data.size());
+        data.insert(data.end(), std::make_move_iterator(other.data.begin()), std::make_move_iterator(other.data.end()));
+        needRevalidation = needRevalidation || other.needRevalidation;
+    }
+};
 
 enum class TopicMode {
     PerSignal = 0,

@@ -70,6 +70,7 @@ MqttData AtomicSignalSampleArrayHandler::processSignalContext(SignalContext& sig
                 DataDescriptorPtr valueSignalDescriptor = eventPacket.getParameters().get(event_packet_param::DATA_DESCRIPTOR);
                 DataDescriptorPtr domainSignalDescriptor = eventPacket.getParameters().get(event_packet_param::DOMAIN_DATA_DESCRIPTOR);
                 processSignalDescriptorChanged(signalContext, valueSignalDescriptor, domainSignalDescriptor);
+                messages.needRevalidation = true;
                 break;
             }
         }
@@ -80,7 +81,7 @@ MqttData AtomicSignalSampleArrayHandler::processSignalContext(SignalContext& sig
             signalBuffers[sigGlobalId].data.push_back(dataPacket);
             signalBuffers[sigGlobalId].dataSize += dataPacket.getSampleCount();
             while (signalBuffers[sigGlobalId].dataSize >= packSize)
-                messages.emplace_back(processDataPackets(signalContext));
+                messages.data.emplace_back(processDataPackets(signalContext));
 
         }
 

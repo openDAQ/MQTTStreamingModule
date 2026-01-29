@@ -491,6 +491,11 @@ void MqttPublisherFbImpl::readerLoop()
             if (hasSignalError == false && hasSettingError == false)
             {
                 msgs = handler->processSignalContexts(signalContexts);
+                if (msgs.needRevalidation)
+                {
+                    validateInputPorts();
+                    updateStatuses();
+                }
             }
             sendMessages(msgs);
             updatePublishingStatus();
@@ -501,7 +506,7 @@ void MqttPublisherFbImpl::readerLoop()
 
 void MqttPublisherFbImpl::sendMessages(const MqttData& data)
 {
-    for (const auto& [signal, topic, msg] : data)
+    for (const auto& [signal, topic, msg] : data.data)
     {
         if (signal.assigned())
         {

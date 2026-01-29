@@ -54,6 +54,7 @@ protected:
     const size_t buffersSize;
     const std::string topic;
     std::vector<void*> dataBuffers;
+    bool firstDescriptorChange;
     daq::MultiReaderPtr reader;
     std::mutex sync;
 
@@ -68,6 +69,7 @@ protected:
     void deallocateBuffers();
     static std::string messageFromFields(const std::vector<std::string>& fields);
     static TimestampTickStruct domainToTs(const MultiReaderStatusPtr status);
+    bool processEvents(const daq::MultiReaderStatusPtr& status);    // true if descriptor changed or invalid reader
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
