@@ -27,10 +27,10 @@ MQTT module for the [OpenDAQ SDK](https://github.com/openDAQ/openDAQ). The modul
       1) One MQTT message per signal / one message per sample / one topic per signal / one timestamp for each sample. Example: *{"AI0": 1.1, "timestamp": 1763716736100000}*
 
       2) One MQTT message per signal / one message containing several samples / one topic per signal / one timestamp per sample (array of samples). Example: *{"AI0": [1.1, 2.2, 3.3], "timestamps": [1763716736100000, 1763716736200000, 1763716736300000]}*
-
-      3) One MQTT message for several signals (from 1 to N) / one message per sample for each signal / one topic for all signals / separate timestamps for each signal. Example: *[{"AI0": 1.1, "timestamp": 1763716736100000}, {"AI1": 2, "timestamp": 1763716736700000}]*
       
-      4) One MQTT message for all signals / one message per sample containing all signals / one topic for all signals / one shared timestamp for all signals. Example: *{"AI0": 1.1, "AI1": 2, "timestamp": 1763716736100000}*
+      3) One MQTT message for all signals / one message per sample containing all signals / one topic for all signals / one shared timestamp for all signals. Example: *{"AI0": 1.1, "AI1": 2, "timestamp": 1763716736100000}*
+
+      4) One MQTT message for all signals / one message containing several samples for all signals / one topic for all signals / one shared timestamp for all signals (array of samples). Example: *{"AI0": [1.1, 2.2, 3.3], "AI1": [4.1, 4.2, 4.3], "timestamp": [1763716736100000, 1763716736200000, 1763716736300000]}*
 
       The schemes are configured through combinations of properties.
 
@@ -39,19 +39,18 @@ MQTT module for the [OpenDAQ SDK](https://github.com/openDAQ/openDAQ). The modul
       - *QoS* (list) — MQTT Quality of Service level. It can be *0* (at most once), *1* (at least once), or *2* (exactly once). By default, it is set to *1*.
       - *Topic* (string) — Topic name for publishing in *SingleTopic* mode. If left empty, the Publisher's *Global ID* is used as the topic name.
       - *Topics* (list of strings, read-only) — Contains a list of topics used for publishing data in the *TopicPerSignal* mode. The order in the list is the same as the input ports order.
-      - *SharedTimestamp* (bool) — Enables the use of a shared timestamp for all signals when publishing in *SingleTopic* mode. By default, it is set to *false*.
-      - *GroupValues* (bool) — Enables the use of a sample pack for a signal when publishing in *TopicPerSignal* mode. By default, it is set to *false*.
+      - *GroupValues* (bool) — Enables the use of a sample pack for a signal. By default, it is set to *false*.
       - *SignalValueJSONKey* (list) — Describes how to name a JSON value field. By default it is set to *GlobalID*.
-      - *SamplesPerMessage* (integer) — Sets the size of the sample pack when publishing grouped values in *TopicPerSignal* mode. By default, it is set to *1*.
+      - *SamplesPerMessage* (integer) — Sets the size of the sample pack when publishing grouped values. By default, it is set to *1*.
       - *ReaderWaitPeriod* (integer) — Polling period in milliseconds, specifying how often the server calls an internal reader to collect and publish the connected signals’ data to an MQTT broker. By default, it is set to *20 ms*.
       - *EnablePreviewSignal* (bool) — Enable the creation of preview signals: one signal in *SingleTopic* mode and one signal per connected input port in *TopicPerSignal* mode. These signals contain the same JSON string data that is published to MQTT topics.
       - *Schema* (string, read-only) - Describes the general representation of a JSON data packet according to the current function block settings.
 
       To configure the publishing schemes, set the properties as follows:
-        1) *TopicMode(0), SharedTimestamp(false), GroupValues(false)*;
-        2) *TopicMode(0), SharedTimestamp(false), GroupValues(true), SamplesPerMessage(<pack_size>)*;
-        3) *TopicMode(1), SharedTimestamp(false), GroupValues(false)*;
-        4) *TopicMode(1), SharedTimestamp(true), GroupValues(false)*;
+        1) *TopicMode(0), GroupValues(false)*;
+        2) *TopicMode(0), GroupValues(true), SamplesPerMessage(<pack_size>)*;
+        3) *TopicMode(1), GroupValues(false)*;
+        4) *TopicMode(1), GroupValues(true), SamplesPerMessage(<pack_size>)*;
         
 
 3) **MQTT subscriber Function Block (MQTTSubscriberFB)**:
@@ -62,6 +61,7 @@ MQTT module for the [OpenDAQ SDK](https://github.com/openDAQ/openDAQ). The modul
       - *Topic* (string) — MQTT topic to subscribe to for receiving raw binary data.
       - *QoS* (list) — MQTT Quality of Service level. It can be *0* (at most once), *1* (at least once), or *2* (exactly once). By default, it is set to *1*.
       - *EnablePreviewSignal* (bool) — Enable the creation of a preview signal. This signal contains the raw binary data received from an MQTT topic.
+      - *MessageIsString* (bool) — Interpret a received message as a string.
       - *JSONConfigFile* (string) — path to file with **JSON configuration string**. See the *JSONConfig* property for more details. This property could be set only at creation. It is not visible.
       - *JSONConfig* (string) — **JSON configuration string** that defines the MQTT topic and the corresponding signals to subscribe to. This property could be set only at creation. It is not visible. A typical string structure:
       ```json
@@ -183,13 +183,11 @@ There are 3 example C++ application:
  ```bash
  ./raw-mqtt-sub --address broker.emqx.io /mirip/UNet3AC2/sensor/data
  ```
- - **ref-dev-mqtt-pub** - demonstrates how to work with the *MQTTJSONPublisherFB*. The application creates an *openDAQ ref-device* with four channels, an *MQTTClientFB*, and a *MQTTJSONPublisherFB* to publish JSON MQTT messages with the channels’ data. The properties of the *MQTTJSONPublisherFB* are set according to the selected mode, which can be specified via the *--mode* option. Posible values are:
-    - 0 - One MQTT message per signal / one message per sample / one topic per signal / one timestamp for each sample;
-    - 1 - One MQTT message per signal / one message containing several samples / one topic per signal / one timestamp per sample (array of samples);
-    - 2 - One MQTT message for several signals (from 1 to N) / one message per sample for each signal / one topic for all signals / separate timestamps for each signal;
-    - 3 - One MQTT message for all signals / one message per sample containing all signals / one topic for all signals / one shared timestamp for all signals.
+ - **ref-dev-mqtt-pub** - demonstrates how to work with the *MQTTJSONPublisherFB*. The application creates an *openDAQ ref-device* with four channels, an *MQTTClientFB*, and a *MQTTJSONPublisherFB* to publish JSON MQTT messages with the channels’ data. The properties of the *MQTTJSONPublisherFB* are set according to the selected mode, which can be specified via the *--mode* option, and array size,  which can be specified via the *--array* option with size. Posible *--mode* option values are:
+    - 0 - One MQTT topic per signal;
+    - 1 - One MQTT message/topic for all signals.   
 ```bash
- ./ref-dev-mqtt-pub --address broker.emqx.io --mode 1
+ ./ref-dev-mqtt-pub --address broker.emqx.io --mode 1 --array 5
  ```
 Published messages can be observed using third-party tools (see the **External MQTT tools** section).
 For all applications, by default, the IP address *127.0.0.1* is used for the broker connection. It can be set via the *--address* option, for example:
