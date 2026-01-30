@@ -77,10 +77,13 @@ private:
     mqtt::MqttDataWrapper jsonDataWorker;
     PublisherFbConfig config;
     std::vector<SignalContext> signalContexts;
+    std::unordered_map<std::string, WeakRefPtr<ISignal>> signalMap;
     std::atomic<int> inputPortCount;
     std::thread readerThread;
     std::atomic<bool> running;
     std::atomic<bool> hasSignalError;
+    std::atomic<bool> signalDescriptorChanged;
+    std::atomic<bool> signalAttributeChanged;
     std::atomic<bool> hasSettingError;
     std::atomic<bool> hasEmptyTopic;
     std::vector<std::string> signalErrors;
@@ -95,6 +98,7 @@ private:
     SignalConfigPtr commonPreviewSignal;
 
     static std::string generateLocalId();
+    void coreEventCallback(ComponentPtr& sender, CoreEventArgsPtr& eventArgs);
     void updateComponentStatus();
     void updatePublishingStatus();
     std::string buildPublishingStatusMessage();
@@ -102,6 +106,8 @@ private:
     void readProperties();
     void propertyChanged();
     void updatePortsAndSignals(bool reassignPorts);
+    void updateCoreEventCallbacks();
+    void clearCoreEventCallbacks(const std::unordered_map<std::string, WeakRefPtr<ISignal>>& signalMap);
     void updateStatuses();
     void validateInputPorts();
     void updateTopics();

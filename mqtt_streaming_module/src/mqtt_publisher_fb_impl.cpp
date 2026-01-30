@@ -21,6 +21,8 @@ MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
       inputPortCount(0),
       running(true),
       hasSignalError(false),
+      signalDescriptorChanged(false),
+      signalAttributeChanged(false),
       hasSettingError(false),
       signalStatus(MQTT_PUB_FB_SIG_STATUS_TYPE,
                    MQTT_PUB_FB_SIG_STATUS_NAME,
@@ -72,6 +74,8 @@ void MqttPublisherFbImpl::removed()
         running = false;
         readerThread.join();
     }
+    clearCoreEventCallbacks(signalMap);
+    signalMap.clear();
     {
         auto lock = this->getRecursiveConfigLock();
         auto lockProcessing = std::scoped_lock(processingMutex);
@@ -226,7 +230,6 @@ void MqttPublisherFbImpl::updatePortsAndSignals(bool reassignPorts)
             commonPreviewSignal = createAndAddSignal(fmt::format("{}{}", PUB_PREVIEW_SIGNAL_NAME, "Common"), signalDsc);
         }
     }
-
     for (auto it = signalContexts.begin(); it != signalContexts.end();)
     {
         it->inputPort.setListener(this->template borrowPtr<InputPortNotificationsPtr>());
@@ -277,6 +280,42 @@ void MqttPublisherFbImpl::updatePortsAndSignals(bool reassignPorts)
     {
         const auto inputPort = createAndAddInputPort(fmt::format("Input{}", size_t(inputPortCount)), PacketReadyNotification::SameThread);
         signalContexts.emplace_back(size_t(inputPortCount++), inputPort, nullptr);
+    }
+
+    updateCoreEventCallbacks();
+}
+
+void MqttPublisherFbImpl::updateCoreEventCallbacks()
+{
+    auto signalMapCopy = std::move(signalMap);
+    signalMap.clear();
+    for (auto it = signalContexts.cbegin(); it != signalContexts.cend();)
+    {
+        auto sig = it->inputPort.getSignal();
+        if (sig.assigned())
+        {
+            if (signalMapCopy.find(sig.getGlobalId().toStdString()) == signalMapCopy.end())
+            {
+                sig.asPtr<IComponent>().getOnComponentCoreEvent() += event(&MqttPublisherFbImpl::coreEventCallback);
+                signalMap.insert(std::pair(sig.getGlobalId().toStdString(), WeakRefPtr<ISignal>(sig)));
+            }
+            else
+            {
+                signalMap.insert(std::move(signalMapCopy.extract(sig.getGlobalId().toStdString())));
+            }
+        }
+        ++it;
+    }
+    clearCoreEventCallbacks(signalMapCopy);
+}
+
+void MqttPublisherFbImpl::clearCoreEventCallbacks(const std::unordered_map<std::string, WeakRefPtr<ISignal>>& signalMap)
+{
+    for (const auto& [_, weakSig] : signalMap)
+    {
+        auto sig = weakSig.getRef();
+        if (sig.assigned())
+            sig.asPtr<IComponent>().getOnComponentCoreEvent() -= event(&MqttPublisherFbImpl::coreEventCallback);
     }
 }
 
@@ -488,6 +527,13 @@ void MqttPublisherFbImpl::readerLoop()
         {
             MqttData msgs;
             auto lockProcessing = std::scoped_lock(processingMutex);
+            if ((hasSignalError && signalDescriptorChanged) || signalAttributeChanged)
+            {
+                validateInputPorts();
+                updateStatuses();
+                signalDescriptorChanged = false;
+                signalAttributeChanged = false;
+            }
             if (hasSignalError == false && hasSettingError == false)
             {
                 msgs = handler->processSignalContexts(signalContexts);
@@ -527,6 +573,22 @@ std::string MqttPublisherFbImpl::generateLocalId()
 {
     return std::string(MQTT_LOCAL_PUB_FB_ID_PREFIX + std::to_string(localIndex++));
 }
+
+inline void MqttPublisherFbImpl::coreEventCallback(ComponentPtr& sender, CoreEventArgsPtr& eventArgs)
+{
+    const auto sig = sender.asPtrOrNull<ISignal>();
+    if (sig == nullptr)
+        return;
+    auto lockProcessing = std::scoped_lock(processingMutex);
+    const auto it = signalMap.find(sig.getGlobalId());
+    if (it != signalMap.end())
+    {
+        if (eventArgs.getEventId() == static_cast<int>(CoreEventId::DataDescriptorChanged) && hasSignalError)
+            signalDescriptorChanged = true;
+        else if (eventArgs.getEventId() == static_cast<int>(CoreEventId::AttributeChanged) && eventArgs.getParameters().hasKey("Name"))
+            signalAttributeChanged = true;
+    }
+};
 
 void MqttPublisherFbImpl::updateComponentStatus()
 {
