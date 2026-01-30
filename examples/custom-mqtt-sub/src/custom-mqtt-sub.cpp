@@ -46,6 +46,7 @@ std::string to_string(daq::DataPacketPtr packet)
     case SampleType::Int64:
         data = std::to_string(*(static_cast<int64_t*>(packet.getData())));
         break;
+    case SampleType::String:
     case SampleType::Binary:
         data = '\"' + std::string(static_cast<char*>(packet.getData()), packet.getDataSize()) + '\"';
         break;

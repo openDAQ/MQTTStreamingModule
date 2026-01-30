@@ -67,6 +67,8 @@ int main(int argc, char* argv[])
     // Create subscriber function block configuration
     auto config = availableFbs.get(fbName).createDefaultConfig();
     config.setPropertyValue("Topic", appConfig.topic);
+    config.setPropertyValue("EnablePreviewSignal", True);
+    config.setPropertyValue("MessageIsString", True);
 
     // Add the subscriber function block to the broker FB
     daq::FunctionBlockPtr subFb = brokerFB.addFunctionBlock(fbName, config);
