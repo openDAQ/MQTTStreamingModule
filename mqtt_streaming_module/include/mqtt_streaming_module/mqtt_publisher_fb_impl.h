@@ -78,7 +78,6 @@ private:
     PublisherFbConfig config;
     std::vector<SignalContext> signalContexts;
     std::unordered_map<std::string, WeakRefPtr<ISignal>> signalMap;
-    std::atomic<int> inputPortCount;
     std::thread readerThread;
     std::atomic<bool> running;
     std::atomic<bool> hasSignalError;
@@ -106,6 +105,7 @@ private:
     void readProperties();
     void propertyChanged();
     void updatePortsAndSignals(bool reassignPorts);
+    void clearPorts();
     void updateCoreEventCallbacks();
     void clearCoreEventCallbacks(const std::unordered_map<std::string, WeakRefPtr<ISignal>>& signalMap);
     void updateStatuses();

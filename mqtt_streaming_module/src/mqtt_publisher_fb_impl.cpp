@@ -18,7 +18,6 @@ MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
     : FunctionBlock(type, ctx, parent, generateLocalId()),
       mqttClient(mqttClient),
       jsonDataWorker(loggerComponent),
-      inputPortCount(0),
       running(true),
       hasSignalError(false),
       signalDescriptorChanged(false),
@@ -205,22 +204,7 @@ void MqttPublisherFbImpl::updatePortsAndSignals(bool reassignPorts)
 {
     if (reassignPorts)
     {
-        for (auto it = signalContexts.begin(); it != signalContexts.end();)
-        {
-            if (!it->inputPort.getSignal().assigned())
-            {
-                removeInputPort(it->inputPort);
-                if (it->previewSignal.assigned() && (!commonPreviewSignal.assigned() || commonPreviewSignal != it->previewSignal))
-                {
-                    removeSignal(it->previewSignal);
-                }
-                it = signalContexts.erase(it);
-            }
-            else
-            {
-                ++it;
-            }
-        }
+        clearPorts();
     }
     if (config.enablePreview)
     {
@@ -233,40 +217,38 @@ void MqttPublisherFbImpl::updatePortsAndSignals(bool reassignPorts)
     for (auto it = signalContexts.begin(); it != signalContexts.end();)
     {
         it->inputPort.setListener(this->template borrowPtr<InputPortNotificationsPtr>());
-        if (!it->inputPort.getSignal().assigned())
+        if (it->inputPort.getSignal().assigned())
         {
-            ++it;
-            continue;
-        }
-        if (config.enablePreview)
-        {
-            if (config.topicMode == TopicMode::Single)
+            if (config.enablePreview)
             {
-                if (it->previewSignal != commonPreviewSignal)
+                if (config.topicMode == TopicMode::Single)
                 {
-                    if (it->previewSignal.assigned())
+                    if (it->previewSignal != commonPreviewSignal)
+                    {
+                        if (it->previewSignal.assigned())
+                            removeSignal(it->previewSignal);
+                        it->previewSignal = commonPreviewSignal;
+                    }
+                }
+                else if (config.topicMode == TopicMode::PerSignal)
+                {
+                    if (!it->previewSignal.assigned() || (commonPreviewSignal.assigned() && commonPreviewSignal == it->previewSignal))
+                    {
+                        const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::String).build();
+                        it->previewSignal = createAndAddSignal(fmt::format("{}{}", PUB_PREVIEW_SIGNAL_NAME, size_t(it->getIndex())), signalDsc);
+                    }
+                }
+            }
+            else
+            {
+                if (it->previewSignal.assigned())
+                {
+                    if (!commonPreviewSignal.assigned() || commonPreviewSignal != it->previewSignal)
+                    {
                         removeSignal(it->previewSignal);
-                    it->previewSignal = commonPreviewSignal;
+                    }
+                    it->previewSignal = nullptr;
                 }
-            }
-            else if (config.topicMode == TopicMode::PerSignal)
-            {
-                if (!it->previewSignal.assigned() || (commonPreviewSignal.assigned() && commonPreviewSignal == it->previewSignal))
-                {
-                    const auto signalDsc = DataDescriptorBuilder().setSampleType(SampleType::String).build();
-                    it->previewSignal = createAndAddSignal(fmt::format("{}{}", PUB_PREVIEW_SIGNAL_NAME, size_t(it->index)), signalDsc);
-                }
-            }
-        }
-        else
-        {
-            if (it->previewSignal.assigned())
-            {
-                if (!commonPreviewSignal.assigned() || commonPreviewSignal != it->previewSignal)
-                {
-                    removeSignal(it->previewSignal);
-                }
-                it->previewSignal = nullptr;
             }
         }
         ++it;
@@ -276,13 +258,37 @@ void MqttPublisherFbImpl::updatePortsAndSignals(bool reassignPorts)
         removeSignal(commonPreviewSignal);
         commonPreviewSignal = nullptr;
     }
-    if (reassignPorts)
-    {
-        const auto inputPort = createAndAddInputPort(fmt::format("Input{}", size_t(inputPortCount)), PacketReadyNotification::SameThread);
-        signalContexts.emplace_back(size_t(inputPortCount++), inputPort, nullptr);
-    }
 
     updateCoreEventCallbacks();
+}
+
+void MqttPublisherFbImpl::clearPorts()
+{
+    for (auto it = signalContexts.begin(); it != signalContexts.end();)
+    {
+        if (!it->inputPort.getSignal().assigned())
+        {
+
+            if (it->previewSignal.assigned() && (!commonPreviewSignal.assigned() || commonPreviewSignal != it->previewSignal))
+            {
+                removeSignal(it->previewSignal);
+            }
+            removeInputPort(it->inputPort);
+            it = signalContexts.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+    size_t inputPortCount = 0;
+    auto it = signalContexts.crbegin();
+    if (it != signalContexts.crend())
+        inputPortCount = it->getIndex() + 1;
+
+    const auto inputPort = createAndAddInputPort(fmt::format("Input{}", size_t(inputPortCount)), PacketReadyNotification::SameThread);
+    signalContexts.emplace_back(size_t(inputPortCount), inputPort, nullptr);
+
 }
 
 void MqttPublisherFbImpl::updateCoreEventCallbacks()

@@ -51,13 +51,18 @@ struct PublisherFbConfig {
 
 struct SignalContext
 {
-    size_t index;
     InputPortConfigPtr inputPort;
     SignalConfigPtr previewSignal;
     SignalContext(size_t index, InputPortConfigPtr inputPort, SignalConfigPtr previewSignal)
         : index(index), inputPort(inputPort), previewSignal(previewSignal)
     {
     }
+    size_t getIndex() const
+    {
+        return index;
+    }
+private:
+    size_t index;
 };
 
 struct ProcedureStatus
