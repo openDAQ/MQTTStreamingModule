@@ -90,6 +90,13 @@ public:
         return values.empty();
     }
 
+    void clear()
+    {
+        reset();
+        values.clear();
+        offset = 0;
+    }
+
 protected:
     const size_t packSize;
     std::list<std::string> values;
@@ -176,7 +183,7 @@ protected:
     std::vector<StringDataBuilder> dataBuilders;
     StringTsBuilder tsBuilder;
 
-    void initDataBuilders(const size_t size);
+    void initBuilders(const size_t size);
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

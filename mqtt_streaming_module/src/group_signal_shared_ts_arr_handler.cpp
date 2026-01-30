@@ -59,7 +59,7 @@ MqttData GroupSignalSharedTsArrHandler::processSignalContexts(std::vector<Signal
 ProcedureStatus GroupSignalSharedTsArrHandler::signalListChanged(std::vector<SignalContext>& signalContexts)
 {
     auto status = GroupSignalSharedTsHandler::signalListChanged(signalContexts);
-    initDataBuilders(signalContexts.size() - 1);
+    initBuilders(signalContexts.size() - 1);
     return status;
 }
 
@@ -88,10 +88,11 @@ std::string GroupSignalSharedTsArrHandler::getSchema()
     }
 }
 
-void GroupSignalSharedTsArrHandler::initDataBuilders(const size_t size)
+void GroupSignalSharedTsArrHandler::initBuilders(const size_t size)
 {
     if (dataBuilders.empty() || dataBuilders.size() != size)
     {
+        tsBuilder.clear();
         dataBuilders.clear();
         dataBuilders.reserve(size);
         for (size_t i = 0; i < size; ++i)
