@@ -84,6 +84,12 @@ add_library(${LIB_NAME} SHARED ${SRC_Include}
 )
 add_library(${SDK_TARGET_NAMESPACE}::${LIB_NAME} ALIAS ${LIB_NAME})
 
+if(OPENDAQ_MQTT_ENABLE_TESTS)
+    target_compile_definitions(${LIB_NAME}
+        PRIVATE OPENDAQ_MQTT_ENABLE_TESTS
+    )
+endif()
+
 if (MSVC)
     target_compile_options(${LIB_NAME} PRIVATE /bigobj)
 endif()
