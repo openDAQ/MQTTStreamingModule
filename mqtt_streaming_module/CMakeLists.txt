@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 set_cmake_folder_context(TARGET_FOLDER_NAME)
 
-set(MQTT_MODULE_VERSION ${OPENDAQ_PACKAGE_VERSION})
 set(MQTT_MODULE_PRJ_NAME "OpenDaqMqttModule")
 
 message(STATUS "${MQTT_MODULE_PRJ_NAME} version: ${MQTT_MODULE_VERSION}")
