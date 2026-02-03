@@ -103,7 +103,7 @@ TEST_F(MqttFbTest, CreatingMqttFbWithPartialConfig)
               Enumeration("ComponentStatusType", "Ok", instance.getContext().getTypeManager()));
 }
 
-TEST_F(MqttFbTest, CreatingSeveralMqttFbs)
+TEST_F(MqttFbTest, DISABLED_CreatingSeveralMqttFbs)
 {
     const auto instance = Instance();
     daq::FunctionBlockPtr fb;

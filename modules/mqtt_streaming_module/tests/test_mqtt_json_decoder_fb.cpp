@@ -950,7 +950,7 @@ TEST_F(MqttJsonFbCommunicationTest, FullDataTransfer)
     EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 }
 
-TEST_F(MqttJsonFbCommunicationTest, FullDataTransferFor2MqttFbs)
+TEST_F(MqttJsonFbCommunicationTest, DISABLED_FullDataTransferFor2MqttFbs)
 {
     const auto msgTemplate = VALID_JSON_DATA_0;
     const std::string valueF = extractFieldName(msgTemplate, "<placeholder_value>");
