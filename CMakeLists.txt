@@ -63,6 +63,10 @@ endif()
 
 set(MQTT_MODULE_VERSION "0.1.0" CACHE STRING "MQTT module version" FORCE)
 
+if(OPENDAQ_MQTT_ENABLE_TESTS)
+    enable_testing()
+endif()
+
 add_subdirectory(external)
 add_subdirectory(shared)
 add_subdirectory(modules)
