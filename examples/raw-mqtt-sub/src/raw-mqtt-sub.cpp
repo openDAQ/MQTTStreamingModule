@@ -55,24 +55,26 @@ int main(int argc, char* argv[])
 
     // Create OpenDAQ instance and add MQTT broker FB
     const InstancePtr instance = InstanceBuilder().addModulePath(MODULE_PATH).build();
-    const std::string rootFbName = "RootMqttFb";
-    auto rootFbConfig = instance.getAvailableFunctionBlockTypes().get(rootFbName).createDefaultConfig();
-    rootFbConfig.setPropertyValue("MqttBrokerAddress", appConfig.brokerAddress);
-    auto brokerFB = instance.addFunctionBlock(rootFbName, rootFbConfig);
+    const std::string clientFbName = "MQTTClientFB";
+    auto clientFbConfig = instance.getAvailableFunctionBlockTypes().get(clientFbName).createDefaultConfig();
+    clientFbConfig.setPropertyValue("BrokerAddress", appConfig.brokerAddress);
+    auto brokerFB = instance.addFunctionBlock(clientFbName, clientFbConfig);
     auto availableFbs = brokerFB.getAvailableFunctionBlockTypes();
 
-    const std::string fbName = "RawSubscriberMqttFb";
+    const std::string fbName = "MQTTSubscriberFB";
     std::cout << "Try to add the " << fbName << std::endl;
 
-    // Create RAW function block configuration
+    // Create subscriber function block configuration
     auto config = availableFbs.get(fbName).createDefaultConfig();
     config.setPropertyValue("Topic", appConfig.topic);
+    config.setPropertyValue("EnablePreviewSignal", True);
+    config.setPropertyValue("MessageIsString", True);
 
-    // Add the RAW function block to the broker FB
-    daq::FunctionBlockPtr rawFb = brokerFB.addFunctionBlock(fbName, config);
+    // Add the subscriber function block to the broker FB
+    daq::FunctionBlockPtr subFb = brokerFB.addFunctionBlock(fbName, config);
 
     // Create packet readers for a signal
-    const auto signal = rawFb.getSignals()[0];
+    const auto signal = subFb.getSignals()[0];
     PacketReaderPtr reader = daq::PacketReader(signal);
 
     // Start a thread to read packets from the reader

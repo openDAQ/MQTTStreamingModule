@@ -46,6 +46,7 @@ std::string to_string(daq::DataPacketPtr packet)
     case SampleType::Int64:
         data = std::to_string(*(static_cast<int64_t*>(packet.getData())));
         break;
+    case SampleType::String:
     case SampleType::Binary:
         data = '\"' + std::string(static_cast<char*>(packet.getData()), packet.getDataSize()) + '\"';
         break;
@@ -123,24 +124,24 @@ int main(int argc, char* argv[])
 
     // Create OpenDAQ instance and add MQTT broker FB
     const InstancePtr instance = InstanceBuilder().addModulePath(MODULE_PATH).build();
-    const std::string rootFbName = "RootMqttFb";
-    auto rootFbConfig = instance.getAvailableFunctionBlockTypes().get(rootFbName).createDefaultConfig();
-    rootFbConfig.setPropertyValue("MqttBrokerAddress", appConfig.brokerAddress);
-    auto brokerFB = instance.addFunctionBlock(rootFbName, rootFbConfig);
+    const std::string clientFbName = "MQTTClientFB";
+    auto clientFbConfig = instance.getAvailableFunctionBlockTypes().get(clientFbName).createDefaultConfig();
+    clientFbConfig.setPropertyValue("BrokerAddress", appConfig.brokerAddress);
+    auto brokerFB = instance.addFunctionBlock(clientFbName, clientFbConfig);
     auto availableFbs = brokerFB.getAvailableFunctionBlockTypes();
 
-    const std::string jsonFbName = "JsonSubscriberMqttFb";
-    std::cout << "Try to add the " << jsonFbName << std::endl;
+    const std::string subFbName = "MQTTSubscriberFB";
+    std::cout << "Try to add the " << subFbName << std::endl;
 
-    auto config = availableFbs.get(jsonFbName).createDefaultConfig();
-    config.setPropertyValue("JsonConfigFile", appConfig.configFilePath);
+    auto config = availableFbs.get(subFbName).createDefaultConfig();
+    config.setPropertyValue("JSONConfigFile", appConfig.configFilePath);
 
-    // Add the JSON function block to the broker FB
-    daq::FunctionBlockPtr jsonFb = brokerFB.addFunctionBlock(jsonFbName, config);
+    // Add the subscriber function block to the broker FB
+    daq::FunctionBlockPtr subFb = brokerFB.addFunctionBlock(subFbName, config);
 
     // Create packet readers for all signals
     auto signals = List<daq::ISignal>();
-    const auto fbs = jsonFb.getFunctionBlocks();
+    const auto fbs = subFb.getFunctionBlocks();
     for (const auto& fb : fbs)
     {
         const auto sig = fb.getSignals();

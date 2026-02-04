@@ -1,0 +1,44 @@
+name: Build and Test
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            generator: Ninja
+          - os: windows-latest
+            generator: "Visual Studio 17 2022"
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Install additional dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get install -y --no-install-recommends mono-runtime libmono-system-json-microsoft4.0-cil libmono-system-data4.0-cil
+
+      - name: Checkout project repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.event.client_payload.branch || github.ref }}
+
+      - name: Configure project with CMake
+        run: cmake -B build/output -S . -G "${{ matrix.generator }}" -DOPENDAQ_MQTT_ENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build project with CMake
+        run: cmake --build build/output --config Debug
+        
+      - name: Install and run mosquitto Linux
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get install -y --no-install-recommends mosquitto
+
+      - name: Run project tests with CMake
+        if: matrix.os == 'ubuntu-latest'
+        run: ctest --test-dir build/output --output-on-failure -C Debug
