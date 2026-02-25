@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
-list(APPEND CMAKE_MESSAGE_CONTEXT modules)
+cmake_minimum_required(VERSION 3.25)
+opendaq_set_cmake_folder_context(TARGET_FOLDER_NAME)
 
 add_subdirectory(mqtt_streaming_module)

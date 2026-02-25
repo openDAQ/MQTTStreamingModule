@@ -84,9 +84,9 @@ add_library(${LIB_NAME} SHARED ${SRC_Include}
 )
 add_library(${SDK_TARGET_NAMESPACE}::${LIB_NAME} ALIAS ${LIB_NAME})
 
-if(OPENDAQ_MQTT_ENABLE_TESTS)
+if(${REPO_OPTION_PREFIX}_ENABLE_TESTS)
     target_compile_definitions(${LIB_NAME}
-        PRIVATE OPENDAQ_MQTT_ENABLE_TESTS
+        PRIVATE ${REPO_OPTION_PREFIX}_ENABLE_TESTS
     )
 endif()
 

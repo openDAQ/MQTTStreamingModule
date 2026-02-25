@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-list(APPEND CMAKE_MESSAGE_CONTEXT shared)
+opendaq_set_cmake_folder_context(TARGET_FOLDER_NAME)
 
 add_subdirectory(mqtt_streaming_protocol)
 add_subdirectory(helper_utils)

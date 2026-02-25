@@ -1,12 +1,8 @@
-set(CMAKE_FOLDER "${CMAKE_FOLDER}/external")
-list(APPEND CMAKE_MESSAGE_CONTEXT external)
+opendaq_set_cmake_folder_context(TARGET_FOLDER_NAME)
 
 if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
     message(FATAL_ERROR "In-source build is not supported!")
 endif()
 
-include(FetchContent)
-
-add_subdirectory(opendaq)
-add_subdirectory(mqtt)
+add_subdirectory(paho_mqtt_c)
 add_subdirectory(rapidjson)
