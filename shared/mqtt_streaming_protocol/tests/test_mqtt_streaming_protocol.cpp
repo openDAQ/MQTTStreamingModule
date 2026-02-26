@@ -3,7 +3,6 @@
 #include "mqtt_streaming_helper/timer.h"
 #include "timestampConverter.h"
 #include <future>
-#include <gmock/gmock.h>
 #include <testutils/testutils.h>
 #include <thread>
 

@@ -54,7 +54,7 @@ struct SignalContext
     InputPortConfigPtr inputPort;
     SignalConfigPtr previewSignal;
     SignalContext(size_t index, InputPortConfigPtr inputPort, SignalConfigPtr previewSignal)
-        : index(index), inputPort(inputPort), previewSignal(previewSignal)
+        : inputPort(inputPort), previewSignal(previewSignal), index(index)
     {
     }
     size_t getIndex() const

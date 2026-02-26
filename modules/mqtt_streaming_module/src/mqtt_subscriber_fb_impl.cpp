@@ -176,8 +176,8 @@ void MqttSubscriberFbImpl::readProperties()
         auto qosProp = objPtr.getPropertyValue(PROPERTY_NAME_SUB_QOS).asPtrOrNull<IInteger>();
         if (qosProp.assigned())
         {
-            const auto qos = qosProp.getValue(DEFAULT_SUB_QOS);
-            this->qos = (qos < 0 || qos > 2) ? DEFAULT_SUB_QOS : qos;
+            const uint32_t qos = qosProp.getValue(DEFAULT_SUB_QOS);
+            this->qos = (qos > 2) ? DEFAULT_SUB_QOS : qos;
         }
     }
     if (objPtr.hasProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL))

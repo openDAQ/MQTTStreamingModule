@@ -99,6 +99,7 @@ bool equalTs(const std::string& a, uint64_t b)
     return (mqtt::utils::toUnixTicks(a) == b && b != 0);
 }
 
+[[maybe_unused]]
 bool equalTs(uint64_t b, const std::string& a)
 {
     return equalTs(a, b);
@@ -116,6 +117,7 @@ bool equalTs(const std::vector<std::string>& a, const std::vector<uint64_t>& b)
     return true;
 }
 
+[[maybe_unused]]
 bool equalTs(const std::vector<uint64_t>& b, const std::vector<std::string>& a)
 {
     return equalTs(a, b);
@@ -809,7 +811,7 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferSeveralSignals)
         readers.emplace_back(std::pair<PacketReaderPtr, SignalPtr>(daq::PacketReader(signal), signal));
     }
 
-    for (int cnt = 0; cnt < DATA_DOUBLE_INT_0.size(); ++cnt)
+    for (size_t cnt = 0; cnt < DATA_DOUBLE_INT_0.size(); ++cnt)
     {
         auto str = VALID_JSON_DATA_2;
         str = replacePlaceholder(str, "<placeholder_ts>", DATA_DOUBLE_INT_0[cnt].second);
@@ -820,7 +822,7 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferSeveralSignals)
     }
 
     std::vector<std::vector<std::pair<double, uint64_t>>> dataToReceive(readers.size());
-    for (int i = 0; i < readers.size(); ++i)
+    for (size_t i = 0; i < readers.size(); ++i)
     {
         auto& [reader, signal] = readers[i];
         dataToReceive[i] = read<std::pair<double, uint64_t>>(reader, signal, 0);
@@ -855,7 +857,7 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferMissingFieldOneSignal)
     auto signal = getSignals()[0];
     auto reader = daq::PacketReader(signal);
 
-    for (int cnt = 0; cnt < DATA_DOUBLE_INT_0.size(); ++cnt)
+    for (size_t cnt = 0; cnt < DATA_DOUBLE_INT_0.size(); ++cnt)
     {
         auto str = VALID_JSON_DATA_1;
         str = replacePlaceholder(str, "<placeholder_value>", DATA_DOUBLE_INT_0[cnt].first);
@@ -896,7 +898,7 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferMissingFieldSeveralSignals)
         readers.emplace_back(std::pair<PacketReaderPtr, SignalPtr>(daq::PacketReader(signal), signal));
     }
 
-    for (int cnt = 0; cnt < DATA_DOUBLE_INT_0.size(); ++cnt)
+    for (size_t cnt = 0; cnt < DATA_DOUBLE_INT_0.size(); ++cnt)
     {
         auto str = MISSING_FIELD_JSON_DATA_2;
         str = replacePlaceholder(str, "<placeholder_ts>", DATA_DOUBLE_INT_0[cnt].second);
@@ -906,7 +908,7 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferMissingFieldSeveralSignals)
     }
 
     std::vector<std::vector<std::pair<double, uint64_t>>> dataToReceive(readers.size());
-    for (int i = 0; i < readers.size(); ++i)
+    for (size_t i = 0; i < readers.size(); ++i)
     {
         auto& [reader, signal] = readers[i];
         dataToReceive[i] = read<std::pair<double, uint64_t>>(reader, signal, 0);

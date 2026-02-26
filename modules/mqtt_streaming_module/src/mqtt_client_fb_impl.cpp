@@ -13,13 +13,13 @@ std::atomic<int> MqttClientFbImpl::localIndex = 0;
 
 MqttClientFbImpl::MqttClientFbImpl(const ContextPtr& ctx, const ComponentPtr& parent, const PropertyObjectPtr& config)
     : FunctionBlock(CreateType(), ctx, parent, generateLocalId()),
-      subscriber(std::make_shared<mqtt::MqttAsyncClient>()),
       connectTimeout(0),
       connectionStatus("ConnectionStatusType",
                        MQTT_CLIENT_FB_CON_STATUS_NAME,
                        statusContainer,
                        "Reconnecting",
-                       context.getTypeManager())
+                       context.getTypeManager()),
+      subscriber(std::make_shared<mqtt::MqttAsyncClient>())
 {
     initComponentStatus();
     initConnectionStatus();

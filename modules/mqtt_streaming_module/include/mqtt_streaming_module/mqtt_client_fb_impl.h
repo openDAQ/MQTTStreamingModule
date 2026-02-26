@@ -53,11 +53,11 @@ protected:
 
     DictObjectPtr<IDict, IString, IFunctionBlockType> nestedFbTypes;
 
+    int connectTimeout;
     StatusAdaptor connectionStatus;
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
     Mqtt::Utils::Settings::MqttConnectionSettings connectionSettings;
-    int connectTimeout;
 
     std::promise<bool> connectedPromise;
     std::future<bool> connectedFuture;
