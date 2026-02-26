@@ -25,7 +25,8 @@ target_link_libraries(${TEST_LIB} PRIVATE ${MODULE_NAME}
                                   PUBLIC mqtt_streaming_helper
 )
 
-target_link_libraries(${TEST_APP} PRIVATE daq::test_utils
+target_link_libraries(${TEST_APP} PRIVATE daq::opendaq_test_utils
+                                          gtest
                                           ${MODULE_NAME}
                                           ${TEST_LIB}
 )
