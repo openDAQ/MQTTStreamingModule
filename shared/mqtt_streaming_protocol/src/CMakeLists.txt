@@ -12,7 +12,7 @@ set(SRC_PublicHeaders   MqttAsyncClient.h
 )
 
 set(INCLUDE_DIR ../include)
-prepend_include(${INCLUDE_DIR} SRC_PublicHeaders)
+opendaq_prepend_include(${INCLUDE_DIR} SRC_PublicHeaders)
 
 source_group("include" FILES ${SRC_PublicHeaders})
 
