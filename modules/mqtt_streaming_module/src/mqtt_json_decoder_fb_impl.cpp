@@ -74,7 +74,7 @@ void MqttJsonDecoderFbImpl::initProperties(const PropertyObjectPtr& config)
                 objPtr.addProperty(internalProp.clone());
                 objPtr.setPropertyValue(propName, prop.getValue());
                 objPtr.getOnPropertyValueWrite(prop.getName()) +=
-                    [this](PropertyObjectPtr& obj, PropertyValueEventArgsPtr& args) { propertyChanged(); };
+                    [this](PropertyObjectPtr&, PropertyValueEventArgsPtr&) { propertyChanged(); };
             }
         }
         else

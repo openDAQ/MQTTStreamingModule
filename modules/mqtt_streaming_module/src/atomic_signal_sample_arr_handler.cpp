@@ -107,8 +107,8 @@ std::pair<DataPacketPtr, size_t> AtomicSignalSampleArrayHandler::getSample(Signa
 }
 
 void AtomicSignalSampleArrayHandler::processSignalDescriptorChanged(SignalContext& signalCtx,
-                                                                    const DataDescriptorPtr& valueSigDesc,
-                                                                    const DataDescriptorPtr& domainSigDesc)
+                                                                    const DataDescriptorPtr&,
+                                                                    const DataDescriptorPtr&)
 {
     signalBuffers[signalCtx.inputPort.getSignal().getGlobalId().toStdString()].clear();
 }

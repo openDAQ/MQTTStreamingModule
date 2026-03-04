@@ -48,7 +48,7 @@ void MqttSubscriberFbImpl::removed()
     unsubscribeFromTopic();
 }
 
-void MqttSubscriberFbImpl::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg)
+void MqttSubscriberFbImpl::onSignalsMessage(const mqtt::MqttAsyncClient&, const mqtt::MqttMessage& msg)
 {
     processMessage(msg);
 }
@@ -80,7 +80,7 @@ void MqttSubscriberFbImpl::initProperties(const PropertyObjectPtr& config)
                 {
                     objPtr.addProperty(internalProp.clone());
                     objPtr.setPropertyValue(propName, prop.getValue());
-                    objPtr.getOnPropertyValueWrite(prop.getName()) += [this](PropertyObjectPtr& obj, PropertyValueEventArgsPtr& args)
+                    objPtr.getOnPropertyValueWrite(prop.getName()) += [this](PropertyObjectPtr&, PropertyValueEventArgsPtr&)
                     { propertyChanged(); };
                 }
             }

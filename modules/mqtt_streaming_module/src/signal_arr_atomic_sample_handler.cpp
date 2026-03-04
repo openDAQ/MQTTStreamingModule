@@ -116,12 +116,12 @@ ProcedureStatus SignalArrayAtomicSampleHandler::validateSignalContexts(const std
     return status;
 }
 
-ProcedureStatus SignalArrayAtomicSampleHandler::signalListChanged(std::vector<SignalContext>& signalContexts)
+ProcedureStatus SignalArrayAtomicSampleHandler::signalListChanged(std::vector<SignalContext>&)
 {
     return ProcedureStatus{true, {}};
 }
 
-ListPtr<IString> SignalArrayAtomicSampleHandler::getTopics(const std::vector<SignalContext>& signalContexts)
+ListPtr<IString> SignalArrayAtomicSampleHandler::getTopics(const std::vector<SignalContext>&)
 {
     auto res = List<IString>(String(buildTopicName()));
     return res;

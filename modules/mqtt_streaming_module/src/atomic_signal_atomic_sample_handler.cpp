@@ -119,9 +119,9 @@ MqttData AtomicSignalAtomicSampleHandler::processSignalContext(SignalContext& si
     return messages;
 }
 
-void AtomicSignalAtomicSampleHandler::processSignalDescriptorChanged(SignalContext& signalCtx,
-                                                   const DataDescriptorPtr& valueSigDesc,
-                                                   const DataDescriptorPtr& domainSigDesc)
+void AtomicSignalAtomicSampleHandler::processSignalDescriptorChanged(SignalContext&,
+                                                   const DataDescriptorPtr&,
+                                                   const DataDescriptorPtr&)
 {
 }
 

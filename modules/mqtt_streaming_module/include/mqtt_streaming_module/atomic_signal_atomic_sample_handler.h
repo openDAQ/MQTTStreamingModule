@@ -28,7 +28,7 @@ public:
 
     MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) override;
     ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const override;
-    ProcedureStatus signalListChanged(std::vector<SignalContext>& signalContexts) override
+    ProcedureStatus signalListChanged(std::vector<SignalContext>&) override
     {
         return ProcedureStatus{true, {}};
     };

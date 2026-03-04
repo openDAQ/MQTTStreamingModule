@@ -50,6 +50,7 @@ public:
                                       const std::vector<std::pair<T, std::string>>& statusMap,
                                       TypeManagerPtr typeManager)
     {
+        (void)statusName;
         if (!typeManager.hasType(typeName))
         {
             auto list = List<IString>();

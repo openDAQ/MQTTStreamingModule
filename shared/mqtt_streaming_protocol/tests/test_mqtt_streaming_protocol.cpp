@@ -129,6 +129,7 @@ TEST_F(MqttStreamingProtocolTest, PublishingWithoutDataControl)
     std::promise<bool> sendPromise;
     auto sendFuture = sendPromise.get_future();
     instance->setSentCb([promise = &sendPromise, token = &result.token, &sendDone](int receivedToken, bool result) {
+        (void)result;
         bool expected = false;
         if (receivedToken == *token) {
             if (sendDone.compare_exchange_strong(expected, true)) {
@@ -207,9 +208,8 @@ TEST_F(MqttStreamingProtocolTest, PublishingRetainedWithReceivingControl)
     std::atomic<bool> done{false};
     subscriber.instance
         ->setMessageArrivedCb(msg.getTopic(),
-                              [&msg,
-                               &done,
-                               promise = &receivedPromise](const mqtt::MqttAsyncClient &subscriber,
+                              [&done,
+                               promise = &receivedPromise](const mqtt::MqttAsyncClient &,
                                                            mqtt::MqttMessage &receivedMsg) {
                                   if (receivedMsg.getData().empty()) {
                                       return;
@@ -250,9 +250,8 @@ TEST_F(MqttStreamingProtocolTest, PublishingWithReceivingControl)
     std::atomic<bool> done{false};
     subscriber.instance
         ->setMessageArrivedCb(msg.getTopic(),
-                              [&msg,
-                               &done,
-                               promise = &receivedPromise](const mqtt::MqttAsyncClient &subscriber,
+                              [&done,
+                               promise = &receivedPromise](const mqtt::MqttAsyncClient &,
                                                            mqtt::MqttMessage &receivedMsg) {
                                   if (receivedMsg.getData().empty()) {
                                       return;

@@ -41,6 +41,8 @@ MqttStreamingModule::onCreateFunctionBlock(const StringPtr& id,
                                            const StringPtr& localId,
                                            const PropertyObjectPtr& config)
 {
+    (void)id;
+    (void)localId;
     if (!context.assigned())
         DAQ_THROW_EXCEPTION(InvalidParameterException, "Context is not available.");
 
