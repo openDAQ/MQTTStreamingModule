@@ -208,7 +208,7 @@ protected:
                 }
                 else if constexpr (std::is_floating_point_v<T>)
                 {
-                    sampleData = static_cast<T>(i) * 1.1 * ((i % 2 == 0) ? 1 : -1);
+                    sampleData = static_cast<T>(i) * static_cast<T>(1.1 * ((i % 2 == 0) ? 1 : -1));
                 }
             }
         }
