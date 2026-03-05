@@ -21,6 +21,10 @@ MqttSubscriberFbImpl::MqttSubscriberFbImpl(const ContextPtr& ctx,
     : FunctionBlock(type, ctx, parent, generateLocalId()),
       subscriber(subscriber),
       jsonDataWorker(loggerComponent),
+      topicForSubscribing(""),
+      nestedFbTypes(nullptr),
+      enablePreview(false),
+      previewIsString(false),
       waitingForData(false)
 {
     initComponentStatus();
