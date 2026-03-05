@@ -73,33 +73,39 @@ public:
         return data;
     }
 
-    void send(const std::vector<std::pair<T, uint64_t>>& data, size_t packSize = 3) const
+    auto send(const std::vector<std::pair<T, uint64_t>>& data, uint32_t delay = 0, size_t packSize = 3) const
     {
-        if (packSize == 0)
-            packSize = 1;
-        auto sendPacket = [this](SignalConfigPtr signal, const std::vector<T>& data, DataPacketPtr domainPacket)
-        {
-            auto dataPacket = DataPacketWithDomain(domainPacket, signal0.getDescriptor(), data.size());
-            copyData(dataPacket, data);
-            signal.sendPacket(dataPacket);
-        };
-        for (size_t i = 0; i < data.size(); i += packSize)
-        {
-            std::vector<T> dataPack;
-            std::vector<uint64_t> tsPack;
-            for (size_t j = 0; j < packSize && (j + i) < data.size(); j++)
-            {
-                dataPack.push_back(data[j + i].first);
-                tsPack.push_back(data[j + i].second);
-            }
+        return std::async(std::launch::async,
+                          [this, &data, packSize, delay]() mutable
+                          {
+                              if (packSize == 0)
+                                  packSize = 1;
+                              auto sendPacket = [this](SignalConfigPtr signal, const std::vector<T>& data, DataPacketPtr domainPacket)
+                              {
+                                  auto dataPacket = DataPacketWithDomain(domainPacket, signal0.getDescriptor(), data.size());
+                                  copyData(dataPacket, data);
+                                  signal.sendPacket(std::move(dataPacket));
+                              };
+                              for (size_t i = 0; i < data.size(); i += packSize)
+                              {
+                                  if (i != 0 && delay != 0)
+                                      std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+                                  std::vector<T> dataPack;
+                                  std::vector<uint64_t> tsPack;
+                                  for (size_t j = 0; j < packSize && (j + i) < data.size(); j++)
+                                  {
+                                      dataPack.push_back(data[j + i].first);
+                                      tsPack.push_back(data[j + i].second);
+                                  }
 
-            auto domainPacket = DataPacket(signal0.getDomainSignal().getDescriptor(), tsPack.size(), i);
-            memcpy(domainPacket.getData(), tsPack.data(), sizeof(uint64_t) * tsPack.size());
-            SignalConfigPtr dSignal = signal0.getDomainSignal();
-            dSignal.sendPacket(domainPacket);
-            sendPacket(signal0, dataPack, domainPacket);
-            sendPacket(signal1, dataPack, domainPacket);
-        }
+                                  auto domainPacket = DataPacket(signal0.getDomainSignal().getDescriptor(), tsPack.size(), i);
+                                  memcpy(domainPacket.getData(), tsPack.data(), sizeof(uint64_t) * tsPack.size());
+                                  SignalConfigPtr dSignal = signal0.getDomainSignal();
+                                  dSignal.sendPacket(domainPacket);
+                                  sendPacket(signal0, dataPack, domainPacket);
+                                  sendPacket(signal1, dataPack, domainPacket);
+                              }
+                          });
     }
 
 protected:
@@ -493,6 +499,8 @@ public:
                   SignalHelper<T>& helper,
                   const std::vector<std::pair<T, uint64_t>>& data, bool isMultimessage = false)
     {
+        constexpr uint32_t DELAY_BETWEEN_PACKS= 20;
+        constexpr uint32_t BASE_TIMEOUT = 5000;
         std::promise<bool> receivedPromise;
         auto receivedFuture = receivedPromise.get_future();
         std::atomic<bool> done{false};
@@ -501,12 +509,13 @@ public:
         else
             subscriber->expectMsgs(topic, messages, receivedPromise, done);
 
-        helper::utils::Timer receiveTimer(5000);
+        helper::utils::Timer receiveTimer(BASE_TIMEOUT + data.size() * DELAY_BETWEEN_PACKS);
         bool ok = subscriber->subscribe(topic, 2);
         if (!ok)
             return false;
-        helper.send(data);
+        auto future = helper.send(data, DELAY_BETWEEN_PACKS);
         auto status = receivedFuture.wait_for(receiveTimer.remain());
+        future.wait();
         subscriber = nullptr;
         ok = (status == std::future_status::ready) && receivedFuture.get();
         return ok;

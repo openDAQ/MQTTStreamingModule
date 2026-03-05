@@ -59,7 +59,6 @@ protected:
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
     Mqtt::Utils::Settings::MqttConnectionSettings connectionSettings;
 
-    std::promise<bool> connectedPromise;
     std::future<bool> connectedFuture;
     std::atomic<bool> connectedDone{false};
     std::unordered_map<std::string, std::string> deviceMap;         // device name -> signal list JSON
