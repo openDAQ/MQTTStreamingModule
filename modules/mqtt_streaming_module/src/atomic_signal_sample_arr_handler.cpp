@@ -154,14 +154,14 @@ std::string AtomicSignalSampleArrayHandler::toString(const std::string valueFiel
     return result;
 }
 
-MqttDataSample AtomicSignalSampleArrayHandler::processDataPackets(SignalContext& signalContext)
+MqttDataSamplePtr AtomicSignalSampleArrayHandler::processDataPackets(SignalContext& signalContext)
 {
     if (signalBuffers[signalContext.inputPort.getSignal().getGlobalId().toStdString()].data.empty())
-        return MqttDataSample{nullptr, "", ""};
+        std::make_shared<MqttDataSample<std::string>>();
     const auto signal = signalContext.inputPort.getSignal();
     std::string valueFieldName = buildValueFieldName(signalNamesMode, signal);
     auto msg = toString(valueFieldName, signalContext);
     std::string topic = buildTopicName(signalContext);
-    return MqttDataSample{signalContext.previewSignal, topic, msg};
+    return std::make_shared<MqttDataSample<std::string>>(signalContext.previewSignal, std::move(topic), std::move(msg));
 }
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

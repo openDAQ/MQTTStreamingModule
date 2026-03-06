@@ -558,15 +558,16 @@ void MqttPublisherFbImpl::readerLoop()
 
 void MqttPublisherFbImpl::sendMessages(const MqttData& data)
 {
-    for (const auto& [signal, topic, msg] : data.data)
+    for (const auto& samplePtr : data.data)
     {
-        if (signal.assigned())
+        auto prevSig = samplePtr->getPreviewSignal();
+        if (prevSig.assigned())
         {
-            const auto outputPacket = BinaryDataPacket(nullptr, signal.getDescriptor(), msg.size());
-            memcpy(outputPacket.getData(), msg.data(), msg.size());
-            signal.sendPacket(outputPacket);
+            const auto outputPacket = BinaryDataPacket(nullptr, prevSig.getDescriptor(), samplePtr->getDataSize());
+            memcpy(outputPacket.getData(), samplePtr->getDataPointer(), samplePtr->getDataSize());
+            prevSig.sendPacket(outputPacket);
         }
-        auto status = mqttClient->publish(topic, (void*)msg.c_str(), msg.length(), config.qos);
+        auto status = mqttClient->publish(samplePtr->getTopic(), samplePtr->getDataPointer(), samplePtr->getDataSize(), config.qos);
         if (!status.success)
         {
             hasSkippedMsg = true;

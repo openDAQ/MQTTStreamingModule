@@ -49,7 +49,8 @@ MqttData SignalArrayAtomicSampleHandler::processSignalContexts(std::vector<Signa
             continue;
         std::string topic = buildTopicName();
         std::string msg = messageFromArray(array);
-        messages.data.emplace_back(MqttDataSample{signalContexts[0].previewSignal, std::move(topic), std::move(msg)});
+        messages.data.emplace_back(
+            std::make_shared<MqttDataSample<std::string>>(signalContexts[0].previewSignal, std::move(topic), std::move(msg)));
     }
     return messages;
 }

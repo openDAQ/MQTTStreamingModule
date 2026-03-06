@@ -39,7 +39,7 @@ protected:
     virtual MqttData processSignalContext(SignalContext& signalContext);
     void
     processSignalDescriptorChanged(SignalContext& signalCtx, const DataDescriptorPtr& valueSigDesc, const DataDescriptorPtr& domainSigDesc);
-    MqttDataSample processDataPacket(SignalContext& signalContext, const DataPacketPtr& dataPacket, size_t offset);
+    MqttDataSamplePtr processDataPacket(SignalContext& signalContext, const DataPacketPtr& dataPacket, size_t offset);
     std::string toString(const std::string valueFieldName, daq::DataPacketPtr packet, size_t offset);
     std::string buildTopicName(const SignalContext& signalContext);
 

@@ -136,13 +136,13 @@ std::string AtomicSignalAtomicSampleHandler::buildTopicName(const SignalContext&
     return signalContext.inputPort.getSignal().getGlobalId().toStdString();
 }
 
-MqttDataSample AtomicSignalAtomicSampleHandler::processDataPacket(SignalContext& signalContext, const DataPacketPtr& dataPacket, size_t offset)
+MqttDataSamplePtr AtomicSignalAtomicSampleHandler::processDataPacket(SignalContext& signalContext, const DataPacketPtr& dataPacket, size_t offset)
 {
     const auto signal = signalContext.inputPort.getSignal();
     std::string valueFieldName = buildValueFieldName(signalNamesMode, signal);
     auto msg = toString(valueFieldName, dataPacket, offset);
     std::string topic = buildTopicName(signalContext);
-    return MqttDataSample{signalContext.previewSignal, topic, msg};
+    return std::make_shared<MqttDataSample<std::string>>(signalContext.previewSignal, std::move(topic), std::move(msg));
 }
 
 ListPtr<IString> AtomicSignalAtomicSampleHandler::getTopics(const std::vector<SignalContext>& signalContexts)
