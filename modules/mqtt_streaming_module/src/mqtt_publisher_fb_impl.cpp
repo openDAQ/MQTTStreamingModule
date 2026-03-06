@@ -307,7 +307,7 @@ void MqttPublisherFbImpl::updateCoreEventCallbacks()
             }
             else
             {
-                signalMap.insert(std::move(signalMapCopy.extract(sig.getGlobalId().toStdString())));
+                signalMap.insert(signalMapCopy.extract(sig.getGlobalId().toStdString()));
             }
         }
         ++it;
@@ -327,7 +327,7 @@ void MqttPublisherFbImpl::clearCoreEventCallbacks(const std::unordered_map<std::
 
 void MqttPublisherFbImpl::updateStatuses()
 {
-    auto buildErrorString = [this](const std::vector<std::string>& errors)
+    auto buildErrorString = [](const std::vector<std::string>& errors)
     {
         std::string allMessages;
         for (const auto& msg : errors)
