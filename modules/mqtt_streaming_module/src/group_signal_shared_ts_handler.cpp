@@ -204,7 +204,7 @@ TimestampTickStruct GroupSignalSharedTsHandler::domainToTs(const MultiReaderStat
 
 bool GroupSignalSharedTsHandler::processEvents(const MultiReaderStatusPtr& status)
 {
-    bool result;
+    bool result = false;
     if (status.getReadStatus() == ReadStatus::Event)
     {
         bool descChanged = std::any_of(status.getEventPackets().begin(),
@@ -217,7 +217,7 @@ bool GroupSignalSharedTsHandler::processEvents(const MultiReaderStatusPtr& statu
         result = !firstDescriptorChange && descChanged;
         firstDescriptorChange &= !descChanged;
     }
-    result &= !status.getValid();
+    result |= !status.getValid();
     return result;
 }
 
