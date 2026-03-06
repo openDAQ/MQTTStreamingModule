@@ -36,6 +36,7 @@ public:
 
 protected:
     const std::string topic;
+    SignalValueJSONKey signalNamesMode;
 
     std::string toString(const std::string valueFieldName, daq::DataPacketPtr packet);
     std::string buildTopicName();

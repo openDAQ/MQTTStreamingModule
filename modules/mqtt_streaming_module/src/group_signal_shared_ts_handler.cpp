@@ -11,9 +11,10 @@
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
 GroupSignalSharedTsHandler::GroupSignalSharedTsHandler(WeakRefPtr<IFunctionBlock> parentFb, SignalValueJSONKey signalNamesMode, std::string topic)
-    : HandlerBase(parentFb, signalNamesMode),
+    : HandlerBase(parentFb),
       buffersSize(1000),
-      topic(topic)
+      topic(topic),
+      signalNamesMode(signalNamesMode)
 {
 }
 
