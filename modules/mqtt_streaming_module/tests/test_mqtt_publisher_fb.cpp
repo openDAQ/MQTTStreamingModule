@@ -1,13 +1,14 @@
 #include "MqttAsyncClientWrapper.h"
 #include "mqtt_streaming_helper/timer.h"
 #include "mqtt_streaming_module/mqtt_publisher_fb_impl.h"
+#include "opendaq/binary_data_packet_factory.h"
 #include "test_daq_test_helper.h"
 #include <coreobjects/property_factory.h>
 #include <coreobjects/property_object_factory.h>
+#include <iomanip>
 #include <mqtt_streaming_module/constants.h>
 #include <opendaq/reader_factory.h>
 #include <testutils/testutils.h>
-#include <iomanip>
 
 using namespace daq;
 using namespace daq::modules::mqtt_streaming_module;
@@ -251,6 +252,7 @@ public:
                            uint32_t readPeriod = 20)
     {
         auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        config.setPropertyValue(PROPERTY_NAME_PUB_MODE, 0);
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, multiTopic ? 1 : 0);
         config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES, groupV ? True : False);
         config.setPropertyValue(PROPERTY_NAME_PUB_VALUE_FIELD_NAME, useSignalNames ? 2 : 0);
@@ -259,6 +261,17 @@ public:
         config.setPropertyValue(PROPERTY_NAME_PUB_READ_PERIOD, readPeriod);
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, topicName);
         config.setPropertyValue(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, True);
+        fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config);
+    }
+
+    void CreateRawPublisherFB(int qos = 2,
+                              uint32_t readPeriod = 20)
+    {
+        auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        config.setPropertyValue(PROPERTY_NAME_PUB_MODE, 1);
+        config.setPropertyValue(PROPERTY_NAME_PUB_QOS, qos);
+        config.setPropertyValue(PROPERTY_NAME_PUB_READ_PERIOD, readPeriod);
+        config.setPropertyValue(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, False);
         fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config);
     }
 
@@ -508,6 +521,30 @@ public:
             subscriber->expectMultiMsgs(topic, messages, receivedPromise, done);
         else
             subscriber->expectMsgs(topic, messages, receivedPromise, done);
+
+        helper::utils::Timer receiveTimer(BASE_TIMEOUT + data.size() * DELAY_BETWEEN_PACKS);
+        bool ok = subscriber->subscribe(topic, 2);
+        if (!ok)
+            return false;
+        auto future = helper.send(data, DELAY_BETWEEN_PACKS);
+        auto status = receivedFuture.wait_for(receiveTimer.remain());
+        future.wait();
+        subscriber = nullptr;
+        ok = (status == std::future_status::ready) && receivedFuture.get();
+        return ok;
+    }
+
+    template <typename T>
+    bool transfer(const std::string& topic,
+                  SignalHelper<T>& helper,
+                  const std::vector<std::pair<T, uint64_t>>& data)
+    {
+        constexpr uint32_t DELAY_BETWEEN_PACKS= 20;
+        constexpr uint32_t BASE_TIMEOUT = 5000;
+        std::promise<bool> receivedPromise;
+        auto receivedFuture = receivedPromise.get_future();
+        std::atomic<bool> done{false};
+        subscriber->expectRawMsgs<T>(topic, data, receivedPromise, done);
 
         helper::utils::Timer receiveTimer(BASE_TIMEOUT + data.size() * DELAY_BETWEEN_PACKS);
         bool ok = subscriber->subscribe(topic, 2);
@@ -1395,6 +1432,173 @@ TEST_P(MqttPublisherFbPTest, TransferSharedTsArr)
             ASSERT_EQ(messages, dataToReceive);
         },
         param);
+}
+
+TEST_P(MqttPublisherFbPTest, TransferRaw)
+{
+    constexpr size_t sampleCnt = 15;
+    H param = GetParam();
+    std::visit(
+        [&](auto& templateParam)
+        {
+            SignalHelper<std::decay_t<decltype(templateParam)>> help{};
+            StartUp();
+            ASSERT_NO_THROW(CreateRawPublisherFB());
+
+            fb.getInputPorts()[0].connect(help.signal0);
+
+            ASSERT_TRUE(CreateSubscriber());
+
+            const auto data = help.generateTestData(sampleCnt);
+            const std::string topic = help.signal0.getGlobalId().toStdString();
+            auto ok = transfer(topic, help, data);
+            ASSERT_TRUE(ok);
+            ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+                      Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+            ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+                      EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                              static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
+                                              daqInstance.getContext().getTypeManager()));
+            ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_PUB_STATUS_NAME),
+                      EnumerationWithIntValue(MQTT_PUB_FB_PUB_STATUS_TYPE,
+                                              static_cast<Int>(MqttPublisherFbImpl::PublishingStatus::Ok),
+                                              daqInstance.getContext().getTypeManager()));
+        },
+        param);
+}
+
+TEST_F(MqttPublisherFbTest, TransferRawString)
+{
+    constexpr size_t sampleCnt = 15;
+
+    SignalHelper<std::string> help{};
+    StartUp();
+    ASSERT_NO_THROW(CreateRawPublisherFB());
+
+    fb.getInputPorts()[0].connect(help.signal0);
+
+    ASSERT_TRUE(CreateSubscriber());
+
+    const auto messages = std::vector<std::string>{{"String 0"}, {"Long string 1 with a message that exceeds the usual length"}, {"Просто строка"}, {"S"}};
+    std::vector<std::vector<uint8_t>> data;
+    for (const auto& msg : messages)
+    {
+        data.emplace_back(msg.cbegin(), msg.cend());
+    }
+    const std::string topic = help.signal0.getGlobalId().toStdString();
+
+    constexpr uint32_t DELAY_BETWEEN_PACKS= 20;
+    constexpr uint32_t BASE_TIMEOUT = 5000;
+    std::promise<bool> receivedPromise;
+    auto receivedFuture = receivedPromise.get_future();
+    std::atomic<bool> done{false};
+    subscriber->expectRawMsgsBinaryData(topic, data, receivedPromise, done);
+
+    bool ok = subscriber->subscribe(topic, 2);
+    ASSERT_TRUE(ok);
+
+    auto future = std::async(std::launch::async,
+                             [&messages, delay = DELAY_BETWEEN_PACKS, &help]()
+                             {
+                                 for (size_t i = 0; i < messages.size(); ++i)
+                                 {
+                                     if (i != 0 && delay != 0)
+                                         std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+
+                                     auto domainPacket = DataPacket(help.signal0.getDomainSignal().getDescriptor(), 1, i);
+                                     uint64_t ts = DataPacket(help.signal0.getDomainSignal().getDescriptor(), 1, i).getLastValue();
+                                     *(reinterpret_cast<uint64_t*>(domainPacket.getData())) = ts;
+
+                                     auto dataPacket = BinaryDataPacket(domainPacket, help.signal0.getDescriptor(), messages[i].size());
+                                     std::memcpy(dataPacket.getRawData(), messages[i].data(), messages[i].size());
+                                     help.signal0.sendPacket(std::move(dataPacket));
+                                 }
+                             });
+    helper::utils::Timer receiveTimer(BASE_TIMEOUT + data.size() * DELAY_BETWEEN_PACKS);
+    auto status = receivedFuture.wait_for(receiveTimer.remain());
+    future.wait();
+    subscriber = nullptr;
+
+    ASSERT_TRUE(status == std::future_status::ready);
+    ASSERT_TRUE(receivedFuture.get());
+    ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+    ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+              EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                      static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
+                                      daqInstance.getContext().getTypeManager()));
+    ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_PUB_STATUS_NAME),
+              EnumerationWithIntValue(MQTT_PUB_FB_PUB_STATUS_TYPE,
+                                      static_cast<Int>(MqttPublisherFbImpl::PublishingStatus::Ok),
+                                      daqInstance.getContext().getTypeManager()));
+
+}
+
+
+TEST_F(MqttPublisherFbTest, TransferRawBinaryData)
+{
+    constexpr size_t sampleCnt = 15;
+
+    SignalHelper<BinarySample> help{};
+    StartUp();
+    ASSERT_NO_THROW(CreateRawPublisherFB());
+
+    fb.getInputPorts()[0].connect(help.signal0);
+
+    ASSERT_TRUE(CreateSubscriber());
+
+    const auto data = std::vector<std::vector<uint8_t>>{std::vector<uint8_t>{0x01, 0x02, 0x03, 0x04, 0x05},
+                                                        std::vector<uint8_t>{0x11, 0x12, 0x13, 0x14},
+                                                        std::vector<uint8_t>{0x21, 0x22, 0x23, 0x24, 0x25, 0x26},
+                                                        std::vector<uint8_t>{0x31},
+                                                        std::vector<uint8_t>{0x41, 0x42, 0x43, 0x44, 0x45}};
+    const std::string topic = help.signal0.getGlobalId().toStdString();
+
+    constexpr uint32_t DELAY_BETWEEN_PACKS= 20;
+    constexpr uint32_t BASE_TIMEOUT = 5000;
+    std::promise<bool> receivedPromise;
+    auto receivedFuture = receivedPromise.get_future();
+    std::atomic<bool> done{false};
+    subscriber->expectRawMsgsBinaryData(topic, data, receivedPromise, done);
+
+    bool ok = subscriber->subscribe(topic, 2);
+    ASSERT_TRUE(ok);
+
+    auto future = std::async(std::launch::async,
+                             [&data, delay = DELAY_BETWEEN_PACKS, &help]()
+                             {
+                                 for (size_t i = 0; i < data.size(); ++i)
+                                 {
+                                     if (i != 0 && delay != 0)
+                                         std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+
+                                     auto domainPacket = DataPacket(help.signal0.getDomainSignal().getDescriptor(), 1, i);
+                                     uint64_t ts = DataPacket(help.signal0.getDomainSignal().getDescriptor(), 1, i).getLastValue();
+                                     *(reinterpret_cast<uint64_t*>(domainPacket.getData())) = ts;
+
+                                     auto dataPacket = BinaryDataPacket(domainPacket, help.signal0.getDescriptor(), data[i].size());
+                                     std::memcpy(dataPacket.getRawData(), data[i].data(), data[i].size());
+                                     help.signal0.sendPacket(std::move(dataPacket));
+                                 }
+                             });
+    helper::utils::Timer receiveTimer(BASE_TIMEOUT + data.size() * DELAY_BETWEEN_PACKS);
+    auto status = receivedFuture.wait_for(receiveTimer.remain());
+    future.wait();
+    subscriber = nullptr;
+
+    ASSERT_TRUE(status == std::future_status::ready);
+    ASSERT_TRUE(receivedFuture.get());
+    ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+    ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
+              EnumerationWithIntValue(MQTT_PUB_FB_SET_STATUS_TYPE,
+                                      static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
+                                      daqInstance.getContext().getTypeManager()));
+    ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_PUB_STATUS_NAME),
+              EnumerationWithIntValue(MQTT_PUB_FB_PUB_STATUS_TYPE,
+                                      static_cast<Int>(MqttPublisherFbImpl::PublishingStatus::Ok),
+                                      daqInstance.getContext().getTypeManager()));
+
 }
 
 TEST_P(MqttPublisherFbPTest, DISABLED_TransferMultimessage)
