@@ -554,7 +554,8 @@ TEST_F(MqttSubscriberFbTest, CheckRawFbFullDataTransferWithReconfiguring)
 
     auto readerLambda = [&reader, &dataToReceive]()
     {
-        while (!reader.getEmpty())
+        helper::utils::Timer tmr(1000, true);
+        while (!reader.getEmpty() || !tmr.expired())
         {
             auto packet = reader.read();
             if (const auto eventPacket = packet.asPtrOrNull<IEventPacket>(); eventPacket.assigned())

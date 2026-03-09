@@ -162,7 +162,7 @@ PublisherFbConfig MqttPublisherFbImpl::getFbConfig() const
     return config;
 }
 
-void MqttPublisherFbImpl::onConnected(const InputPortPtr& inputPort)
+void MqttPublisherFbImpl::onConnected(const InputPortPtr&)
 {
     auto lock = this->getRecursiveConfigLock();
     auto lockProcessing = std::scoped_lock(processingMutex);
@@ -174,7 +174,7 @@ void MqttPublisherFbImpl::onConnected(const InputPortPtr& inputPort)
     updateStatuses();
 }
 
-void MqttPublisherFbImpl::onDisconnected(const InputPortPtr& inputPort)
+void MqttPublisherFbImpl::onDisconnected(const InputPortPtr&)
 {
     auto lock = this->getRecursiveConfigLock();
     auto lockProcessing = std::scoped_lock(processingMutex);
@@ -410,7 +410,7 @@ void MqttPublisherFbImpl::initProperties(const PropertyObjectPtr& config)
             {
                 objPtr.addProperty(internalProp.clone());
                 objPtr.setPropertyValue(propName, prop.getValue());
-                objPtr.getOnPropertyValueWrite(prop.getName()) += [this](PropertyObjectPtr& obj, PropertyValueEventArgsPtr& args)
+                objPtr.getOnPropertyValueWrite(prop.getName()) += [this](PropertyObjectPtr&, PropertyValueEventArgsPtr&)
                 { propertyChanged(); };
             }
         }

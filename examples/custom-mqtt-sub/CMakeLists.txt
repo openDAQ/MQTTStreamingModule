@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
+opendaq_set_cmake_folder_context(TARGET_FOLDER_NAME)
 
 set(EXAMPLE_PROJECT_NAME "custom-mqtt-sub")
 

@@ -19,6 +19,7 @@
 #include <opendaq/function_block_ptr.h>
 #include <mqtt_streaming_module/handler_base.h>
 #include <opendaq/multi_reader_ptr.h>
+#include <set>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -70,6 +71,18 @@ protected:
     static std::string messageFromFields(const std::vector<std::string>& fields);
     static TimestampTickStruct domainToTs(const MultiReaderStatusPtr status);
     bool processEvents(const daq::MultiReaderStatusPtr& status);    // true if descriptor changed or invalid reader
+
+
+    inline static const std::set<SampleType> allowedSampleTypes{SampleType::Float64,
+                                                                SampleType::Float32,
+                                                                SampleType::UInt8,
+                                                                SampleType::Int8,
+                                                                SampleType::UInt16,
+                                                                SampleType::Int16,
+                                                                SampleType::UInt32,
+                                                                SampleType::Int32,
+                                                                SampleType::UInt64,
+                                                                SampleType::Int64};
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

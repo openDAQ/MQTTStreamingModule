@@ -16,12 +16,12 @@ template <typename T>
 class SignalHelper
 {
 public:
-    ModulePtr module;
+    ModulePtr module = nullptr;
 
-    SignalConfigPtr signal0;
-    SignalConfigPtr signal1;
-    SignalConfigPtr signalWithoutDomain;
-    ContextPtr context;
+    SignalConfigPtr signal0 = nullptr;
+    SignalConfigPtr signal1 = nullptr;
+    SignalConfigPtr signalWithoutDomain = nullptr;
+    ContextPtr context = nullptr;
     int cnt = 0;
 
     SignalHelper()
@@ -73,33 +73,39 @@ public:
         return data;
     }
 
-    void send(const std::vector<std::pair<T, uint64_t>>& data, size_t packSize = 3) const
+    auto send(const std::vector<std::pair<T, uint64_t>>& data, uint32_t delay = 0, size_t packSize = 3) const
     {
-        if (packSize == 0)
-            packSize = 1;
-        auto sendPacket = [this](SignalConfigPtr signal, const std::vector<T>& data, DataPacketPtr domainPacket)
-        {
-            auto dataPacket = DataPacketWithDomain(domainPacket, signal0.getDescriptor(), data.size());
-            copyData(dataPacket, data);
-            signal.sendPacket(dataPacket);
-        };
-        for (size_t i = 0; i < data.size(); i += packSize)
-        {
-            std::vector<T> dataPack;
-            std::vector<uint64_t> tsPack;
-            for (size_t j = 0; j < packSize && (j + i) < data.size(); j++)
-            {
-                dataPack.push_back(data[j + i].first);
-                tsPack.push_back(data[j + i].second);
-            }
+        return std::async(std::launch::async,
+                          [this, &data, packSize, delay]() mutable
+                          {
+                              if (packSize == 0)
+                                  packSize = 1;
+                              auto sendPacket = [this](SignalConfigPtr signal, const std::vector<T>& data, DataPacketPtr domainPacket)
+                              {
+                                  auto dataPacket = DataPacketWithDomain(domainPacket, signal0.getDescriptor(), data.size());
+                                  copyData(dataPacket, data);
+                                  signal.sendPacket(std::move(dataPacket));
+                              };
+                              for (size_t i = 0; i < data.size(); i += packSize)
+                              {
+                                  if (i != 0 && delay != 0)
+                                      std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+                                  std::vector<T> dataPack;
+                                  std::vector<uint64_t> tsPack;
+                                  for (size_t j = 0; j < packSize && (j + i) < data.size(); j++)
+                                  {
+                                      dataPack.push_back(data[j + i].first);
+                                      tsPack.push_back(data[j + i].second);
+                                  }
 
-            auto domainPacket = DataPacket(signal0.getDomainSignal().getDescriptor(), tsPack.size(), i);
-            memcpy(domainPacket.getData(), tsPack.data(), sizeof(uint64_t) * tsPack.size());
-            SignalConfigPtr dSignal = signal0.getDomainSignal();
-            dSignal.sendPacket(domainPacket);
-            sendPacket(signal0, dataPack, domainPacket);
-            sendPacket(signal1, dataPack, domainPacket);
-        }
+                                  auto domainPacket = DataPacket(signal0.getDomainSignal().getDescriptor(), tsPack.size(), i);
+                                  memcpy(domainPacket.getData(), tsPack.data(), sizeof(uint64_t) * tsPack.size());
+                                  SignalConfigPtr dSignal = signal0.getDomainSignal();
+                                  dSignal.sendPacket(domainPacket);
+                                  sendPacket(signal0, dataPack, domainPacket);
+                                  sendPacket(signal1, dataPack, domainPacket);
+                              }
+                          });
     }
 
 protected:
@@ -208,7 +214,7 @@ protected:
                 }
                 else if constexpr (std::is_floating_point_v<T>)
                 {
-                    sampleData = static_cast<T>(i) * 1.1 * ((i % 2 == 0) ? 1 : -1);
+                    sampleData = static_cast<T>(i) * static_cast<T>(1.1 * ((i % 2 == 0) ? 1 : -1));
                 }
             }
         }
@@ -225,8 +231,8 @@ namespace daq::modules::mqtt_streaming_module
 class MqttPublisherFbHelper : public DaqTestHelper
 {
 public:
-    daq::FunctionBlockPtr fb;
-    std::unique_ptr<MqttAsyncClientWrapper> subscriber;
+    daq::FunctionBlockPtr fb = nullptr;
+    std::unique_ptr<MqttAsyncClientWrapper> subscriber = nullptr;
 
     void CreatePublisherFB()
     {
@@ -493,6 +499,8 @@ public:
                   SignalHelper<T>& helper,
                   const std::vector<std::pair<T, uint64_t>>& data, bool isMultimessage = false)
     {
+        constexpr uint32_t DELAY_BETWEEN_PACKS= 20;
+        constexpr uint32_t BASE_TIMEOUT = 5000;
         std::promise<bool> receivedPromise;
         auto receivedFuture = receivedPromise.get_future();
         std::atomic<bool> done{false};
@@ -501,12 +509,13 @@ public:
         else
             subscriber->expectMsgs(topic, messages, receivedPromise, done);
 
-        helper::utils::Timer receiveTimer(5000);
+        helper::utils::Timer receiveTimer(BASE_TIMEOUT + data.size() * DELAY_BETWEEN_PACKS);
         bool ok = subscriber->subscribe(topic, 2);
         if (!ok)
             return false;
-        helper.send(data);
+        auto future = helper.send(data, DELAY_BETWEEN_PACKS);
         auto status = receivedFuture.wait_for(receiveTimer.remain());
+        future.wait();
         subscriber = nullptr;
         ok = (status == std::future_status::ready) && receivedFuture.get();
         return ok;
@@ -530,25 +539,10 @@ class MqttPublisherFbTest : public testing::Test, public MqttPublisherFbHelper
 {
 };
 
-using H = std::variant<SignalHelper<double>,
-                       SignalHelper<float>,
-                       SignalHelper<int64_t>,
-                       SignalHelper<uint64_t>,
-                       SignalHelper<int32_t>,
-                       SignalHelper<uint32_t>,
-                       SignalHelper<int16_t>,
-                       SignalHelper<uint16_t>,
-                       SignalHelper<int8_t>,
-                       SignalHelper<uint8_t>>;
-
-template <typename Helper>
-struct HelperValueType
-{
-    using type = void;
-};
+using H = std::variant<double, float, int64_t, uint64_t, int32_t, uint32_t, int16_t, uint16_t, int8_t, uint8_t>;
 
 template <typename T>
-struct HelperValueType<SignalHelper<T>>
+struct HelperValueType
 {
     using type = T;
 };
@@ -579,6 +573,7 @@ std::string ParamNameGenerator(const testing::TestParamInfo<H>& info)
         },
         info.param);
 }
+
 class MqttPublisherFbPTest : public ::testing::TestWithParam<H>, public MqttPublisherFbHelper
 {
 };
@@ -662,7 +657,7 @@ TEST_F(MqttPublisherFbTest, Config)
     ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
-    SignalHelper<double> helper;
+    SignalHelper<double> helper{};
     fb.getInputPorts()[0].connect(helper.signal0);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
@@ -695,7 +690,7 @@ TEST_F(MqttPublisherFbTest, Creation)
     StartUp();
     daq::FunctionBlockPtr fb;
     ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME));
-    SignalHelper<double> helper;
+    SignalHelper<double> helper{};
     fb.getInputPorts()[0].connect(helper.signal0);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
@@ -708,7 +703,7 @@ TEST_F(MqttPublisherFbTest, Creation)
 TEST_F(MqttPublisherFbTest, TwoFbCreation)
 {
     StartUp();
-    SignalHelper<double> helper;
+    SignalHelper<double> helper{};
     {
         daq::FunctionBlockPtr fb;
         ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME));
@@ -744,7 +739,7 @@ TEST_F(MqttPublisherFbTest, CreationWithDefaultConfig)
     ASSERT_EQ(signals.getCount(), 0u);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
-    SignalHelper<double> helper;
+    SignalHelper<double> helper{};
     fb.getInputPorts()[0].connect(helper.signal0);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
@@ -761,7 +756,7 @@ TEST_F(MqttPublisherFbTest, CreationWithPartialConfig)
     auto config = PropertyObject();
     config.addProperty(IntProperty(PROPERTY_NAME_PUB_READ_PERIOD, 20));
     ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
-    SignalHelper<double> helper;
+    SignalHelper<double> helper{};
     fb.getInputPorts()[0].connect(helper.signal0);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
@@ -1035,7 +1030,7 @@ TEST_F(MqttPublisherFbTest, WrongConfig)
                                       daqInstance.getContext().getTypeManager()));
 
     fb.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0);
-    SignalHelper<double> helper;
+    SignalHelper<double> helper{};
     fb.getInputPorts()[0].connect(helper.signal0);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
@@ -1134,8 +1129,9 @@ TEST_P(MqttPublisherFbPTest, TransferSingle1)
     const size_t sampleCnt = 15;
     H param = GetParam();
     std::visit(
-        [&](auto& help)
+        [&](auto& templateParam)
         {
+            SignalHelper<std::decay_t<decltype(templateParam)>> help{};
             StartUp();
 
             ASSERT_NO_THROW(CreatePublisherFB());
@@ -1189,8 +1185,9 @@ TEST_P(MqttPublisherFbPTest, TransferSingleGroupValues)
     constexpr size_t packSize = 3;
     H param = GetParam();
     std::visit(
-        [&](auto& help)
+        [&](auto& templateParam)
         {
+            SignalHelper<std::decay_t<decltype(templateParam)>> help{};
             StartUp();
 
             ASSERT_NO_THROW(CreatePublisherFB(false, true, false, buildTopicName(), packSize));
@@ -1245,8 +1242,9 @@ TEST_P(MqttPublisherFbPTest, TransferSharedTs)
     constexpr size_t sampleCnt = 15;
     H param = GetParam();
     std::visit(
-        [&](auto& help)
+        [&](auto& templateParam)
         {
+            SignalHelper<std::decay_t<decltype(templateParam)>> help{};
             StartUp();
             const std::string topic = buildTopicName();
             ASSERT_NO_THROW(CreatePublisherFB(true, false, false, topic));
@@ -1302,8 +1300,9 @@ TEST_P(MqttPublisherFbPTest, TransferSharedTsArr)
     constexpr size_t packSize = 3;
     H param = GetParam();
     std::visit(
-        [&](auto& help)
+        [&](auto& templateParam)
         {
+            SignalHelper<std::decay_t<decltype(templateParam)>> help{};
             StartUp();
             const std::string topic = buildTopicName();
             ASSERT_NO_THROW(CreatePublisherFB(true, true, false, topic, packSize));
@@ -1358,8 +1357,9 @@ TEST_P(MqttPublisherFbPTest, DISABLED_TransferMultimessage)
     constexpr size_t sampleCnt = 15;
     H param = GetParam();
     std::visit(
-        [&](auto& help)
+        [&](auto& templateParam)
         {
+            SignalHelper<std::decay_t<decltype(templateParam)>> help{};
             StartUp();
             const std::string topic = buildTopicName();
             ASSERT_NO_THROW(CreatePublisherFB(true, false, false, topic));
@@ -1389,16 +1389,16 @@ TEST_P(MqttPublisherFbPTest, DISABLED_TransferMultimessage)
 
 INSTANTIATE_TEST_SUITE_P(MyParams,
                          MqttPublisherFbPTest,
-                         ::testing::Values(H{SignalHelper<double>{}},
-                                           H{SignalHelper<float>{}},
-                                           H{SignalHelper<int64_t>{}},
-                                           H{SignalHelper<uint64_t>{}},
-                                           H{SignalHelper<int32_t>{}},
-                                           H{SignalHelper<uint32_t>{}},
-                                           H{SignalHelper<int16_t>{}},
-                                           H{SignalHelper<uint16_t>{}},
-                                           H{SignalHelper<int8_t>{}},
-                                           H{SignalHelper<uint8_t>{}}),
+                         ::testing::Values(H{double{}},
+                                           H{float{}},
+                                           H{int64_t{}},
+                                           H{uint64_t{}},
+                                           H{int32_t{}},
+                                           H{uint32_t{}},
+                                           H{int16_t{}},
+                                           H{uint16_t{}},
+                                           H{int8_t{}},
+                                           H{uint8_t{}}),
                          ParamNameGenerator);
 
 TEST_F(MqttPublisherFbTest, DISABLED_MultiReaderTest)

@@ -36,7 +36,7 @@ set(SRC_Srcs module_dll.cpp
              signal_arr_atomic_sample_handler.cpp
 )
 
-prepend_include(${TARGET_FOLDER_NAME} SRC_Include)
+opendaq_prepend_include(${TARGET_FOLDER_NAME} SRC_Include)
 
 source_group("common" FILES ${MODULE_HEADERS_DIR}/common.h
                             ${MODULE_HEADERS_DIR}/constants.h
@@ -84,18 +84,14 @@ add_library(${LIB_NAME} SHARED ${SRC_Include}
 )
 add_library(${SDK_TARGET_NAMESPACE}::${LIB_NAME} ALIAS ${LIB_NAME})
 
-if(OPENDAQ_MQTT_ENABLE_TESTS)
+if(${REPO_OPTION_PREFIX}_ENABLE_TESTS)
     target_compile_definitions(${LIB_NAME}
-        PRIVATE OPENDAQ_MQTT_ENABLE_TESTS
+        PRIVATE ${REPO_OPTION_PREFIX}_ENABLE_TESTS
     )
 endif()
 
 if (MSVC)
     target_compile_options(${LIB_NAME} PRIVATE /bigobj)
-endif()
-
-if (WIN32)
-    target_compile_definitions(${LIB_NAME} PRIVATE OPENDAQ_MODULE_DLL_IMPORT)
 endif()
 
 target_link_libraries(${LIB_NAME} PUBLIC  daq::opendaq
@@ -110,5 +106,5 @@ target_include_directories(${LIB_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_
 )
 
 opendaq_set_module_properties(${LIB_NAME} ${PROJECT_VERSION_MAJOR})
-create_version_header(${LIB_NAME})
+opendaq_generate_version_header(${LIB_NAME})
 

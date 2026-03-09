@@ -53,13 +53,12 @@ protected:
 
     DictObjectPtr<IDict, IString, IFunctionBlockType> nestedFbTypes;
 
+    int connectTimeout;
     StatusAdaptor connectionStatus;
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
     Mqtt::Utils::Settings::MqttConnectionSettings connectionSettings;
-    int connectTimeout;
 
-    std::promise<bool> connectedPromise;
     std::future<bool> connectedFuture;
     std::atomic<bool> connectedDone{false};
     std::unordered_map<std::string, std::string> deviceMap;         // device name -> signal list JSON

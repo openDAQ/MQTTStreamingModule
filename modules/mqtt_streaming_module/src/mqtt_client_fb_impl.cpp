@@ -13,13 +13,13 @@ std::atomic<int> MqttClientFbImpl::localIndex = 0;
 
 MqttClientFbImpl::MqttClientFbImpl(const ContextPtr& ctx, const ComponentPtr& parent, const PropertyObjectPtr& config)
     : FunctionBlock(CreateType(), ctx, parent, generateLocalId()),
-      subscriber(std::make_shared<mqtt::MqttAsyncClient>()),
       connectTimeout(0),
       connectionStatus("ConnectionStatusType",
                        MQTT_CLIENT_FB_CON_STATUS_NAME,
                        statusContainer,
                        "Reconnecting",
-                       context.getTypeManager())
+                       context.getTypeManager()),
+      subscriber(std::make_shared<mqtt::MqttAsyncClient>())
 {
     initComponentStatus();
     initConnectionStatus();
@@ -75,17 +75,17 @@ void MqttClientFbImpl::initMqttSubscriber()
     subscriber->setUsernamePasswrod(connectionSettings.username, connectionSettings.password);
 
     connectedDone = false;
-    connectedPromise = std::promise<bool>();
-    connectedFuture = connectedPromise.get_future();
+    auto connectedPromise = std::make_shared<std::promise<bool>>();
+    connectedFuture = connectedPromise->get_future();
 
     subscriber->setConnectedCb(
-        [this]
+        [this, connectedPromise]
         {
             bool expected = false;
             if (connectedDone.compare_exchange_strong(expected, true))
             {
                 connectionStatus.setStatus("Connected");
-                connectedPromise.set_value(true);
+                connectedPromise->set_value(true);
                 std::scoped_lock lock(componentStatusSync);
                 setComponentStatus(ComponentStatus::Ok);
             }

@@ -14,7 +14,8 @@ set(TEST_SOURCES test_mqtt_streaming_module.cpp
 add_executable(${TEST_APP} ${TEST_SOURCES}
 )
 
-target_link_libraries(${TEST_APP} PRIVATE daq::test_utils
+target_link_libraries(${TEST_APP} PRIVATE daq::opendaq_test_utils 
+                                          gtest
                                           ${MODULE_NAME}
                                           mqtt_streaming_protocol_test_helper
                                           mqtt_streaming_helper

@@ -21,6 +21,10 @@ MqttSubscriberFbImpl::MqttSubscriberFbImpl(const ContextPtr& ctx,
     : FunctionBlock(type, ctx, parent, generateLocalId()),
       subscriber(subscriber),
       jsonDataWorker(loggerComponent),
+      topicForSubscribing(""),
+      nestedFbTypes(nullptr),
+      enablePreview(false),
+      previewIsString(false),
       waitingForData(false)
 {
     initComponentStatus();
@@ -48,7 +52,7 @@ void MqttSubscriberFbImpl::removed()
     unsubscribeFromTopic();
 }
 
-void MqttSubscriberFbImpl::onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg)
+void MqttSubscriberFbImpl::onSignalsMessage(const mqtt::MqttAsyncClient&, const mqtt::MqttMessage& msg)
 {
     processMessage(msg);
 }
@@ -80,7 +84,7 @@ void MqttSubscriberFbImpl::initProperties(const PropertyObjectPtr& config)
                 {
                     objPtr.addProperty(internalProp.clone());
                     objPtr.setPropertyValue(propName, prop.getValue());
-                    objPtr.getOnPropertyValueWrite(prop.getName()) += [this](PropertyObjectPtr& obj, PropertyValueEventArgsPtr& args)
+                    objPtr.getOnPropertyValueWrite(prop.getName()) += [this](PropertyObjectPtr&, PropertyValueEventArgsPtr&)
                     { propertyChanged(); };
                 }
             }
@@ -176,8 +180,8 @@ void MqttSubscriberFbImpl::readProperties()
         auto qosProp = objPtr.getPropertyValue(PROPERTY_NAME_SUB_QOS).asPtrOrNull<IInteger>();
         if (qosProp.assigned())
         {
-            const auto qos = qosProp.getValue(DEFAULT_SUB_QOS);
-            this->qos = (qos < 0 || qos > 2) ? DEFAULT_SUB_QOS : qos;
+            const uint32_t qos = qosProp.getValue(DEFAULT_SUB_QOS);
+            this->qos = (qos > 2) ? DEFAULT_SUB_QOS : qos;
         }
     }
     if (objPtr.hasProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL))

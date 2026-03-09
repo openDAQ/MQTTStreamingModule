@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
-set_cmake_folder_context(TARGET_FOLDER_NAME)
+opendaq_set_cmake_folder_context(TARGET_FOLDER_NAME)
 
-set(MQTT_STREAMING_PROTOCOL_VERSION ${MQTT_MODULE_VERSION})
+set(MQTT_STREAMING_PROTOCOL_VERSION ${${REPO_OPTION_PREFIX}_VERSION})
 set(MQTT_STREAMING_PROTOCOL_PRJ_NAME "OpenDaqMqttStreamingProtocol")
 
 message(STATUS "${MQTT_STREAMING_PROTOCOL_PRJ_NAME} version: ${MQTT_STREAMING_PROTOCOL_VERSION}")
@@ -14,6 +14,6 @@ if(MSVC)
 endif()
 
 add_subdirectory(src)
-if (OPENDAQ_MQTT_ENABLE_TESTS)
+if (${REPO_OPTION_PREFIX}_ENABLE_TESTS)
     add_subdirectory(tests)
 endif()

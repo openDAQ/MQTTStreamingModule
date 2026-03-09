@@ -13,9 +13,9 @@ class MqttMessage
 public:
     MqttMessage() = default;
     MqttMessage(std::string topic, std::vector<uint8_t> data, int qos, bool retained)
-        : topic(topic)
+        : qos(qos)
+        , topic(topic)
         , data(data)
-        , qos(qos)
         , retained(retained)
     {}
     bool operator==(const MqttMessage &other) const

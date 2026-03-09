@@ -143,7 +143,7 @@ void MqttAsyncClientWrapper::expectMsgs(const std::string& topic,
                                         std::atomic<bool>& done)
 {
     instance->setMessageArrivedCb(topic,
-                                  [topic, &done, &msgs, &promise, i = size_t(0)](const mqtt::MqttAsyncClient& subscriber,
+                                  [topic, &done, &msgs, &promise, i = size_t(0)](const mqtt::MqttAsyncClient&,
                                                                          mqtt::MqttMessage& receivedMsg) mutable
                                   {
                                       const auto receivedStr = receivedMsg.toString();
@@ -163,7 +163,7 @@ void MqttAsyncClientWrapper::expectMultiMsgs(const std::string& topic,
                                         std::atomic<bool>& done)
 {
     instance->setMessageArrivedCb(topic,
-                                  [topic, &done, localMsgs = msgs, &promise](const mqtt::MqttAsyncClient& subscriber,
+                                  [topic, &done, localMsgs = msgs, &promise](const mqtt::MqttAsyncClient&,
                                                                                  mqtt::MqttMessage& receivedMsg) mutable
                                   {
                                       const auto receivedStr = receivedMsg.toString();

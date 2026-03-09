@@ -36,9 +36,9 @@ DictPtr<IString, IFunctionBlockType> MqttStreamingModule::onGetAvailableFunction
 }
 
 FunctionBlockPtr
-MqttStreamingModule::onCreateFunctionBlock(const StringPtr& id,
+MqttStreamingModule::onCreateFunctionBlock(const StringPtr& /*id*/,
                                            const ComponentPtr& parent,
-                                           const StringPtr& localId,
+                                           const StringPtr& /*localId*/,
                                            const PropertyObjectPtr& config)
 {
     if (!context.assigned())

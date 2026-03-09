@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
+opendaq_set_cmake_folder_context(TARGET_FOLDER_NAME)
 
 set(HELPER_LIB mqtt_streaming_helper)
 

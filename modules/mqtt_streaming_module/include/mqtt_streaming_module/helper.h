@@ -16,7 +16,7 @@
 
 #pragma once
 #include <mqtt_streaming_module/common.h>
-#include <property_object_ptr.h>
+#include <coreobjects/property_object_ptr.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
