@@ -6,7 +6,6 @@
 #include <opendaq/reader_factory.h>
 #include <opendaq/reader_utils.h>
 #include <opendaq/sample_type_traits.h>
-#include <set>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -57,17 +56,6 @@ MqttData SignalArrayAtomicSampleHandler::processSignalContexts(std::vector<Signa
 
 ProcedureStatus SignalArrayAtomicSampleHandler::validateSignalContexts(const std::vector<SignalContext>& signalContexts) const
 {
-
-    static const std::set<SampleType> allowedSampleTypes{SampleType::Float64,
-                                                         SampleType::Float32,
-                                                         SampleType::UInt8,
-                                                         SampleType::Int8,
-                                                         SampleType::UInt16,
-                                                         SampleType::Int16,
-                                                         SampleType::UInt32,
-                                                         SampleType::Int32,
-                                                         SampleType::UInt64,
-                                                         SampleType::Int64};
     ProcedureStatus status{true, {}};
     for (const auto& sigCtx : signalContexts)
     {
