@@ -18,6 +18,7 @@
 
 #include <opendaq/function_block_ptr.h>
 #include <mqtt_streaming_module/handler_base.h>
+#include <set>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -41,6 +42,18 @@ protected:
     MqttDataSample processDataPacket(SignalContext& signalContext, const DataPacketPtr& dataPacket, size_t offset);
     std::string toString(const std::string valueFieldName, daq::DataPacketPtr packet, size_t offset);
     std::string buildTopicName(const SignalContext& signalContext);
+
+
+    inline static const std::set<SampleType> allowedSampleTypes{SampleType::Float64,
+                                                                SampleType::Float32,
+                                                                SampleType::UInt8,
+                                                                SampleType::Int8,
+                                                                SampleType::UInt16,
+                                                                SampleType::Int16,
+                                                                SampleType::UInt32,
+                                                                SampleType::Int32,
+                                                                SampleType::UInt64,
+                                                                SampleType::Int64};
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
