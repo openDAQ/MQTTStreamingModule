@@ -72,6 +72,12 @@ struct MqttData {
     }
 };
 
+enum class PublisherMode {
+    Json = 0,
+    Raw,
+    _count
+};
+
 enum class TopicMode {
     PerSignal = 0,
     Single,
@@ -86,6 +92,7 @@ enum class SignalValueJSONKey {
 };
 
 struct PublisherFbConfig {
+    PublisherMode mode;
     TopicMode topicMode;
     std::string topicName;
     bool groupValues;

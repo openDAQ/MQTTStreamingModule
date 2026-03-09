@@ -40,6 +40,7 @@ static constexpr const char* PROPERTY_NAME_DEC_VALUE_NAME = "ValueKey";
 static constexpr const char* PROPERTY_NAME_DEC_TS_NAME = "DomainKey";
 static constexpr const char* PROPERTY_NAME_DEC_UNIT = "Unit";
 
+static constexpr const char* PROPERTY_NAME_PUB_MODE = "Mode";
 static constexpr const char* PROPERTY_NAME_PUB_TOPIC_MODE = "TopicMode";
 static constexpr const char* PROPERTY_NAME_PUB_TOPIC_NAME = "Topic";
 static constexpr const char* PROPERTY_NAME_PUB_GROUP_VALUES = "GroupValues";

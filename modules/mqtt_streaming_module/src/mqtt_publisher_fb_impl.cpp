@@ -86,13 +86,22 @@ void MqttPublisherFbImpl::removed()
 FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
 {
     auto defaultConfig = PropertyObject();
+
+    {
+        auto builder = SelectionPropertyBuilder(PROPERTY_NAME_PUB_MODE, List<IString>("JSON", "Raw"), 0)
+                           .setDescription("Selects the mode of publishing. In JSON mode, the function block converts signal samples into "
+                                           "JSON messages and publishes them to MQTT topics. In Raw mode, the function block publishes raw "
+                                           "signal samples to MQTT topics without any conversion. By default it is set to JSON mode.");
+        defaultConfig.addProperty(builder.build());
+    }
     {
         auto builder =
             SelectionPropertyBuilder(PROPERTY_NAME_PUB_TOPIC_MODE, List<IString>("TopicPerSignal", "SingleTopic"), 0)
                 .setDescription(
                     "Selects whether to publish all signals to separate MQTT topics (one per signal, TopicPerSignal mode) or to a single "
                     "topic (SingleTopic mode), one for all signals. Choose 0 for TopicPerSignal mode, 1 for SingleTopic mode. By "
-                    "default it is set to TopicPerSignal mode.");
+                    "default it is set to TopicPerSignal mode.")
+                .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_MODE + " == 0"));
         defaultConfig.addProperty(builder.build());
     }
     {
@@ -100,25 +109,25 @@ FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
             StringPropertyBuilder(PROPERTY_NAME_PUB_TOPIC_NAME, "")
                 .setDescription(
                     "Topic name for publishing in SingleTopic mode. If left empty, the Publisher's Global ID is used as the topic name.")
-                .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 1"));
+                .setVisible(EvalValue(std::string("($") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 1) && ($" + PROPERTY_NAME_PUB_MODE + " == 0)"));
         defaultConfig.addProperty(builder.build());
     }
     {
         auto builder = SelectionPropertyBuilder(PROPERTY_NAME_PUB_VALUE_FIELD_NAME, List<IString>("GlobalID", "LocalID", "Name"), 0)
-        .setDescription("Describes how to name a JSON value field. By default it is set to GlobalID.");
+                           .setDescription("Describes how to name a JSON value field. By default it is set to GlobalID.")
+                           .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_MODE + " == 0"));
         defaultConfig.addProperty(builder.build());
     }
     {
-        auto builder =
-            BoolPropertyBuilder(PROPERTY_NAME_PUB_GROUP_VALUES, False)
-                .setDescription(
-                    "Enables the use of a sample pack for a signal. By default it is set to false.");
+        auto builder = BoolPropertyBuilder(PROPERTY_NAME_PUB_GROUP_VALUES, False)
+                           .setDescription("Enables the use of a sample pack for a signal. By default it is set to false.")
+                           .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_MODE + " == 0"));
         defaultConfig.addProperty(builder.build());
     }
     {
         auto builder = IntPropertyBuilder(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, DEFAULT_PUB_PACK_SIZE)
                            .setMinValue(1)
-                           .setVisible(EvalValue(std::string("($") + PROPERTY_NAME_PUB_GROUP_VALUES + ")"))
+                           .setVisible(EvalValue(std::string("($") + PROPERTY_NAME_PUB_GROUP_VALUES + ") && ($" + PROPERTY_NAME_PUB_MODE + " == 0)"))
                            .setDescription(fmt::format("Set the size of the sample pack when publishing grouped values. "
                                                        "By default it is set to {}.",
                                                        DEFAULT_PUB_PACK_SIZE));
@@ -135,8 +144,9 @@ FunctionBlockTypePtr MqttPublisherFbImpl::CreateType()
     }
     {
         auto builder = BoolPropertyBuilder(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, False)
-        .setDescription("Enables previewing of the publishing data in the function block's output signal. "
-                        "By default it is set to false.");
+                           .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_MODE + " == 0"))
+                           .setDescription("Enables previewing of the publishing data in the function block's output signal. "
+                                           "By default it is set to false.");
         defaultConfig.addProperty(builder.build());
     }
     {
@@ -423,7 +433,7 @@ void MqttPublisherFbImpl::initProperties(const PropertyObjectPtr& config)
         {
             auto builder = ListPropertyBuilder(PROPERTY_NAME_PUB_TOPICS, List<IString>())
             .setReadOnly(true)
-                .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 0"))
+                .setVisible(EvalValue(std::string("($") + PROPERTY_NAME_PUB_TOPIC_MODE + " == 0) || ($" + PROPERTY_NAME_PUB_MODE + " == 1)"))
                 .setDescription("List of currently used MQTT topics for publishing in TopicPerSignal mode.");
 
             objPtr.addProperty(builder.build());
@@ -440,6 +450,7 @@ void MqttPublisherFbImpl::initProperties(const PropertyObjectPtr& config)
 
 void MqttPublisherFbImpl::readProperties()
 {
+    int tmpMode = readProperty<int, IInteger>(PROPERTY_NAME_PUB_MODE, 0);
     int tmpTopicMode = readProperty<int, IInteger>(PROPERTY_NAME_PUB_TOPIC_MODE, 0);
 
     config.groupValues = readProperty<bool, IBoolean>(PROPERTY_NAME_PUB_GROUP_VALUES, false);
@@ -448,7 +459,7 @@ void MqttPublisherFbImpl::readProperties()
     config.qos = readProperty<int, IInteger>(PROPERTY_NAME_PUB_QOS, DEFAULT_PUB_QOS);
     config.periodMs = readProperty<int, IInteger>(PROPERTY_NAME_PUB_READ_PERIOD, DEFAULT_PUB_READ_PERIOD);
     config.topicName = readProperty<std::string, IString>(PROPERTY_NAME_PUB_TOPIC_NAME, globalId.toStdString());
-    config.enablePreview = readProperty<bool, IBoolean>(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, false);
+
     settingErrors.clear();
     hasSettingError = false;
 
@@ -462,6 +473,19 @@ void MqttPublisherFbImpl::readProperties()
         hasSettingError = true;
         settingErrors.push_back(fmt::format("{} property has invalid value.", PROPERTY_NAME_PUB_VALUE_FIELD_NAME));
     }
+
+    if (tmpMode < static_cast<int>(PublisherMode::_count) && tmpMode >= 0)
+    {
+        config.mode = static_cast<PublisherMode>(tmpMode);
+    }
+    else
+    {
+        config.mode = PublisherMode::Json;
+        hasSettingError = true;
+        settingErrors.push_back("Mode has invalid value.");
+    }
+
+    config.enablePreview = (config.mode != PublisherMode::Raw) && readProperty<bool, IBoolean>(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, false);
 
     if (tmpTopicMode < static_cast<int>(TopicMode::_count) && tmpTopicMode >= 0)
     {
@@ -477,14 +501,14 @@ void MqttPublisherFbImpl::readProperties()
     if (config.topicName.empty())
     {
         config.topicName = globalId.toStdString();
-        hasEmptyTopic = (config.topicMode == TopicMode::Single);
+        hasEmptyTopic = (config.mode == PublisherMode::Json && config.topicMode == TopicMode::Single);
     }
     else
     {
         hasEmptyTopic = false;
     }
 
-    if (config.topicMode == TopicMode::Single)
+    if (config.mode == PublisherMode::Json && config.topicMode == TopicMode::Single)
     {
         auto result = mqtt::MqttDataWrapper::validateTopic(config.topicName, loggerComponent);
         hasSettingError = !result.success;
