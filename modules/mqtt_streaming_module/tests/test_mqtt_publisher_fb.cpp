@@ -591,41 +591,52 @@ TEST_F(MqttPublisherFbTest, DefaultConfig)
 
     ASSERT_TRUE(defaultConfig.assigned());
 
-    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 8u);
+    EXPECT_EQ(defaultConfig.getAllProperties().getCount(), 9u);
+
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_MODE));
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_MODE).getValueType(), CoreType::ctInt);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_MODE).asPtr<IInteger>(), 0u);
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_MODE).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_TOPIC_MODE));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_MODE).getValueType(), CoreType::ctInt);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE).asPtr<IInteger>(), 0u);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE).asPtr<IInteger>(), 0u);
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_MODE).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_GROUP_VALUES));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES).getValueType(), CoreType::ctBool);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES).asPtr<IBoolean>(), False);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES).asPtr<IBoolean>(), False);
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_VALUE_FIELD_NAME));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_VALUE_FIELD_NAME).getValueType(), CoreType::ctInt);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_VALUE_FIELD_NAME).asPtr<IInteger>(), 0u);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_VALUE_FIELD_NAME).asPtr<IInteger>(), 0u);
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_VALUE_FIELD_NAME).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getValueType(), CoreType::ctInt);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).asPtr<IInteger>(), DEFAULT_PUB_PACK_SIZE);
-    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getVisible());
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).asPtr<IInteger>(), DEFAULT_PUB_PACK_SIZE);
+    EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_QOS));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_QOS).getValueType(), CoreType::ctInt);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_QOS).asPtr<IInteger>(), DEFAULT_PUB_QOS);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_QOS).asPtr<IInteger>(), DEFAULT_PUB_QOS);
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_QOS).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_READ_PERIOD));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_READ_PERIOD).getValueType(), CoreType::ctInt);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_READ_PERIOD).asPtr<IInteger>(), DEFAULT_PUB_READ_PERIOD);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_READ_PERIOD).asPtr<IInteger>(), DEFAULT_PUB_READ_PERIOD);
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_READ_PERIOD).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_TOPIC_NAME));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_NAME).getValueType(), CoreType::ctString);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME).asPtr<IString>().toStdString(), "");
-    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_NAME).getVisible());
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME).asPtr<IString>().toStdString(), "");
+    EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_NAME).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_PUB_PREVIEW_SIGNAL));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_PUB_PREVIEW_SIGNAL).getValueType(), CoreType::ctBool);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_PREVIEW_SIGNAL).asPtr<IBoolean>().getValue(False), False);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_PUB_PREVIEW_SIGNAL).asPtr<IBoolean>().getValue(False), False);
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_PREVIEW_SIGNAL).getVisible());
 }
 
 TEST_F(MqttPublisherFbTest, PropertyVisibility)
@@ -634,10 +645,42 @@ TEST_F(MqttPublisherFbTest, PropertyVisibility)
     daq::FunctionBlockTypePtr fbt = MqttPublisherFbImpl::CreateType();
     daq::PropertyObjectPtr defaultConfig = fbt.createDefaultConfig();
 
-    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0); // Set to Single topic
-    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_NAME).getVisible());
-    defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1); // Set to Multi topic
-    ASSERT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_NAME).getVisible());
+    {
+        defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_MODE, 0);       // Set JSON mode
+        defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0); // Set to Single topic
+        ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_NAME).getVisible());
+        defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1); // Set to Multi topic
+        ASSERT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_NAME).getVisible());
+    }
+
+    {
+        defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_MODE, 0);       // Set JSON mode
+        defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0); // Set to Single topic
+
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_MODE).getVisible());
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_MODE).getVisible());
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES).getVisible());
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_VALUE_FIELD_NAME).getVisible());
+        EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getVisible());
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_QOS).getVisible());
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_READ_PERIOD).getVisible());
+        EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_NAME).getVisible());
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_PREVIEW_SIGNAL).getVisible());
+    }
+
+    {
+        defaultConfig.setPropertyValue(PROPERTY_NAME_PUB_MODE, 1); // Set Raw mode
+
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_MODE).getVisible());
+        EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_MODE).getVisible());
+        EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES).getVisible());
+        EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_VALUE_FIELD_NAME).getVisible());
+        EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE).getVisible());
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_QOS).getVisible());
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_PUB_READ_PERIOD).getVisible());
+        EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_TOPIC_NAME).getVisible());
+        EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_PUB_PREVIEW_SIGNAL).getVisible());
+    }
 }
 
 TEST_F(MqttPublisherFbTest, Config)
@@ -645,6 +688,7 @@ TEST_F(MqttPublisherFbTest, Config)
     StartUp();
     auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
 
+    config.setPropertyValue(PROPERTY_NAME_PUB_MODE, 0);
     config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
     config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES, True);
     config.setPropertyValue(PROPERTY_NAME_PUB_VALUE_FIELD_NAME, 1);
@@ -1019,6 +1063,7 @@ TEST_F(MqttPublisherFbTest, WrongConfig)
     StartUp();
     daq::FunctionBlockPtr fb;
     auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+    config.setPropertyValue(PROPERTY_NAME_PUB_MODE, 0);
     config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
     config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, String("/test/#"));
     ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
