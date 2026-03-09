@@ -96,7 +96,7 @@ jobs:
 
       - name: Configure project with CMake
         working-directory: module
-        run: cmake -B build/output -S . -G "${{ matrix.generator }}" -DDAQMODULES_OPCUA_ENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Release -DopenDAQ_DIR="${{ env.INSTALL_PREFIX }}/lib/cmake/opendaq/"
+        run: cmake -B build/output -S . -G "${{ matrix.generator }}" -DDAQMODULES_MQTT_ENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Release -DopenDAQ_DIR="${{ env.INSTALL_PREFIX }}/lib/cmake/opendaq/"
 
       - name: Build project with CMake
         working-directory: module
