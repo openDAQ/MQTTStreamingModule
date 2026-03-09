@@ -36,13 +36,11 @@ DictPtr<IString, IFunctionBlockType> MqttStreamingModule::onGetAvailableFunction
 }
 
 FunctionBlockPtr
-MqttStreamingModule::onCreateFunctionBlock(const StringPtr& id,
+MqttStreamingModule::onCreateFunctionBlock(const StringPtr& /*id*/,
                                            const ComponentPtr& parent,
-                                           const StringPtr& localId,
+                                           const StringPtr& /*localId*/,
                                            const PropertyObjectPtr& config)
 {
-    (void)id;
-    (void)localId;
     if (!context.assigned())
         DAQ_THROW_EXCEPTION(InvalidParameterException, "Context is not available.");
 

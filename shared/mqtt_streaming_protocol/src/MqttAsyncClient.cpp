@@ -276,9 +276,8 @@ void MqttAsyncClient::onDeliveryCompleted(void* context, MQTTAsync_token token)
     }
 }
 
-void MqttAsyncClient::onConnected(void* context, char* cause)
+void MqttAsyncClient::onConnected(void* context, char* /*cause*/)
 {
-    (void)cause;
     if (context != nullptr)
     {
         auto clienttInst = (MqttAsyncClient*)context;
@@ -303,9 +302,8 @@ void MqttAsyncClient::onConnectionLost(void* context, char* cause)
     }
 }
 
-int MqttAsyncClient::onMsgArrived(void* context, char* topicName, int topicLen, MQTTAsync_message* message)
+int MqttAsyncClient::onMsgArrived(void* context, char* topicName, int /*topicLen*/, MQTTAsync_message* message)
 {
-    (void)topicLen;
     if (context != nullptr && message != nullptr)
     {
         MqttAsyncClient* client = (MqttAsyncClient*)context;
@@ -354,9 +352,8 @@ void MqttAsyncClient::onSendFailure(void* context, MQTTAsync_failureData* data)
     }
 }
 
-void MqttAsyncClient::onConnectSuccess(void* context, MQTTAsync_successData* data)
+void MqttAsyncClient::onConnectSuccess(void* context, MQTTAsync_successData* /*data*/)
 {
-    (void)data;
     // TODO : check when this is called
     if (context != nullptr)
     {
@@ -365,9 +362,8 @@ void MqttAsyncClient::onConnectSuccess(void* context, MQTTAsync_successData* dat
     }
 }
 
-void MqttAsyncClient::onConnectFailure(void* context, MQTTAsync_failureData* data)
+void MqttAsyncClient::onConnectFailure(void* context, MQTTAsync_failureData* /*data*/)
 {
-    (void)data;
     // TODO : check when this is called
     if (context != nullptr)
     {
@@ -376,9 +372,8 @@ void MqttAsyncClient::onConnectFailure(void* context, MQTTAsync_failureData* dat
     }
 }
 
-void MqttAsyncClient::onDisconnectSuccess(void* context, MQTTAsync_successData* data)
+void MqttAsyncClient::onDisconnectSuccess(void* context, MQTTAsync_successData* /*data*/)
 {
-    (void)data;
     // TODO : check when this is called
     if (context != nullptr)
     {
@@ -391,9 +386,8 @@ void MqttAsyncClient::onDisconnectSuccess(void* context, MQTTAsync_successData* 
     }
 }
 
-void MqttAsyncClient::onDisconnectFailure(void* context, MQTTAsync_failureData* data)
+void MqttAsyncClient::onDisconnectFailure(void* context, MQTTAsync_failureData* /*data*/)
 {
-    (void)data;
     // TODO : check when this is called
     if (context != nullptr)
     {
@@ -406,16 +400,12 @@ void MqttAsyncClient::onDisconnectFailure(void* context, MQTTAsync_failureData* 
     }
 }
 
-void MqttAsyncClient::onSubscribeSuccess(void* context, MQTTAsync_successData* response)
+void MqttAsyncClient::onSubscribeSuccess(void* /*context*/, MQTTAsync_successData* /*response*/)
 {
-    (void)context;
-    (void)response;
 }
 
-void MqttAsyncClient::onSubscribeFailure(void* context, MQTTAsync_failureData* response)
+void MqttAsyncClient::onSubscribeFailure(void* /*context*/, MQTTAsync_failureData* /*response*/)
 {
-    (void)context;
-    (void)response;
 }
 
 void MqttAsyncClient::onUnsubscribeSuccess(void* context, MQTTAsync_successData* response)

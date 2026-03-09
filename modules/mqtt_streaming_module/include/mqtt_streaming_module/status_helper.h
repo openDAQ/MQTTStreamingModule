@@ -46,11 +46,10 @@ public:
     }
 
     static void addTypesToTypeManager(const std::string typeName,
-                                      const std::string statusName,
+                                      const std::string /*statusName*/,
                                       const std::vector<std::pair<T, std::string>>& statusMap,
                                       TypeManagerPtr typeManager)
     {
-        (void)statusName;
         if (!typeManager.hasType(typeName))
         {
             auto list = List<IString>();

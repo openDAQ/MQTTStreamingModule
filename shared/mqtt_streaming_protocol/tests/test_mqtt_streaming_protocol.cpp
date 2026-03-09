@@ -128,8 +128,7 @@ TEST_F(MqttStreamingProtocolTest, PublishingWithoutDataControl)
     std::atomic<bool> sendDone{false};
     std::promise<bool> sendPromise;
     auto sendFuture = sendPromise.get_future();
-    instance->setSentCb([promise = &sendPromise, token = &result.token, &sendDone](int receivedToken, bool result) {
-        (void)result;
+    instance->setSentCb([promise = &sendPromise, token = &result.token, &sendDone](int receivedToken, bool /*result*/) {
         bool expected = false;
         if (receivedToken == *token) {
             if (sendDone.compare_exchange_strong(expected, true)) {
