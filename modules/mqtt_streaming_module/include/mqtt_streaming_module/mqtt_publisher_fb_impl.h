@@ -112,8 +112,6 @@ private:
     void validateInputPorts();
     void updateTopics();
     void updateSchema();
-    template <typename retT, typename intfT>
-    retT readProperty(const std::string& propertyName, const retT defaultValue);
     void runReaderThread();
     void readerLoop();
     void sendMessages(const MqttData& data);

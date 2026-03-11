@@ -5,6 +5,7 @@
 #include <mqtt_streaming_module/mqtt_publisher_fb_impl.h>
 #include <opendaq/binary_data_packet_factory.h>
 #include <opendaq/event_packet_params.h>
+#include <mqtt_streaming_module/property_helper.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -450,15 +451,16 @@ void MqttPublisherFbImpl::initProperties(const PropertyObjectPtr& config)
 
 void MqttPublisherFbImpl::readProperties()
 {
-    int tmpMode = readProperty<int, IInteger>(PROPERTY_NAME_PUB_MODE, 0);
-    int tmpTopicMode = readProperty<int, IInteger>(PROPERTY_NAME_PUB_TOPIC_MODE, 0);
+    using namespace property_helper;
+    int tmpMode = readProperty<int, IInteger>(objPtr, PROPERTY_NAME_PUB_MODE, 0);
+    int tmpTopicMode = readProperty<int, IInteger>(objPtr, PROPERTY_NAME_PUB_TOPIC_MODE, 0);
 
-    config.groupValues = readProperty<bool, IBoolean>(PROPERTY_NAME_PUB_GROUP_VALUES, false);
-    int tmpValueFieldName = (readProperty<int, IInteger>(PROPERTY_NAME_PUB_VALUE_FIELD_NAME, 0));
-    config.groupValuesPackSize = readProperty<size_t, IInteger>(PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, DEFAULT_PUB_PACK_SIZE);
-    config.qos = readProperty<int, IInteger>(PROPERTY_NAME_PUB_QOS, DEFAULT_PUB_QOS);
-    config.periodMs = readProperty<int, IInteger>(PROPERTY_NAME_PUB_READ_PERIOD, DEFAULT_PUB_READ_PERIOD);
-    config.topicName = readProperty<std::string, IString>(PROPERTY_NAME_PUB_TOPIC_NAME, globalId.toStdString());
+    config.groupValues = readProperty<bool, IBoolean>(objPtr, PROPERTY_NAME_PUB_GROUP_VALUES, false);
+    int tmpValueFieldName = (readProperty<int, IInteger>(objPtr, PROPERTY_NAME_PUB_VALUE_FIELD_NAME, 0));
+    config.groupValuesPackSize = readProperty<size_t, IInteger>(objPtr, PROPERTY_NAME_PUB_GROUP_VALUES_PACK_SIZE, DEFAULT_PUB_PACK_SIZE);
+    config.qos = readProperty<int, IInteger>(objPtr, PROPERTY_NAME_PUB_QOS, DEFAULT_PUB_QOS);
+    config.periodMs = readProperty<int, IInteger>(objPtr, PROPERTY_NAME_PUB_READ_PERIOD, DEFAULT_PUB_READ_PERIOD);
+    config.topicName = readProperty<std::string, IString>(objPtr, PROPERTY_NAME_PUB_TOPIC_NAME, globalId.toStdString());
 
     settingErrors.clear();
     hasSettingError = false;
@@ -485,7 +487,7 @@ void MqttPublisherFbImpl::readProperties()
         settingErrors.push_back("Mode has invalid value.");
     }
 
-    config.enablePreview = (config.mode != PublisherMode::Raw) && readProperty<bool, IBoolean>(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, false);
+    config.enablePreview = (config.mode != PublisherMode::Raw) && readProperty<bool, IBoolean>(objPtr, PROPERTY_NAME_PUB_PREVIEW_SIGNAL, false);
 
     if (tmpTopicMode < static_cast<int>(TopicMode::_count) && tmpTopicMode >= 0)
     {
@@ -526,21 +528,6 @@ void MqttPublisherFbImpl::readProperties()
         hasSettingError = true;
         settingErrors.push_back("Reader period must be non-negative.");
     }
-}
-
-template <typename retT, typename intfT>
-retT MqttPublisherFbImpl::readProperty(const std::string& propertyName, const retT defaultValue)
-{
-    retT returnValue{};
-    if (objPtr.hasProperty(propertyName))
-    {
-        auto property = objPtr.getPropertyValue(propertyName).asPtrOrNull<intfT>();
-        if (property.assigned())
-        {
-            returnValue = property.getValue(defaultValue);
-        }
-    }
-    return returnValue;
 }
 
 void MqttPublisherFbImpl::runReaderThread()
