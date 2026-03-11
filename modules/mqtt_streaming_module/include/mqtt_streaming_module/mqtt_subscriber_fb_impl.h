@@ -44,6 +44,13 @@ public:
         }
     };
 
+    enum class DomainSignalMode : EnumType
+    {
+        None = 0,
+        SystemTime,
+        _count
+    };
+
     explicit DAQ_MQTT_STREAM_MODULE_API MqttSubscriberFbImpl(const ContextPtr& ctx,
                                 const ComponentPtr& parent,
                                 const FunctionBlockTypePtr& type,
@@ -65,9 +72,12 @@ protected:
     DictObjectPtr<IDict, IString, IFunctionBlockType> nestedFbTypes;
     std::vector<FunctionBlockPtr> nestedFunctionBlocks;
     SignalConfigPtr outputSignal;
+    SignalConfigPtr outputDomainSignal;
     bool enablePreview;
+    DomainSignalMode previewDomainMode;
     bool previewIsString;
     std::atomic<bool> waitingForData;
+    uint64_t lastTsValue;
 
     DAQ_MQTT_STREAM_MODULE_API void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg);
 
@@ -76,7 +86,13 @@ protected:
     void initNestedFbTypes();
 
     void createSignals();
+    SignalConfigPtr createDomainSignal();
+    void removePreviewSignal();
+    void removeDomainSignal();
+    void reconfigureSignal();
     void clearSubscribedTopic();
+
+    DataPacketPtr createDomainDataPacket(const uint64_t epochTime);
 
     void processMessage(const mqtt::MqttMessage& msg);
     void initProperties(const PropertyObjectPtr& config);

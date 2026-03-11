@@ -1,5 +1,6 @@
 #include "mqtt_streaming_module/constants.h"
 #include <mqtt_streaming_module/helper.h>
+#include <mqtt_streaming_module/property_helper.h>
 #include <mqtt_streaming_module/mqtt_json_decoder_fb_impl.h>
 #include <chrono>
 
@@ -25,6 +26,7 @@ MqttJsonDecoderFbImpl::MqttJsonDecoderFbImpl(const ContextPtr& ctx,
 
 FunctionBlockTypePtr MqttJsonDecoderFbImpl::CreateType()
 {
+    using DSM = mqtt::MqttDataWrapper::DomainSignalMode;
     auto defaultConfig = PropertyObject();
     {
         auto builder =
@@ -36,7 +38,22 @@ FunctionBlockTypePtr MqttJsonDecoderFbImpl::CreateType()
 
     {
         auto builder =
+            SelectionPropertyBuilder(PROPERTY_NAME_DEC_TS_MODE,
+                                     List<IString>("None", "Extract from message", "System time"),
+                                     static_cast<int>(DSM::None))
+                .setDescription(
+                    "Defines how the timestamp of the decoded signal is generated. By default it is set to None, which means that "
+                    "the decoded signal doesn't have a timestamp. If set to Extract from message, the JSON decoder will try "
+                    "to extract the timestamp from the incoming JSON messages. If set to System time, the timestamp of the decoded signal "
+                    "is set to the system time when the JSON message is received.");
+        defaultConfig.addProperty(builder.build());
+    }
+
+    {
+        auto builder =
             StringPropertyBuilder(PROPERTY_NAME_DEC_TS_NAME, String(""))
+                .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_DEC_TS_MODE +
+                                      " == " + std::to_string(static_cast<int>(DSM::ExtractFromMessage))))
                 .setDescription(
                     "Specifies the JSON field name from which timestamp will be extracted. This property is "
                     "optional. If it is set it should be contained in the incoming JSON messages. Otherwise, a parsing error will occur.");
@@ -87,43 +104,50 @@ void MqttJsonDecoderFbImpl::initProperties(const PropertyObjectPtr& config)
 
 void MqttJsonDecoderFbImpl::readProperties()
 {
+    using namespace property_helper;
+    using DSM = mqtt::MqttDataWrapper::DomainSignalMode;
     auto lock = this->getRecursiveConfigLock();
     configValid = true;
     configMsg.clear();
-    config.valueFieldName = readProperty<std::string, IString>(PROPERTY_NAME_DEC_VALUE_NAME, "");
+    config.valueFieldName = readProperty<std::string, IString>(objPtr, PROPERTY_NAME_DEC_VALUE_NAME, "");
     if (config.valueFieldName.empty())
     {
         configMsg = fmt::format("\"{}\" property is empty!", PROPERTY_NAME_DEC_VALUE_NAME);
         configValid = false;
     }
-    config.tsFieldName = readProperty<std::string, IString>(PROPERTY_NAME_DEC_TS_NAME, "");
-    config.unitSymbol = readProperty<std::string, IString>(PROPERTY_NAME_DEC_UNIT, "");
 
-    jsonDataWorker.setValueFieldName(config.valueFieldName);
-    jsonDataWorker.setTimestampFieldName(config.tsFieldName);
-    waitingData = configValid.load();
-    updateStatuses();
-}
+    config.tsFieldName = readProperty<std::string, IString>(objPtr, PROPERTY_NAME_DEC_TS_NAME, "");
+    config.unitSymbol = readProperty<std::string, IString>(objPtr, PROPERTY_NAME_DEC_UNIT, "");
+    auto tmpTsMode = readProperty<int, IInteger>(objPtr, PROPERTY_NAME_DEC_TS_MODE, static_cast<int>(DSM::None));
 
-template <typename retT, typename intfT>
-retT MqttJsonDecoderFbImpl::readProperty(const std::string& propertyName, const retT defaultValue)
-{
-    retT returnValue{};
-    bool isPresent = false;
-    if (objPtr.hasProperty(propertyName))
+    if (tmpTsMode < static_cast<int>(DSM::_count) && tmpTsMode >= 0)
     {
-        auto property = objPtr.getPropertyValue(propertyName).asPtrOrNull<intfT>();
-        if (property.assigned())
+        config.tsMode = static_cast<DSM>(tmpTsMode);
+    }
+    else
+    {
+        configMsg = fmt::format("Wrong value for the \"{}\" property!", PROPERTY_NAME_DEC_TS_MODE);
+        configValid = false;
+        config.tsMode = DSM::None;
+    }
+    if (config.tsMode == DSM::ExtractFromMessage)
+    {
+        if (config.tsFieldName.empty())
         {
-            isPresent = true;
-            returnValue = property.getValue(defaultValue);
+            configMsg =
+                fmt::format("Empty \"{}\" property is not allowed for the \'Extract from message\' mode", PROPERTY_NAME_DEC_TS_NAME);
+            configValid = false;
         }
     }
-    if (!isPresent)
+    else
     {
-        LOG_W("{} property is missing! Default value is set (\"{}\")", propertyName, defaultValue);
+        config.tsFieldName = "";
     }
-    return returnValue;
+    jsonDataWorker.setValueFieldName(config.valueFieldName);
+    jsonDataWorker.setTimestampFieldName(config.tsFieldName);
+    jsonDataWorker.setDomainSignalMode(config.tsMode);
+    waitingData = configValid.load();
+    updateStatuses();
 }
 
 void MqttJsonDecoderFbImpl::propertyChanged()
@@ -154,13 +178,13 @@ void MqttJsonDecoderFbImpl::updateStatuses()
     }
 }
 
-void MqttJsonDecoderFbImpl::processMessage(const std::string& json)
+void MqttJsonDecoderFbImpl::processMessage(const std::string& json, const uint64_t externalTs)
 {
     if (configValid)
     {
         auto lock = this->getRecursiveConfigLock();
         waitingData = false;
-        auto status = jsonDataWorker.createAndSendDataPacket(json);
+        auto status = jsonDataWorker.createAndSendDataPacket(json, externalTs);
         parsingSucceeded = status.success;
         if (status.success)
         {
@@ -186,7 +210,7 @@ void MqttJsonDecoderFbImpl::createSignal()
 
     outputSignal = createAndAddSignal(DEFAULT_VALUE_SIGNAL_LOCAL_ID, dataDescBdr.build());
     outputSignal.setName(config.valueFieldName);
-    if (config.tsFieldName != "")
+    if (config.tsMode != mqtt::MqttDataWrapper::DomainSignalMode::None)
     {
         outputSignal.setDomainSignal(createDomainSignal());
     }
@@ -210,19 +234,20 @@ void MqttJsonDecoderFbImpl::reconfigureSignal(const FbConfig& prevConfig)
         outputSignal.setDescriptor(descBilder.build());
     }
 
-    if (prevConfig.tsFieldName != config.tsFieldName)
+    if (prevConfig.tsMode != config.tsMode)
     {
-        if (prevConfig.tsFieldName.empty() && !config.tsFieldName.empty())
+        using DSM = mqtt::MqttDataWrapper::DomainSignalMode;
+        if (prevConfig.tsMode == DSM::None && config.tsMode != DSM::None)
         {
             outputSignal.setDomainSignal(createDomainSignal());
         }
-        else if (!prevConfig.tsFieldName.empty() && config.tsFieldName.empty())
+        else if (prevConfig.tsMode != DSM::None && config.tsMode == DSM::None)
         {
             outputSignal.setDomainSignal(nullptr);
             removeSignal(outputDomainSignal);
             outputDomainSignal = nullptr;
         }
-        else if (!prevConfig.tsFieldName.empty() && !config.tsFieldName.empty())
+        else
         {
             // do nothing
         }

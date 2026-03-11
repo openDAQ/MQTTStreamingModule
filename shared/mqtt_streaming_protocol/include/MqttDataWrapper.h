@@ -97,6 +97,14 @@ public:
         }
     };
 
+    enum class DomainSignalMode : int
+    {
+        None = 0,
+        ExtractFromMessage,
+        ExternalTimestamp,
+        _count
+    };
+
     MqttDataWrapper(daq::LoggerComponentPtr loggerComponent);
 
     static CmdResult validateTopic(const daq::StringPtr topic, const daq::LoggerComponentPtr loggerComponent = nullptr);
@@ -106,10 +114,11 @@ public:
     std::string extractTopic();
     CmdResult isJsonValid();
     void setOutputSignal(daq::SignalConfigPtr outputSignal);
-    CmdResult createAndSendDataPacket(const std::string& json);
+    CmdResult createAndSendDataPacket(const std::string& json, const uint64_t externalTs);
     //bool hasDomainSignal(const SignalId& signalId) const;
     void setValueFieldName(std::string valueFieldName);
     void setTimestampFieldName(std::string tsFieldName);
+    void setDomainSignalMode(DomainSignalMode mode);
 
 private:
     rapidjson::Document doc;
@@ -119,8 +128,10 @@ private:
     daq::SignalConfigPtr outputSignal;
     // used for description how to extract data from sample json
     MqttMsgDescriptor msgDescriptor;
+    DomainSignalMode domainSignalType;
 
-    std::pair<CmdResult, std::vector<DataPackets>> extractDataSamples(const MqttMsgDescriptor& msgDescriptor, const std::string& json);
+    std::pair<CmdResult, std::vector<DataPackets>>
+    extractDataSamples(const std::string& json, const uint64_t externalTs);
     void sendDataSamples(const DataPackets& dataPackets);
     template <typename T>
     DataPackets buildDataPackets(const T& value, uint64_t timestamp);

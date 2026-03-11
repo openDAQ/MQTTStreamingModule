@@ -38,12 +38,13 @@ public:
                                 const FunctionBlockTypePtr& type,
                                 const PropertyObjectPtr& config = nullptr);
 
-    static FunctionBlockTypePtr CreateType();
-    void processMessage(const std::string& json);
+    DAQ_MQTT_STREAM_MODULE_API static FunctionBlockTypePtr CreateType();
+    void processMessage(const std::string& json, const uint64_t externalTs);
 protected:
 
     struct FbConfig {
         std::string valueFieldName;
+        mqtt::MqttDataWrapper::DomainSignalMode tsMode;
         std::string tsFieldName;
         std::string unitSymbol;
     };
@@ -69,8 +70,6 @@ protected:
 
     void initProperties(const PropertyObjectPtr& config);
     void readProperties();
-    template <typename retT, typename intfT>
-    retT readProperty(const std::string& propertyName, const retT defaultValue);
     void propertyChanged();
 
     void updateStatuses();

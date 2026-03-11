@@ -90,31 +90,42 @@ TEST_F(MqttSubscriberFbTest, DefaultConfig)
 
     ASSERT_TRUE(defaultConfig.assigned());
 
-    EXPECT_EQ(defaultConfig.getAllProperties().getCount(), 6u);
+    EXPECT_EQ(defaultConfig.getAllProperties().getCount(), 7u);
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_JSON_CONFIG));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_JSON_CONFIG).getValueType(), CoreType::ctString);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_JSON_CONFIG).asPtr<IString>().getLength(), 0u);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_JSON_CONFIG).asPtr<IString>().getLength(), 0u);
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_SUB_JSON_CONFIG).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_JSON_CONFIG_FILE));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_JSON_CONFIG_FILE).getValueType(), CoreType::ctString);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_JSON_CONFIG_FILE).asPtr<IString>().getLength(), 0u);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_JSON_CONFIG_FILE).asPtr<IString>().getLength(), 0u);
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_SUB_JSON_CONFIG_FILE).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_TOPIC));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_TOPIC).getValueType(), CoreType::ctString);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_TOPIC).asPtr<IString>().getLength(), 0u);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_TOPIC).asPtr<IString>().getLength(), 0u);
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_SUB_TOPIC).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_QOS));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_QOS).getValueType(), CoreType::ctInt);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_QOS).asPtr<IInteger>().getValue(DEFAULT_SUB_QOS), DEFAULT_SUB_QOS);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_QOS).asPtr<IInteger>().getValue(DEFAULT_SUB_QOS), DEFAULT_SUB_QOS);
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_SUB_QOS).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL).getValueType(), CoreType::ctBool);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL).asPtr<IBoolean>().getValue(False), False);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL).asPtr<IBoolean>().getValue(False), False);
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL).getVisible());
+
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_TS_MODE));
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_TS_MODE).getValueType(), CoreType::ctInt);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_TS_MODE).asPtr<IInteger>().getValue(0), 0);
+    EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_TS_MODE).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING).getValueType(), CoreType::ctBool);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING).asPtr<IBoolean>().getValue(False), False);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING).asPtr<IBoolean>().getValue(False), False);
+    EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING).getVisible());
 }
 
 TEST_F(MqttSubscriberFbTest, PropertyVisibility)
@@ -123,10 +134,13 @@ TEST_F(MqttSubscriberFbTest, PropertyVisibility)
     daq::FunctionBlockTypePtr fbt = MqttSubscriberFbImpl::CreateType();
     daq::PropertyObjectPtr defaultConfig = fbt.createDefaultConfig();
 
+
     defaultConfig.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, True);
     ASSERT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING).getVisible());
+    ASSERT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_TS_MODE).getVisible());
     defaultConfig.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, False);
     ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING).getVisible());
+    ASSERT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_TS_MODE).getVisible());
 }
 
 TEST_F(MqttSubscriberFbTest, Config)

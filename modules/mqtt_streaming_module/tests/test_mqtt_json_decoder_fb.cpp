@@ -383,6 +383,8 @@ public:
         daq::StringPtr typeId = daq::String(JSON_DECODER_FB_NAME);
         auto config = subMqttFb.getAvailableFunctionBlockTypes().get(JSON_DECODER_FB_NAME).createDefaultConfig();
 
+        if (!tsF.empty())
+            config.setPropertyValue(PROPERTY_NAME_DEC_TS_MODE, 1);
         config.setPropertyValue(PROPERTY_NAME_DEC_VALUE_NAME, valueF);
         config.setPropertyValue(PROPERTY_NAME_DEC_TS_NAME, tsF);
         config.setPropertyValue(PROPERTY_NAME_DEC_UNIT, unitSymbol);
@@ -534,20 +536,60 @@ TEST_F(MqttJsonDecoderFbTest, DefaultConfig)
 
     ASSERT_TRUE(defaultConfig.assigned());
 
-    ASSERT_EQ(defaultConfig.getAllProperties().getCount(), 3u);
+    EXPECT_EQ(defaultConfig.getAllProperties().getCount(), 4u);
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_DEC_VALUE_NAME));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_DEC_VALUE_NAME).getValueType(), CoreType::ctString);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_DEC_VALUE_NAME).asPtr<IString>().getLength(), 0u);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_DEC_VALUE_NAME).asPtr<IString>().getLength(), 0u);
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_DEC_VALUE_NAME).getVisible());
+
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_DEC_TS_MODE));
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_DEC_TS_MODE).getValueType(), CoreType::ctInt);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_DEC_TS_MODE).asPtr<IInteger>(), static_cast<int>(mqtt::MqttDataWrapper::DomainSignalMode::None));
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_DEC_TS_MODE).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_DEC_TS_NAME));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_DEC_TS_NAME).getValueType(), CoreType::ctString);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_DEC_TS_NAME).asPtr<IString>().getLength(), 0u);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_DEC_TS_NAME).asPtr<IString>().getLength(), 0u);
+    EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_DEC_TS_NAME).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_DEC_UNIT));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_DEC_UNIT).getValueType(), CoreType::ctString);
-    ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_DEC_UNIT).asPtr<IString>().getLength(), 0u);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_DEC_UNIT).asPtr<IString>().getLength(), 0u);
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_DEC_UNIT).getVisible());
 }
+
+TEST_F(MqttJsonDecoderFbTest, PropertyVisibility)
+{
+    daq::DictPtr<daq::IString, daq::IFunctionBlockType> fbTypes;
+    daq::FunctionBlockTypePtr fbt = MqttJsonDecoderFbImpl::CreateType();
+    daq::PropertyObjectPtr defaultConfig = fbt.createDefaultConfig();
+
+    {
+        defaultConfig.setPropertyValue(PROPERTY_NAME_DEC_TS_MODE, static_cast<int>(mqtt::MqttDataWrapper::DomainSignalMode::None));
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_DEC_VALUE_NAME).getVisible());
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_DEC_TS_MODE).getVisible());
+        EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_DEC_TS_NAME).getVisible());
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_DEC_UNIT).getVisible());
+    }
+
+    {
+        defaultConfig.setPropertyValue(PROPERTY_NAME_DEC_TS_MODE, static_cast<int>(mqtt::MqttDataWrapper::DomainSignalMode::ExtractFromMessage));
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_DEC_VALUE_NAME).getVisible());
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_DEC_TS_MODE).getVisible());
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_DEC_TS_NAME).getVisible());
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_DEC_UNIT).getVisible());
+    }
+
+    {
+        defaultConfig.setPropertyValue(PROPERTY_NAME_DEC_TS_MODE, static_cast<int>(mqtt::MqttDataWrapper::DomainSignalMode::ExternalTimestamp));
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_DEC_VALUE_NAME).getVisible());
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_DEC_TS_MODE).getVisible());
+        EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_DEC_TS_NAME).getVisible());
+        EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_DEC_UNIT).getVisible());
+    }
+}
+
 
 TEST_F(MqttJsonDecoderFbTest, Config)
 {

@@ -110,7 +110,8 @@ namespace mqtt
 {
 
 MqttDataWrapper::MqttDataWrapper(daq::LoggerComponentPtr loggerComponent)
-    : loggerComponent(loggerComponent)
+    : loggerComponent(loggerComponent),
+      domainSignalType(DomainSignalMode::None)
 {
 }
 
@@ -260,9 +261,9 @@ void MqttDataWrapper::setOutputSignal(daq::SignalConfigPtr outputSignal)
     this->outputSignal = outputSignal;
 }
 
-MqttDataWrapper::CmdResult MqttDataWrapper::createAndSendDataPacket(const std::string& json)
+MqttDataWrapper::CmdResult MqttDataWrapper::createAndSendDataPacket(const std::string& json, const uint64_t externalTs)
 {
-    auto [status, packets] = extractDataSamples(msgDescriptor, json);
+    auto [status, packets] = extractDataSamples(json, externalTs);
     if (status.success)
     {
         for (const auto& data : packets)
@@ -283,8 +284,13 @@ void MqttDataWrapper::setTimestampFieldName(std::string tsFieldName)
     msgDescriptor.tsFieldName = std::move(tsFieldName);
 }
 
-std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper::extractDataSamples(const MqttMsgDescriptor& msgDescriptor,
-                                                                                                    const std::string& json)
+void MqttDataWrapper::setDomainSignalMode(DomainSignalMode mode)
+{
+    domainSignalType = mode;
+}
+
+std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper::extractDataSamples(const std::string& json,
+                                                                                                    const uint64_t externalTs)
 {
     using ValueVariant = std::variant<std::vector<int64_t>, std::vector<double>, std::vector<std::string>>;
     ValueVariant value{};
@@ -365,7 +371,8 @@ std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper:
                         }
                     }
                 }
-                else if (!msgDescriptor.tsFieldName.empty() && name == msgDescriptor.tsFieldName)
+                else if (domainSignalType == DomainSignalMode::ExtractFromMessage && !msgDescriptor.tsFieldName.empty() &&
+                         name == msgDescriptor.tsFieldName)
                 {
                     const auto& tsField = jsonDocument[name];
                     if (tsField.IsArray())
@@ -422,10 +429,6 @@ std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper:
                         }
                     }
                 }
-                else
-                {
-                    LOG_T("Field \"{}\" is not supported.", name);
-                }
             }
         }
     }
@@ -433,12 +436,12 @@ std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper:
     {
         result.addError("Error deserializing MQTT payload. ");
     }
-    if (!hasValue || (!msgDescriptor.tsFieldName.empty() && !hasTS))
+    if (!hasValue || (domainSignalType == DomainSignalMode::ExtractFromMessage && !msgDescriptor.tsFieldName.empty() && !hasTS))
     {
         result.addError("Not all required fields are present in the JSON message. ");
         if (!hasValue)
             result.addError(fmt::format("Couldn't extract value field (\"{}\") from the JSON message. ", msgDescriptor.valueFieldName));
-        if (!msgDescriptor.tsFieldName.empty() && !hasTS)
+        if (domainSignalType == DomainSignalMode::ExtractFromMessage && !msgDescriptor.tsFieldName.empty() && !hasTS)
             result.addError(fmt::format("Couldn't extract timestamp field (\"{}\") from the JSON message. ", msgDescriptor.tsFieldName));
     }
 
@@ -448,16 +451,33 @@ std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper:
             [&](auto&& values)
             {
                 using T = std::decay_t<decltype(values)>;
-                if (hasTS && ts.size() != values.size())
+                if (domainSignalType == DomainSignalMode::ExtractFromMessage && hasTS && ts.size() != values.size())
                 {
                     result.addError("Timestamp and value array sizes do not match. ");
+                    return;
+                }
+                if (domainSignalType == DomainSignalMode::ExternalTimestamp && values.size() > 1)
+                {
+                    result.addError("External timestamp mode doesn't support arrays of values. ");
                     return;
                 }
                 if constexpr (std::is_same_v<T, std::vector<std::string>>)
                 {
                     for (size_t i = 0; i < values.size(); ++i)
                     {
-                        DataPackets dp = hasTS ? buildDataPackets(values[i], ts[i]) : buildDataPackets(values[i]);
+                        DataPackets dp;
+                        if (domainSignalType == DomainSignalMode::ExternalTimestamp)
+                        {
+                            dp = buildDataPackets(values[i], externalTs);
+                        }
+                        else if (domainSignalType == DomainSignalMode::ExtractFromMessage)
+                        {
+                            dp = buildDataPackets(values[i], ts[i]);
+                        }
+                        else if (domainSignalType == DomainSignalMode::None)
+                        {
+                            dp = buildDataPackets(values[i]);
+                        }
 
                         if (dp.dataPacket.assigned())
                             outputData.push_back(std::move(dp));
@@ -465,7 +485,19 @@ std::pair<MqttDataWrapper::CmdResult, std::vector<DataPackets>> MqttDataWrapper:
                 }
                 else
                 {
-                    DataPackets dp = hasTS ? buildDataPackets(values, ts) : buildDataPackets(values);
+                    DataPackets dp;
+                    if (domainSignalType == DomainSignalMode::ExternalTimestamp)
+                    {
+                        dp = buildDataPackets(values, externalTs);
+                    }
+                    else if (domainSignalType == DomainSignalMode::ExtractFromMessage)
+                    {
+                        dp = buildDataPackets(values, ts);
+                    }
+                    else if (domainSignalType == DomainSignalMode::None)
+                    {
+                        dp = buildDataPackets(values);
+                    }
 
                     if (dp.dataPacket.assigned())
                         outputData.push_back(std::move(dp));
