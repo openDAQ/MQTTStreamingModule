@@ -1,4 +1,4 @@
-#include "MqttDataWrapper.h"
+#include "mqtt_streaming_protocol/MqttDataWrapper.h"
 
 #include <opendaq/binary_data_packet_factory.h>
 #include <opendaq/data_descriptor_factory.h>
@@ -6,7 +6,7 @@
 #include <opendaq/sample_type_traits.h>
 #include <rapidjson/document.h>
 
-#include <timestampConverter.h>
+#include <mqtt_streaming_protocol/utils.h>
 
 namespace
 {

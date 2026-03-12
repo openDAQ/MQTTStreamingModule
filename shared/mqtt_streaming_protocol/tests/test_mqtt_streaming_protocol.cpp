@@ -1,7 +1,7 @@
-#include "MqttAsyncClient.h"
+#include "mqtt_streaming_protocol/MqttAsyncClient.h"
 #include "MqttAsyncClientWrapper.h"
 #include "mqtt_streaming_helper/timer.h"
-#include "timestampConverter.h"
+#include "mqtt_streaming_protocol/utils.h"
 #include <future>
 #include <testutils/testutils.h>
 #include <thread>

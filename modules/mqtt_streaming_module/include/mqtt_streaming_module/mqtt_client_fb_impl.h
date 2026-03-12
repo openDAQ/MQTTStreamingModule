@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include "MqttAsyncClient.h"
-#include "MqttSettings.h"
+#include "mqtt_streaming_protocol/MqttAsyncClient.h"
+#include "mqtt_streaming_protocol/MqttSettings.h"
 #include <future>
 #include <mqtt_streaming_module/common.h>
 #include <opendaq/function_block_impl.h>

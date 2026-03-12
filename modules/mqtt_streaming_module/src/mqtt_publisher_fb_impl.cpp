@@ -1,12 +1,13 @@
 #include "mqtt_streaming_module/constants.h"
 #include "mqtt_streaming_module/handler_factory.h"
+#include "mqtt_streaming_protocol/JsonConfigWrapper.h"
+#include "mqtt_streaming_protocol/utils.h"
 #include <boost/algorithm/string.hpp>
 #include <mqtt_streaming_module/helper.h>
 #include <mqtt_streaming_module/mqtt_publisher_fb_impl.h>
+#include <mqtt_streaming_module/property_helper.h>
 #include <opendaq/binary_data_packet_factory.h>
 #include <opendaq/event_packet_params.h>
-#include <mqtt_streaming_module/property_helper.h>
-#include "JsonConfigWrapper.h"
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -513,7 +514,7 @@ void MqttPublisherFbImpl::readProperties()
 
     if (config.mode == PublisherMode::Json && config.topicMode == TopicMode::Single)
     {
-        auto result = mqtt::JsonConfigWrapper::validateTopic(config.topicName, loggerComponent);
+        auto result = mqtt::utils::validateTopic(config.topicName);
         hasSettingError = !result.success;
         settingErrors.push_back(std::move(result.msg));
     }

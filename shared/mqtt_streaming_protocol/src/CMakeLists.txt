@@ -3,6 +3,7 @@ set(LIB_NAME mqtt_streaming_protocol)
 set(SRC_Cpp MqttAsyncClient.cpp
             MqttDataWrapper.cpp
             JsonConfigWrapper.cpp
+            utils.cpp
 )
 
 set(SRC_PublicHeaders   MqttAsyncClient.h
@@ -10,11 +11,11 @@ set(SRC_PublicHeaders   MqttAsyncClient.h
 			MqttSettings.h
                         MqttDataWrapper.h
                         JsonConfigWrapper.h
-                        timestampConverter.h
+                        utils.h
                         common.h
 )
 
-set(INCLUDE_DIR ../include)
+set(INCLUDE_DIR ../include/${TARGET_FOLDER_NAME})
 opendaq_prepend_include(${INCLUDE_DIR} SRC_PublicHeaders)
 
 source_group("include" FILES ${SRC_PublicHeaders})

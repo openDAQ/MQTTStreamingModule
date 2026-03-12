@@ -14,8 +14,6 @@ class JsonConfigWrapper final
 public:
     JsonConfigWrapper(const std::string& config);
 
-    static CmdResult validateTopic(const daq::StringPtr topic, const daq::LoggerComponentPtr loggerComponent = nullptr);
-
     std::vector<std::pair<std::string, MqttMsgDescriptor>> extractDescription();
     std::string extractTopic();
     CmdResult isJsonValid();

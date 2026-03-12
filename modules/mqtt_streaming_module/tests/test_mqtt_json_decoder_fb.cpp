@@ -4,7 +4,7 @@
 #include "mqtt_streaming_module/mqtt_json_decoder_fb_impl.h"
 #include "test_daq_test_helper.h"
 #include "test_data.h"
-#include "timestampConverter.h"
+#include "mqtt_streaming_protocol/utils.h"
 #include <cmath>
 #include <coreobjects/property_factory.h>
 #include <coreobjects/property_object_factory.h>
@@ -12,6 +12,7 @@
 #include <opendaq/reader_factory.h>
 #include <testutils/testutils.h>
 #include <chrono>
+#include <iomanip>
 
 using namespace daq;
 using namespace daq::modules::mqtt_streaming_module;

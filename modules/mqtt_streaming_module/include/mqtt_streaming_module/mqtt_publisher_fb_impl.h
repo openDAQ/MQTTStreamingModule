@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include "MqttAsyncClient.h"
-#include "MqttDataWrapper.h"
+#include "mqtt_streaming_protocol/MqttAsyncClient.h"
+#include "mqtt_streaming_protocol/MqttDataWrapper.h"
 #include "mqtt_streaming_module/handler_base.h"
 #include "mqtt_streaming_module/status_helper.h"
 #include <mqtt_streaming_module/common.h>

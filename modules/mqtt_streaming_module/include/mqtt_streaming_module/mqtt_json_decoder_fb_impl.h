@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include "MqttDataWrapper.h"
+#include "mqtt_streaming_protocol/MqttDataWrapper.h"
 #include <mqtt_streaming_module/common.h>
 #include <opendaq/function_block_impl.h>
 

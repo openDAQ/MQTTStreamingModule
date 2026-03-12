@@ -1,13 +1,14 @@
 #include "mqtt_streaming_module/constants.h"
-#include <mqtt_streaming_module/property_helper.h>
+#include "mqtt_streaming_protocol/JsonConfigWrapper.h"
+#include "mqtt_streaming_protocol/utils.h"
 #include <boost/algorithm/string.hpp>
 #include <fstream>
 #include <mqtt_streaming_module/helper.h>
 #include <mqtt_streaming_module/mqtt_json_decoder_fb_impl.h>
 #include <mqtt_streaming_module/mqtt_subscriber_fb_impl.h>
+#include <mqtt_streaming_module/property_helper.h>
 #include <opendaq/binary_data_packet_factory.h>
 #include <sstream>
-#include "JsonConfigWrapper.h"
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -316,7 +317,7 @@ void MqttSubscriberFbImpl::propertyChanged()
 
 bool MqttSubscriberFbImpl::setTopic(std::string topic)
 {
-    const auto validationStatus = mqtt::JsonConfigWrapper::validateTopic(topic, loggerComponent);
+    const auto validationStatus = mqtt::utils::validateTopic(topic);
     if (validationStatus.success)
     {
         LOG_I("An MQTT topic: {}", topic);

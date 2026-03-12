@@ -15,12 +15,12 @@
  */
 
 #pragma once
-#include "MqttAsyncClient.h"
-#include "MqttDataWrapper.h"
+#include "mqtt_streaming_protocol/MqttAsyncClient.h"
 #include <mqtt_streaming_module/common.h>
 #include <opendaq/function_block_impl.h>
 #include "mqtt_streaming_module/constants.h"
-#include <opendaq/function_block_impl.h>
+#include <opendaq/data_packet_ptr.h>
+#include "mqtt_streaming_protocol/common.h"
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 

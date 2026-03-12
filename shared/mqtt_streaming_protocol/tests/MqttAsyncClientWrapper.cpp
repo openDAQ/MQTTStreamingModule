@@ -1,5 +1,5 @@
 #include "MqttAsyncClientWrapper.h"
-#include "MqttAsyncClient.h"
+#include "mqtt_streaming_protocol/MqttAsyncClient.h"
 #include "mqtt_streaming_helper/timer.h"
 #include <future>
 

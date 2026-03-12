@@ -1,4 +1,4 @@
-#include "JsonConfigWrapper.h"
+#include "mqtt_streaming_protocol/JsonConfigWrapper.h"
 
 #include <boost/algorithm/string.hpp>
 #include <coreobjects/unit_factory.h>
@@ -17,39 +17,6 @@ JsonConfigWrapper::JsonConfigWrapper(const std::string& config)
     : config(config)
 {
     doc.Parse(config.c_str());
-}
-
-CmdResult JsonConfigWrapper::validateTopic(const daq::StringPtr topic, const daq::LoggerComponentPtr loggerComponent)
-{
-
-    CmdResult result(true, "");
-    if (!topic.assigned() || topic.getLength() == 0)
-    {
-        result = CmdResult(false, "Empty topic is not allowed!");
-        if (loggerComponent.assigned())
-        {
-            LOG_W("{}", result.msg);
-        }
-        return result;
-    }
-
-    std::vector<std::string> list;
-    boost::split(list, topic.toStdString(), boost::is_any_of("/"));
-
-    for (const auto& part : list)
-    {
-        if (part == "#" || part == "+")
-        {
-            result = CmdResult(false, fmt::format("Wildcard characters '+' and '#' are not allowed in topic: {}", topic.toStdString()));
-            if (loggerComponent.assigned())
-            {
-                LOG_W("{}", result.msg);
-            }
-            return result;
-        }
-    }
-
-    return result;
 }
 
 std::vector<std::pair<std::string, MqttMsgDescriptor>> JsonConfigWrapper::extractDescription()
