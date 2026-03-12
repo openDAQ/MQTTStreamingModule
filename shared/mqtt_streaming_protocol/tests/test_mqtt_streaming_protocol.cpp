@@ -124,7 +124,7 @@ TEST_F(MqttStreamingProtocolTest, PublishingWithoutDataControl)
     auto ok = connect("127.0.0.1", clientId);
     ASSERT_TRUE(ok);
 
-    CmdResult result;
+    MqttAsyncClient::CmdResultWithToken result;
     std::atomic<bool> sendDone{false};
     std::promise<bool> sendPromise;
     auto sendFuture = sendPromise.get_future();

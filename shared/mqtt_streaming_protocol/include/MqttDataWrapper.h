@@ -3,99 +3,41 @@
 #include <cstdint>
 #include <rapidjson/document.h>
 #include <string>
+#include <variant>
 #include <vector>
 
-#include <coretypes/list_ptr.h>
+#include "common.h"
 #include <opendaq/packet_factory.h>
 #include <opendaq/signal.h>
 #include <opendaq/signal_config_ptr.h>
-#include <opendaq/signal_ptr.h>
 
 namespace mqtt
 {
 
-template<typename T>
+template <typename T>
 struct container_traits
 {
     static constexpr bool is_vector = false;
     using value_type = T;
 };
 
-template<typename U, typename Alloc>
+template <typename U, typename Alloc>
 struct container_traits<std::vector<U, Alloc>>
 {
     static constexpr bool is_vector = true;
     using value_type = U;
 };
 
-template<typename T>
+template <typename T>
 inline constexpr bool is_std_vector_v = container_traits<T>::is_vector;
 
-template<typename T>
+template <typename T>
 using sample_type_t = typename container_traits<T>::value_type;
-
-struct SampleData
-{
-    double value;
-    uint64_t timestamp;
-};
-
-struct SignalId
-{
-    std::string topic;
-    std::string signalName;
-
-    bool operator==(const SignalId& other) const noexcept
-    {
-        return topic == other.topic && signalName == other.signalName;
-    }
-};
-
-struct DataPackets
-{
-    daq::DataPacketPtr dataPacket;
-    daq::DataPacketPtr domainDataPacket;
-};
-
-struct MqttMsgDescriptor
-{
-    std::string valueFieldName; // Value
-    std::string tsFieldName;    // Timestamp
-    daq::UnitPtr unit;
-};
 
 class MqttDataWrapper final
 {
 public:
-    struct CmdResult
-    {
-        bool success = false;
-        std::string msg;
-
-        CmdResult()
-            : success(false),
-              msg("")
-        {
-        }
-        CmdResult(bool success, const std::string& msg = "")
-            : success(success),
-              msg(msg)
-        {
-        }
-
-        CmdResult addError(const std::string& newmsg)
-        {
-            success = false;
-            msg += newmsg;
-            return *this;
-        }
-        CmdResult merge(const CmdResult& other)
-        {
-            success = success && other.success;
-            msg += other.msg;
-            return *this;
-        }
-    };
+    using ValueVariant = std::variant<std::vector<int64_t>, std::vector<double>, std::vector<std::string>>;
 
     enum class DomainSignalMode : int
     {
@@ -105,70 +47,69 @@ public:
         _count
     };
 
-    MqttDataWrapper(daq::LoggerComponentPtr loggerComponent);
+    MqttDataWrapper();
 
-    static CmdResult validateTopic(const daq::StringPtr topic, const daq::LoggerComponentPtr loggerComponent = nullptr);
-
-    void setConfig(const std::string& config);
-    std::vector<std::pair<std::string, MqttMsgDescriptor>> extractDescription();
-    std::string extractTopic();
-    CmdResult isJsonValid();
     void setOutputSignal(daq::SignalConfigPtr outputSignal);
     CmdResult createAndSendDataPacket(const std::string& json, const uint64_t externalTs);
-    //bool hasDomainSignal(const SignalId& signalId) const;
     void setValueFieldName(std::string valueFieldName);
     void setTimestampFieldName(std::string tsFieldName);
     void setDomainSignalMode(DomainSignalMode mode);
 
 private:
-    rapidjson::Document doc;
-    std::string config;
+    struct DataPackets
+    {
+        daq::DataPacketPtr dataPacket;
+        daq::DataPacketPtr domainDataPacket;
+    };
 
-    daq::LoggerComponentPtr loggerComponent;
+    struct ExtractionContext
+    {
+        rapidjson::Document jsonDocument;
+        ValueVariant value{};
+        std::vector<uint64_t> ts;
+        std::vector<DataPackets> outputData;
+        CmdResult result{true};
+        bool tsExtracted = false;
+        bool valueExtracted = false;
+        bool jsonParsed = false;
+        bool dataPacketBuilt = false;
+    };
+
     daq::SignalConfigPtr outputSignal;
     // used for description how to extract data from sample json
     MqttMsgDescriptor msgDescriptor;
-    DomainSignalMode domainSignalType;
+    DomainSignalMode domainSignalMode;
 
-    std::pair<CmdResult, std::vector<DataPackets>>
-    extractDataSamples(const std::string& json, const uint64_t externalTs);
+    std::pair<CmdResult, std::vector<DataPackets>> extractDataSamples(const std::string& json, const uint64_t externalTs);
     void sendDataSamples(const DataPackets& dataPackets);
+
     template <typename T>
-    DataPackets buildDataPackets(const T& value, uint64_t timestamp);
+    std::vector<DataPackets> buildDataPackets(const std::vector<T>& value, const std::vector<uint64_t>& timestamp);
     template <typename T>
-    DataPackets buildDataPackets(const T& value, const std::vector<uint64_t>& timestamp);
+    std::vector<DataPackets> buildDataPackets(const std::vector<T>& value);
     template <typename T>
-    DataPackets buildDataPackets(const T& value);
-    daq::DataPacketPtr buildDomainDataPacket(daq::GenericSignalConfigPtr<> signalConfig, uint64_t timestamp);
-    daq::DataPacketPtr buildDomainDataPacket(daq::GenericSignalConfigPtr<> signalConfig, const std::vector<uint64_t>& timestamp);
-    template<typename T>
-    daq::DataPacketPtr buildDataPacket(daq::GenericSignalConfigPtr<> signalConfig,
-                                       const T& value,
-                                       const daq::DataPacketPtr domainPacket);
-    template<typename T>
-    daq::DataPacketPtr createEmptyDataPacket(const daq::GenericSignalConfigPtr<> signalConfig,
-                                       const daq::DataPacketPtr domainPacket, const T& value);
-    template <typename T> void copyDataIntoPacket(daq::DataPacketPtr dataPacket, const T& value);
-    daq::UnitPtr extractSignalUnit(const rapidjson::Value& signalObj);
-    std::string extractValueFieldName(const rapidjson::Value& signalObj);
-    std::string extractTimestampFieldName(const rapidjson::Value& signalObj);
-    std::string extractFieldName(const rapidjson::Value& signalObj, const std::string& field);
+    DataPackets buildDataPacketsImpl(const T& value, uint64_t timestamp);
+    template <typename T>
+    DataPackets buildDataPacketsImpl(const std::vector<T>& value, const std::vector<uint64_t>& timestamp);
+
+    template <typename T>
+    daq::DataPacketPtr buildDataPacket(daq::SignalConfigPtr signalConfig, const T& value, const daq::DataPacketPtr domainPacket);
+    daq::DataPacketPtr buildDomainDataPacket(daq::SignalConfigPtr signalConfig, uint64_t timestamp);
+    daq::DataPacketPtr buildDomainDataPacket(daq::SignalConfigPtr signalConfig, const std::vector<uint64_t>& timestamp);
+    template <typename T>
+    daq::DataPacketPtr
+    createEmptyDataPacket(const daq::SignalConfigPtr signalConfig, const daq::DataPacketPtr domainPacket, const T& value);
+    template <typename T>
+    void copyDataIntoPacket(daq::DataPacketPtr dataPacket, const T& value);
+
+    bool parseJson(ExtractionContext& ctx, const std::string& json);
+    bool parseJsonFields(ExtractionContext& ctx);
+    bool extractValue(ExtractionContext& ctx, const std::string& jsonFieldName);
+    bool extractTimestamp(ExtractionContext& ctx, const std::string& jsonFieldName);
+    bool validateExtractionResult(ExtractionContext& ctx);
+    bool buildPackets(ExtractionContext& ctx, const uint64_t externalTs);
 
     template <typename TReadType>
     static bool isTypeTheSame(daq::SampleType sampleType);
 };
 } // namespace mqtt
-
-namespace std
-{
-
-template <> struct hash<mqtt::SignalId>
-{
-    std::size_t operator()(const mqtt::SignalId& id) const noexcept
-    {
-        std::size_t h1 = std::hash<std::string>{}(id.topic);
-        std::size_t h2 = std::hash<std::string>{}(id.signalName);
-        return h1 ^ (h2 << 1);
-    }
-};
-} // namespace std

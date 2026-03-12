@@ -30,20 +30,6 @@ class MqttSubscriberFbImpl final : public FunctionBlock
     friend class MqttJsonDecoderFbHelper;
 
 public:
-    struct CmdResult
-    {
-        bool success = false;
-        std::string msg;
-        int token = 0;
-
-        CmdResult(bool success = false, const std::string& msg = "", int token = 0)
-            : success(success),
-              msg(msg),
-              token(token)
-        {
-        }
-    };
-
     enum class DomainSignalMode : EnumType
     {
         None = 0,
@@ -67,7 +53,6 @@ protected:
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
     int qos = DEFAULT_SUB_QOS;
-    mqtt::MqttDataWrapper jsonDataWorker;
     std::string topicForSubscribing;
     DictObjectPtr<IDict, IString, IFunctionBlockType> nestedFbTypes;
     std::vector<FunctionBlockPtr> nestedFunctionBlocks;
@@ -103,8 +88,8 @@ protected:
     void propertyChanged();
 
     bool setTopic(std::string topic);
-    CmdResult subscribeToTopic();
-    CmdResult unsubscribeFromTopic();
+    mqtt::CmdResult subscribeToTopic();
+    mqtt::CmdResult unsubscribeFromTopic();
 
     void removed() override;
     DictPtr<IString, IFunctionBlockType> onGetAvailableFunctionBlockTypes() override;

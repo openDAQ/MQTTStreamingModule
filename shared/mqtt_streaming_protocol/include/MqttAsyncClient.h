@@ -16,43 +16,43 @@ enum class MqttConnectionStatus {
     pending,
 };
 
-struct CmdResult
-{
-    bool success = false;
-    std::string msg;
-    int token = 0;
-
-    CmdResult()
-        : success(false),
-          msg(""),
-          token(0)
-    {
-    }
-    CmdResult(bool success)
-        : success(success),
-          msg(""),
-          token(0)
-    {
-    }
-
-    CmdResult(bool success, const std::string& msg)
-        : success(success),
-          msg(msg),
-          token(0)
-    {
-    }
-
-    CmdResult(bool success, const std::string& msg, int token)
-        : success(success),
-          msg(msg),
-          token(token)
-    {
-    }
-};
-
 class MqttAsyncClient final {
 public:
     using MsgArrivedCb_type = void(const MqttAsyncClient &, mqtt::MqttMessage &msg);
+
+    struct CmdResultWithToken
+    {
+        bool success = false;
+        std::string msg;
+        int token = 0;
+
+        CmdResultWithToken()
+            : success(false),
+              msg(""),
+              token(0)
+        {
+        }
+        CmdResultWithToken(bool success)
+            : success(success),
+              msg(""),
+              token(0)
+        {
+        }
+
+        CmdResultWithToken(bool success, const std::string& msg)
+            : success(success),
+              msg(msg),
+              token(0)
+        {
+        }
+
+        CmdResultWithToken(bool success, const std::string& msg, int token)
+            : success(success),
+              msg(msg),
+              token(token)
+        {
+        }
+    };
 
     MqttAsyncClient();
     MqttAsyncClient(std::string serverUrl, std::string clientId, bool cleanSession);
@@ -62,20 +62,20 @@ public:
     MqttAsyncClient &operator=(MqttAsyncClient &&) = delete;
     ~MqttAsyncClient();
 
-    CmdResult connect();
-    CmdResult disconnect();
+    CmdResultWithToken connect();
+    CmdResultWithToken disconnect();
     bool syncDisconnect(int timeoutMs);
 
-    CmdResult publish(const std::string &topic,
+    CmdResultWithToken publish(const std::string &topic,
                  void *data,
                  size_t dataLen,
                  int qos = 1,
                  bool retained = false);
 
-    CmdResult subscribe(std::string topic, int qos);
-    CmdResult unsubscribe(std::string topic);
-    CmdResult unsubscribe(const std::vector<std::string>& topics);
-    CmdResult waitForCompletion(int token, unsigned long toutMs);
+    CmdResultWithToken subscribe(std::string topic, int qos);
+    CmdResultWithToken unsubscribe(std::string topic);
+    CmdResultWithToken unsubscribe(const std::vector<std::string>& topics);
+    CmdResultWithToken waitForCompletion(int token, unsigned long toutMs);
 
     void setConnectedCb(std::function<void()> cb);
     void setMessageArrivedCb(std::string topic, std::function<MsgArrivedCb_type> cb);

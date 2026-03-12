@@ -7,6 +7,7 @@
 #include <mqtt_streaming_module/mqtt_subscriber_fb_impl.h>
 #include <opendaq/binary_data_packet_factory.h>
 #include <sstream>
+#include "JsonConfigWrapper.h"
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -21,7 +22,6 @@ MqttSubscriberFbImpl::MqttSubscriberFbImpl(const ContextPtr& ctx,
                                            const PropertyObjectPtr& config)
     : FunctionBlock(type, ctx, parent, generateLocalId()),
       subscriber(subscriber),
-      jsonDataWorker(loggerComponent),
       topicForSubscribing(""),
       nestedFbTypes(nullptr),
       enablePreview(false),
@@ -259,11 +259,11 @@ std::pair<bool, std::string> MqttSubscriberFbImpl::readFileToString(const std::s
 
 void MqttSubscriberFbImpl::setJsonConfig(const std::string config)
 {
-    jsonDataWorker.setConfig(config);
-    auto result = jsonDataWorker.isJsonValid();
+    mqtt::JsonConfigWrapper jsonConfigWrapper(config);
+    auto result = jsonConfigWrapper.isJsonValid();
     if (result.success)
     {
-        auto topic = jsonDataWorker.extractTopic();
+        auto topic = jsonConfigWrapper.extractTopic();
         result.success = setTopic(topic);
         if (result.success)
         {
@@ -273,7 +273,7 @@ void MqttSubscriberFbImpl::setJsonConfig(const std::string config)
                 objPtr.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, String(topic));
                 event.unmute();
             }
-            if (const auto signalDscs = jsonDataWorker.extractDescription(); !signalDscs.empty())
+            if (const auto signalDscs = jsonConfigWrapper.extractDescription(); !signalDscs.empty())
             {
                 auto fbConfig = MqttJsonDecoderFbImpl::CreateType().createDefaultConfig();
                 for (const auto& [signalName, descriptor] : signalDscs)
@@ -316,7 +316,7 @@ void MqttSubscriberFbImpl::propertyChanged()
 
 bool MqttSubscriberFbImpl::setTopic(std::string topic)
 {
-    const auto validationStatus = mqtt::MqttDataWrapper::validateTopic(topic, loggerComponent);
+    const auto validationStatus = mqtt::JsonConfigWrapper::validateTopic(topic, loggerComponent);
     if (validationStatus.success)
     {
         LOG_I("An MQTT topic: {}", topic);
@@ -539,9 +539,9 @@ void MqttSubscriberFbImpl::clearSubscribedTopic()
     topicForSubscribing.clear();
 }
 
-MqttSubscriberFbImpl::CmdResult MqttSubscriberFbImpl::subscribeToTopic()
+mqtt::CmdResult MqttSubscriberFbImpl::subscribeToTopic()
 {
-    CmdResult result{false};
+    mqtt::CmdResult result{false};
     if (subscriber)
     {
         auto lambda = [this](const mqtt::MqttAsyncClient& client, mqtt::MqttMessage& msg) { this->onSignalsMessage(client, msg); };
@@ -563,7 +563,7 @@ MqttSubscriberFbImpl::CmdResult MqttSubscriberFbImpl::subscribeToTopic()
                 LOG_D("Trying to subscribe to the topic: {}", topic);
                 setComponentStatusWithMessage(ComponentStatus::Ok, "Waiting for data for the topic: " + topicForSubscribing);
                 waitingForData = true;
-                result = {true, "", result.token};
+                result = {true, ""};
             }
         }
         else
@@ -581,16 +581,16 @@ MqttSubscriberFbImpl::CmdResult MqttSubscriberFbImpl::subscribeToTopic()
     return result;
 }
 
-MqttSubscriberFbImpl::CmdResult MqttSubscriberFbImpl::unsubscribeFromTopic()
+mqtt::CmdResult MqttSubscriberFbImpl::unsubscribeFromTopic()
 {
-    CmdResult result{true};
+    mqtt::CmdResult result{true};
     if (subscriber)
     {
         const auto topic = getSubscribedTopic();
         if (!topic.empty())
         {
             subscriber->setMessageArrivedCb(topic, nullptr);
-            mqtt::CmdResult unsubRes = subscriber->unsubscribe(topic);
+            mqtt::MqttAsyncClient::CmdResultWithToken unsubRes = subscriber->unsubscribe(topic);
             if (unsubRes.success)
                 unsubRes = subscriber->waitForCompletion(unsubRes.token, MQTT_FB_UNSUBSCRIBE_TOUT);
 

@@ -6,6 +6,7 @@
 #include <opendaq/binary_data_packet_factory.h>
 #include <opendaq/event_packet_params.h>
 #include <mqtt_streaming_module/property_helper.h>
+#include "JsonConfigWrapper.h"
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -18,7 +19,7 @@ MqttPublisherFbImpl::MqttPublisherFbImpl(const ContextPtr& ctx,
                                          const PropertyObjectPtr& config)
     : FunctionBlock(type, ctx, parent, generateLocalId()),
       mqttClient(mqttClient),
-      jsonDataWorker(loggerComponent),
+      jsonDataWorker(),
       running(true),
       hasSignalError(false),
       signalDescriptorChanged(false),
@@ -512,7 +513,7 @@ void MqttPublisherFbImpl::readProperties()
 
     if (config.mode == PublisherMode::Json && config.topicMode == TopicMode::Single)
     {
-        auto result = mqtt::MqttDataWrapper::validateTopic(config.topicName, loggerComponent);
+        auto result = mqtt::JsonConfigWrapper::validateTopic(config.topicName, loggerComponent);
         hasSettingError = !result.success;
         settingErrors.push_back(std::move(result.msg));
     }

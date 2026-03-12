@@ -45,7 +45,7 @@ MqttAsyncClient::~MqttAsyncClient()
     }
 }
 
-CmdResult MqttAsyncClient::connect()
+MqttAsyncClient::CmdResultWithToken MqttAsyncClient::connect()
 {
     if (client != nullptr)
     {
@@ -54,14 +54,14 @@ CmdResult MqttAsyncClient::connect()
 
     if (serverUrl.empty() || clientId.empty())
     {
-        return CmdResult(false, "serverUrl or clientId is empty");
+        return CmdResultWithToken(false, "serverUrl or clientId is empty");
     }
 
     int rc = MQTTAsync_createWithOptions(&client, serverUrl.c_str(), clientId.c_str(), MQTTCLIENT_PERSISTENCE_NONE, NULL, &createOpts);
 
     if (rc != MQTTASYNC_SUCCESS)
     {
-        return CmdResult(false, MQTTAsync_strerror(rc));
+        return CmdResultWithToken(false, MQTTAsync_strerror(rc));
     }
 
     rc = MQTTAsync_setCallbacks(client,
@@ -72,33 +72,33 @@ CmdResult MqttAsyncClient::connect()
 
     if (rc != MQTTASYNC_SUCCESS)
     {
-        return CmdResult(false, MQTTAsync_strerror(rc));
+        return CmdResultWithToken(false, MQTTAsync_strerror(rc));
     }
 
     rc = MQTTAsync_setConnected(client, this, &MqttAsyncClient::onConnected);
     if (rc != MQTTASYNC_SUCCESS)
     {
-        return CmdResult(false, MQTTAsync_strerror(rc));
+        return CmdResultWithToken(false, MQTTAsync_strerror(rc));
     }
 
     rc = MQTTAsync_connect(client, &connOpts);
     if (rc != MQTTASYNC_SUCCESS)
     {
-        return CmdResult(false, MQTTAsync_strerror(rc));
+        return CmdResultWithToken(false, MQTTAsync_strerror(rc));
     }
     pendingConnect = true;
-    return CmdResult(true);
+    return CmdResultWithToken(true);
 }
 
-CmdResult MqttAsyncClient::disconnect()
+MqttAsyncClient::CmdResultWithToken MqttAsyncClient::disconnect()
 {
     if (client == nullptr)
-        return CmdResult(true, "The client is null");
+        return CmdResultWithToken(true, "The client is null");
 
     // It is only the result of the request to disconnect (queuing)
     auto status = MQTTAsync_disconnect(client, &disconnOpts);
     bool result = (status == MQTTASYNC_SUCCESS || status == MQTTASYNC_DISCONNECTED);
-    return CmdResult(result, MQTTAsync_strerror(status));
+    return CmdResultWithToken(result, MQTTAsync_strerror(status));
 }
 
 bool MqttAsyncClient::syncDisconnect(int timeoutMs)
@@ -162,22 +162,22 @@ void MqttAsyncClient::setUsernamePasswrod(std::string username, std::string pass
     connOpts.password = !password.empty() ? password.c_str() : NULL;
 }
 
-CmdResult MqttAsyncClient::publish(const std::string& topic, void* data, size_t dataLen, int qos, bool retained)
+MqttAsyncClient::CmdResultWithToken MqttAsyncClient::publish(const std::string& topic, void* data, size_t dataLen, int qos, bool retained)
 {
     std::string tmpErr;
     if (client == nullptr)
     {
-        return CmdResult(false, "MQTTAsync is nullptr");
+        return CmdResultWithToken(false, "MQTTAsync is nullptr");
     }
 
     if (topic.empty())
     {
-        return CmdResult(false, "topic is empty");
+        return CmdResultWithToken(false, "topic is empty");
     }
 
     if (qos > 2 || qos < 0)
     {
-        return CmdResult(false, "QoS is wrong");
+        return CmdResultWithToken(false, "QoS is wrong");
     }
 
     MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
@@ -190,30 +190,30 @@ CmdResult MqttAsyncClient::publish(const std::string& topic, void* data, size_t 
     pubmsg.qos = qos;
     pubmsg.retained = retained ? 1 : 0;
     int rc = MQTTAsync_sendMessage(client, topic.c_str(), &pubmsg, &opts);
-    return CmdResult(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc), opts.token);
+    return CmdResultWithToken(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc), opts.token);
 }
 
-CmdResult MqttAsyncClient::subscribe(std::string topic, int qos)
+MqttAsyncClient::CmdResultWithToken MqttAsyncClient::subscribe(std::string topic, int qos)
 {
     MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
     opts.onSuccess = MqttAsyncClient::onSubscribeSuccess;
     opts.onFailure = MqttAsyncClient::onSubscribeFailure;
     opts.context = this;
     int rc = MQTTAsync_subscribe(client, topic.c_str(), qos, &opts);
-    return CmdResult(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc), opts.token);
+    return CmdResultWithToken(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc), opts.token);
 }
 
-CmdResult MqttAsyncClient::unsubscribe(std::string topic)
+MqttAsyncClient::CmdResultWithToken MqttAsyncClient::unsubscribe(std::string topic)
 {
     MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
     opts.onSuccess = (MQTTAsync_onSuccess*)&MqttAsyncClient::onUnsubscribeSuccess;
     opts.onFailure = (MQTTAsync_onFailure*)&MqttAsyncClient::onUnsubscribeFailure;
     opts.context = this;
     int rc = MQTTAsync_unsubscribe(client, topic.c_str(), &opts);
-    return CmdResult(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc), opts.token);
+    return CmdResultWithToken(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc), opts.token);
 }
 
-CmdResult MqttAsyncClient::unsubscribe(const std::vector<std::string>& topics)
+MqttAsyncClient::CmdResultWithToken MqttAsyncClient::unsubscribe(const std::vector<std::string>& topics)
 {
     MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
     opts.onSuccess = (MQTTAsync_onSuccess*)&MqttAsyncClient::onUnsubscribeSuccess;
@@ -235,15 +235,15 @@ CmdResult MqttAsyncClient::unsubscribe(const std::vector<std::string>& topics)
         &opts
     );
 
-    return CmdResult(rc == MQTTASYNC_SUCCESS,
+    return CmdResultWithToken(rc == MQTTASYNC_SUCCESS,
                      MQTTAsync_strerror(rc),
                      opts.token);
 }
 
-CmdResult MqttAsyncClient::waitForCompletion(int token, unsigned long toutMs)
+MqttAsyncClient::CmdResultWithToken MqttAsyncClient::waitForCompletion(int token, unsigned long toutMs)
 {
     int rc = MQTTAsync_waitForCompletion(client, token, toutMs);
-    return CmdResult(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc));
+    return CmdResultWithToken(rc == MQTTASYNC_SUCCESS, MQTTAsync_strerror(rc));
 }
 
 void MqttAsyncClient::setServerURL(std::string serverUrl)

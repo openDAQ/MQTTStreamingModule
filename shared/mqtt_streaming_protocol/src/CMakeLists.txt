@@ -2,13 +2,16 @@ set(LIB_NAME mqtt_streaming_protocol)
 
 set(SRC_Cpp MqttAsyncClient.cpp
             MqttDataWrapper.cpp
+            JsonConfigWrapper.cpp
 )
 
 set(SRC_PublicHeaders   MqttAsyncClient.h
 			MqttMessage.h
 			MqttSettings.h
                         MqttDataWrapper.h
+                        JsonConfigWrapper.h
                         timestampConverter.h
+                        common.h
 )
 
 set(INCLUDE_DIR ../include)

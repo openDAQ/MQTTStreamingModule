@@ -13,7 +13,7 @@ MqttJsonDecoderFbImpl::MqttJsonDecoderFbImpl(const ContextPtr& ctx,
                                        const FunctionBlockTypePtr& type,
                                        const PropertyObjectPtr& config)
     : FunctionBlock(type, ctx, parent, generateLocalId()),
-      jsonDataWorker(loggerComponent)
+      jsonDataWorker()
 {
     initComponentStatus();
     if (config.assigned())
