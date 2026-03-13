@@ -431,7 +431,11 @@ DataPacketPtr MqttSubscriberFbImpl::createDomainDataPacket(const uint64_t epochT
         if (lastTsValue == epochTime)
         {
             if (statusContainer.getStatus("ComponentStatus") != ComponentStatus::Error)
-                setComponentStatusWithMessage(ComponentStatus::Warning, "Domain signal value is the same as previous. Data may be lost");
+            {
+                setComponentStatusWithMessage(ComponentStatus::Warning,
+                                              "Domain signal value for one of the received messages is the same as previous. "
+                                              "Data may be lost!");
+            }
         }
         lastTsValue = epochTime;
     }

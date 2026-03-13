@@ -1127,3 +1127,54 @@ TEST_F(MqttJsonDecoderFbTest, RemovingNestedFunctionBlock)
     ASSERT_EQ(subMqttFb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
 }
+
+TEST_F(MqttJsonDecoderFbTest, PacketWithTheSameTS)
+{
+    using namespace std::chrono;
+    const std::string warnMsg("Domain signal value for one of the received messages is the same as previous.");
+    StartUp();
+    const std::string topic = buildTopicName();
+    const auto msgTemplate = VALID_JSON_DATA_1;
+    const std::string valueF = extractFieldName(msgTemplate, "<placeholder_value>");
+    AddSubFb(topic);
+    AddDecoderFb(valueF, DDSM::ExternalTimestamp, "");
+
+    auto fb = reinterpret_cast<MqttJsonDecoderFbImpl*>(*decoderObj);
+    auto buildMsg = [](int64_t value)
+    {
+        return replacePlaceholder(VALID_JSON_DATA_1, "<placeholder_value>", value);
+    };
+    auto getTime = []() { return duration_cast<microseconds>(system_clock::now().time_since_epoch()).count(); };
+    auto getComponentStatus = [&]() { return decoderObj.getStatusContainer().getStatus("ComponentStatus"); };
+    auto getStatusMsg = [&]() { return decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString(); };
+
+    const auto warning = Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager());
+    const auto ok = Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager());
+
+    const auto ts = getTime();
+
+    fb->processMessage(buildMsg(1), ts);
+
+    ASSERT_EQ(getComponentStatus(), ok);
+
+    fb->processMessage(buildMsg(2), ts);
+    EXPECT_EQ(getComponentStatus(), warning);
+    EXPECT_NE(getStatusMsg().find(warnMsg), std::string::npos);
+
+    fb->processMessage(buildMsg(3), getTime());
+    EXPECT_EQ(getComponentStatus(), warning);
+    EXPECT_NE(getStatusMsg().find(warnMsg), std::string::npos);
+
+    // reconfiguring should reset warning
+    decoderObj.setPropertyValue(PROPERTY_NAME_DEC_UNIT, "ppm");
+    EXPECT_EQ(getComponentStatus(), ok);
+    EXPECT_EQ(getStatusMsg().find(warnMsg), std::string::npos);
+
+    fb->processMessage(buildMsg(3), getTime());
+    EXPECT_EQ(getComponentStatus(), ok);
+    EXPECT_EQ(getStatusMsg().find(warnMsg), std::string::npos);
+
+    fb->processMessage(buildMsg(3), getTime());
+    EXPECT_EQ(getComponentStatus(), ok);
+    EXPECT_EQ(getStatusMsg().find(warnMsg), std::string::npos);
+}

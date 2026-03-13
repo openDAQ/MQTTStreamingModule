@@ -13,7 +13,8 @@ MqttJsonDecoderFbImpl::MqttJsonDecoderFbImpl(const ContextPtr& ctx,
                                        const FunctionBlockTypePtr& type,
                                        const PropertyObjectPtr& config)
     : FunctionBlock(type, ctx, parent, generateLocalId()),
-      jsonDataWorker()
+      jsonDataWorker(),
+      lastExternalTs(0)
 {
     initComponentStatus();
     if (config.assigned())
@@ -147,6 +148,7 @@ void MqttJsonDecoderFbImpl::readProperties()
     jsonDataWorker.setTimestampFieldName(config.tsFieldName);
     jsonDataWorker.setDomainSignalMode(config.tsMode);
     waitingData = configValid.load();
+    externalTsDuplicate = false;
     updateStatuses();
 }
 
@@ -168,13 +170,29 @@ void MqttJsonDecoderFbImpl::updateStatuses()
     {
         setComponentStatusWithMessage(ComponentStatus::Ok, "Waiting for data");
     }
-    else if (parsingSucceeded)
+    else if (parsingSucceeded == false)
     {
-        setComponentStatusWithMessage(ComponentStatus::Ok, "Parsing succeeded");
+        setComponentStatusWithMessage(ComponentStatus::Error, "Parsing failed: " + parsingMsg);
+    }
+    else if (externalTsDuplicate)
+    {
+        setComponentStatusWithMessage(ComponentStatus::Warning,
+                                      "Domain signal value for one of the received messages is the same as previous. "
+                                      "Data may be lost!");
     }
     else
     {
-        setComponentStatusWithMessage(ComponentStatus::Error, "Parsing failed: " + parsingMsg);
+        setComponentStatusWithMessage(ComponentStatus::Ok, "Parsing succeeded");
+    }
+}
+
+void MqttJsonDecoderFbImpl::checkExternalTs(const uint64_t externalTs)
+{
+    if (config.tsMode == mqtt::MqttDataWrapper::DomainSignalMode::ExternalTimestamp)
+    {
+        if (externalTs == lastExternalTs)
+            externalTsDuplicate = true;
+        lastExternalTs = externalTs;
     }
 }
 
@@ -184,6 +202,7 @@ void MqttJsonDecoderFbImpl::processMessage(const std::string& json, const uint64
     {
         auto lock = this->getRecursiveConfigLock();
         waitingData = false;
+        checkExternalTs(externalTs);
         auto status = jsonDataWorker.createAndSendDataPacket(json, externalTs);
         parsingSucceeded = status.success;
         if (status.success)

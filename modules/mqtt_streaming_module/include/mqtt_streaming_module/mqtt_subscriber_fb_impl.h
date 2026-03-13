@@ -77,7 +77,7 @@ protected:
     void reconfigureSignal();
     void clearSubscribedTopic();
 
-    DataPacketPtr createDomainDataPacket(const uint64_t epochTime);
+    DAQ_MQTT_STREAM_MODULE_API DataPacketPtr createDomainDataPacket(const uint64_t epochTime);
 
     void processMessage(const mqtt::MqttMessage& msg);
     void initProperties(const PropertyObjectPtr& config);

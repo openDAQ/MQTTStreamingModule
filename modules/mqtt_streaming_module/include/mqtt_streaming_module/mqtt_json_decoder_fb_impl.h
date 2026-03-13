@@ -39,7 +39,7 @@ public:
                                 const PropertyObjectPtr& config = nullptr);
 
     DAQ_MQTT_STREAM_MODULE_API static FunctionBlockTypePtr CreateType();
-    void processMessage(const std::string& json, const uint64_t externalTs);
+    DAQ_MQTT_STREAM_MODULE_API void processMessage(const std::string& json, const uint64_t externalTs);
 protected:
 
     struct FbConfig {
@@ -58,7 +58,9 @@ protected:
     std::atomic<bool> configValid;
     std::string configMsg;
     std::atomic<bool> parsingSucceeded;
+    std::atomic<bool> externalTsDuplicate;
     std::string parsingMsg;
+    uint64_t lastExternalTs;
 
     FbConfig config;
 
@@ -73,6 +75,7 @@ protected:
     void propertyChanged();
 
     void updateStatuses();
+    void checkExternalTs(const uint64_t externalTs);
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

@@ -61,6 +61,12 @@ public:
         mqtt::MqttAsyncClient unused;
         obj->onSignalsMessage(unused, msg);
     }
+
+    DataPacketPtr createDomainDataPacket(daq::FunctionBlockPtr subFb, const uint64_t epochTime)
+    {
+        auto fb = reinterpret_cast<MqttSubscriberFbImpl*>(*subFb);
+        return fb->createDomainDataPacket(epochTime);
+    }
 };
 
 class MqttSubscriberFbTest : public testing::Test, public DaqTestHelper, public MqttSubscriberFbHelper
@@ -658,3 +664,55 @@ TEST_F(MqttSubscriberFbTest, CheckRawFbFullDataTransferWithReconfiguring)
     ASSERT_EQ(dataToSend[1], dataToReceive[0]);
 }
 
+TEST_F(MqttSubscriberFbTest, DomainDataPacketWithTheSameTS)
+{
+    using namespace std::chrono;
+    const std::string warnMsg("Domain signal value for one of the received messages is the same as previous.");
+    const auto topic = buildTopicName();
+
+    StartUp();
+
+    auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(SUB_FB_NAME).createDefaultConfig();
+    config.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, topic);
+    config.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, True);
+    config.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_TS_MODE, static_cast<int>(SDSM::SystemTime));
+    auto fb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config);
+
+    auto getTime = []() { return duration_cast<microseconds>(system_clock::now().time_since_epoch()).count(); };
+    auto getComponentStatus = [&]() { return fb.getStatusContainer().getStatus("ComponentStatus"); };
+    auto getStatusMsg = [&]() { return fb.getStatusContainer().getStatusMessage("ComponentStatus").toStdString(); };
+
+    const auto warning = Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager());
+    const auto ok = Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager());
+
+    const auto ts = getTime();
+    auto packet = createDomainDataPacket(fb, ts);
+
+    ASSERT_EQ(getComponentStatus(), ok);
+
+    packet = createDomainDataPacket(fb, ts);
+
+    EXPECT_EQ(getComponentStatus(), warning);
+    EXPECT_NE(getStatusMsg().find(warnMsg), std::string::npos);
+
+    packet = createDomainDataPacket(fb, getTime());
+
+    EXPECT_EQ(getComponentStatus(), warning);
+    EXPECT_NE(getStatusMsg().find(warnMsg), std::string::npos);
+
+    // reconfiguring should reset warning
+    fb.setPropertyValue(PROPERTY_NAME_SUB_QOS, 2);
+
+    EXPECT_EQ(getComponentStatus(), ok);
+    EXPECT_EQ(getStatusMsg().find(warnMsg), std::string::npos);
+
+    packet = createDomainDataPacket(fb, getTime());
+
+    EXPECT_EQ(getComponentStatus(), ok);
+    EXPECT_EQ(getStatusMsg().find(warnMsg), std::string::npos);
+
+    packet = createDomainDataPacket(fb, getTime());
+
+    EXPECT_EQ(getComponentStatus(), ok);
+    EXPECT_EQ(getStatusMsg().find(warnMsg), std::string::npos);
+}
