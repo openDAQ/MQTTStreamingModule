@@ -1,5 +1,3 @@
-#pragma once
-
 #include "mqtt_streaming_protocol/utils.h"
 #include <algorithm>
 #include <boost/date_time/posix_time/posix_time.hpp>

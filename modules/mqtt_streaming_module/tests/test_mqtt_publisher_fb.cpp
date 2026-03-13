@@ -1469,8 +1469,6 @@ TEST_P(MqttPublisherFbPTest, TransferRaw)
 
 TEST_F(MqttPublisherFbTest, TransferRawString)
 {
-    constexpr size_t sampleCnt = 15;
-
     SignalHelper<std::string> help{};
     StartUp();
     ASSERT_NO_THROW(CreateRawPublisherFB());
@@ -1537,8 +1535,6 @@ TEST_F(MqttPublisherFbTest, TransferRawString)
 
 TEST_F(MqttPublisherFbTest, TransferRawBinaryData)
 {
-    constexpr size_t sampleCnt = 15;
-
     SignalHelper<BinarySample> help{};
     StartUp();
     ASSERT_NO_THROW(CreateRawPublisherFB());

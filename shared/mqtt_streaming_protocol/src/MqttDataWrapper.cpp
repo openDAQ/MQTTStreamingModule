@@ -5,6 +5,7 @@
 #include <opendaq/packet_factory.h>
 #include <opendaq/sample_type_traits.h>
 #include <rapidjson/document.h>
+#include <algorithm>
 
 #include <mqtt_streaming_protocol/utils.h>
 

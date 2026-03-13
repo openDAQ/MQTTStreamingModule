@@ -157,7 +157,7 @@ std::string AtomicSignalSampleArrayHandler::toString(const std::string valueFiel
 MqttDataSamplePtr AtomicSignalSampleArrayHandler::processDataPackets(SignalContext& signalContext)
 {
     if (signalBuffers[signalContext.inputPort.getSignal().getGlobalId().toStdString()].data.empty())
-        std::make_shared<MqttDataSample<std::string>>();
+        return std::make_shared<MqttDataSample<std::string>>();
     const auto signal = signalContext.inputPort.getSignal();
     std::string valueFieldName = buildValueFieldName(signalNamesMode, signal);
     auto msg = toString(valueFieldName, signalContext);

@@ -9,6 +9,7 @@
 #include <mqtt_streaming_module/property_helper.h>
 #include <opendaq/binary_data_packet_factory.h>
 #include <sstream>
+#include <chrono>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
