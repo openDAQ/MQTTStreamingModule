@@ -1,9 +1,8 @@
 #include "MqttAsyncClientWrapper.h"
-#include "MqttAsyncClient.h"
+#include "mqtt_streaming_protocol/MqttAsyncClient.h"
 #include "mqtt_streaming_helper/timer.h"
 #include <future>
-#include <iostream>
-#include <ostream>
+
 
 using namespace std::chrono;
 using namespace helper::utils;
@@ -188,6 +187,34 @@ void MqttAsyncClientWrapper::expectMultiMsgs(const std::string& topic,
                                       }
                                       bool expected = false;
                                       if (localMsgs.empty() && done.compare_exchange_strong(expected, true))
+                                          promise.set_value(true);
+                                  });
+}
+
+void MqttAsyncClientWrapper::expectRawMsgsBinaryData(const std::string& topic,
+                                                     const std::vector<std::vector<uint8_t>>& data,
+                                                     std::promise<bool>& promise,
+                                                     std::atomic<bool>& done)
+{
+    instance->setMessageArrivedCb(topic,
+                                  [topic, &done, &data, &promise, i = size_t(0)](const mqtt::MqttAsyncClient&,
+                                                                                 mqtt::MqttMessage& receivedMsg) mutable
+                                  {
+                                      if (receivedMsg.getTopic() != topic || i >= data.size())
+                                          return;
+                                      if (data[i].size() != receivedMsg.getData().size())
+                                      {
+                                          std::cerr << "Sample size and packet data size are not the same!" << std::endl;
+                                          return;
+                                      }
+                                      if (receivedMsg.getData() != data[i])
+                                      {
+                                          std::cerr << "Data value and packet value are not the same!" << std::endl;
+                                          return;
+                                      }
+
+                                      bool expected = false;
+                                      if (++i == data.size() && done.compare_exchange_strong(expected, true))
                                           promise.set_value(true);
                                   });
 }

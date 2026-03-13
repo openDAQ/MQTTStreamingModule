@@ -22,10 +22,10 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-class AtomicSignalAtomicSampleHandler : public HandlerBase
+class RawHandler : public HandlerBase
 {
 public:
-    explicit AtomicSignalAtomicSampleHandler(WeakRefPtr<IFunctionBlock> parentFb, SignalValueJSONKey signalNamesMode);
+    explicit RawHandler(WeakRefPtr<IFunctionBlock> parentFb);
 
     MqttData processSignalContexts(std::vector<SignalContext>& signalContexts) override;
     ProcedureStatus validateSignalContexts(const std::vector<SignalContext>& signalContexts) const override;
@@ -36,26 +36,25 @@ public:
     ListPtr<IString> getTopics(const std::vector<SignalContext>& signalContexts) override;
     std::string getSchema() override;
 protected:
-    SignalValueJSONKey signalNamesMode;
-
     virtual MqttData processSignalContext(SignalContext& signalContext);
     void
     processSignalDescriptorChanged(SignalContext& signalCtx, const DataDescriptorPtr& valueSigDesc, const DataDescriptorPtr& domainSigDesc);
     MqttDataSamplePtr processDataPacket(SignalContext& signalContext, const DataPacketPtr& dataPacket, size_t offset);
-    std::string toString(const std::string valueFieldName, daq::DataPacketPtr packet, size_t offset);
     std::string buildTopicName(const SignalContext& signalContext);
-
+    std::vector<uint8_t> toDataBuffer(daq::DataPacketPtr packet, size_t offset);
 
     inline static const std::set<SampleType> allowedSampleTypes{SampleType::Float64,
-                                                                SampleType::Float32,
-                                                                SampleType::UInt8,
-                                                                SampleType::Int8,
-                                                                SampleType::UInt16,
-                                                                SampleType::Int16,
-                                                                SampleType::UInt32,
-                                                                SampleType::Int32,
-                                                                SampleType::UInt64,
-                                                                SampleType::Int64};
+                                                         SampleType::Float32,
+                                                         SampleType::UInt8,
+                                                         SampleType::Int8,
+                                                         SampleType::UInt16,
+                                                         SampleType::Int16,
+                                                         SampleType::UInt32,
+                                                         SampleType::Int32,
+                                                         SampleType::UInt64,
+                                                         SampleType::Int64,
+                                                         SampleType::Binary,
+                                                         SampleType::String};
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

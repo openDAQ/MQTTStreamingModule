@@ -1,4 +1,4 @@
-#include <mqtt_streaming_module/atomic_signal_atomic_sample_handler.h>
+#include <mqtt_streaming_module/raw_handler.h>
 #include <opendaq/custom_log.h>
 #include <opendaq/event_packet_ids.h>
 #include <opendaq/event_packet_params.h>
@@ -7,13 +7,12 @@
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-AtomicSignalAtomicSampleHandler::AtomicSignalAtomicSampleHandler(WeakRefPtr<IFunctionBlock> parentFb, SignalValueJSONKey signalNamesMode)
-    : HandlerBase(parentFb),
-      signalNamesMode(signalNamesMode)
+RawHandler::RawHandler(WeakRefPtr<IFunctionBlock> parentFb)
+    : HandlerBase(parentFb)
 {
 }
 
-MqttData AtomicSignalAtomicSampleHandler::processSignalContexts(std::vector<SignalContext>& signalContexts)
+MqttData RawHandler::processSignalContexts(std::vector<SignalContext>& signalContexts)
 {
     MqttData messages;
     for (auto& sigCtx : signalContexts)
@@ -24,7 +23,7 @@ MqttData AtomicSignalAtomicSampleHandler::processSignalContexts(std::vector<Sign
     return messages;
 }
 
-ProcedureStatus AtomicSignalAtomicSampleHandler::validateSignalContexts(const std::vector<SignalContext>& signalContexts) const
+ProcedureStatus RawHandler::validateSignalContexts(const std::vector<SignalContext>& signalContexts) const
 {
     ProcedureStatus status{true, {}};
     for (const auto& sigCtx : signalContexts)
@@ -48,33 +47,12 @@ ProcedureStatus AtomicSignalAtomicSampleHandler::validateSignalContexts(const st
                                         sigCtx.inputPort.getSignal().getGlobalId(),
                                         convertSampleTypeToString(sampleType)));
         }
-        if (auto dSignal = signal.getDomainSignal(); dSignal.assigned())
-        {
-            auto descriptor = dSignal.getDescriptor();
-            if (!descriptor.assigned())
-            {
-                status.addError(fmt::format("Connected signal \"{}\" has a domain signal without descriptor. This is not allowed.",
-                                            sigCtx.inputPort.getSignal().getGlobalId()));
-            }
-            else if (descriptor.getSampleType() != SampleType::UInt64 && descriptor.getSampleType() != SampleType::Int64)
-            {
-                status.addError(fmt::format("Connected signal \"{}\" has an incompatible sample type for its domain signal. "
-                                            "Only SampleType::UInt64 and SampleType::Int64 are allowed.",
-                                            sigCtx.inputPort.getSignal().getGlobalId()));
-            }
-            else if (auto unit = descriptor.getUnit(); !unit.assigned() || unit.getSymbol() != "s")
-            {
-                status.addError(fmt::format("Connected signal \"{}\" has an incompatible unit for its domain signal. "
-                                            "Only 's' (seconds) is allowed.",
-                                            sigCtx.inputPort.getSignal().getGlobalId()));
-            }
-        }
     }
     status.merge(HandlerBase::validateSignalContexts(signalContexts));
     return status;
 }
 
-MqttData AtomicSignalAtomicSampleHandler::processSignalContext(SignalContext& signalContext)
+MqttData RawHandler::processSignalContext(SignalContext& signalContext)
 {
     MqttData messages;
     const auto conn = signalContext.inputPort.getConnection();
@@ -109,44 +87,85 @@ MqttData AtomicSignalAtomicSampleHandler::processSignalContext(SignalContext& si
     return messages;
 }
 
-void AtomicSignalAtomicSampleHandler::processSignalDescriptorChanged(SignalContext&,
+void RawHandler::processSignalDescriptorChanged(SignalContext&,
                                                    const DataDescriptorPtr&,
                                                    const DataDescriptorPtr&)
 {
 }
 
-std::string AtomicSignalAtomicSampleHandler::toString(const std::string valueFieldName, daq::DataPacketPtr packet, size_t offset)
-{
-    std::string result;
-    std::string data = HandlerBase::toString(packet, offset);
-    if (auto domainPacket = packet.getDomainPacket(); domainPacket.assigned())
-    {
-        uint64_t ts = convertToEpoch(domainPacket, offset);
-        result = fmt::format("{{\"{}\" : {}, \"timestamp\": {}}}", valueFieldName, data, ts);
-    }
-    else
-    {
-        result = fmt::format("{{\"{}\" : {}}}", valueFieldName, data);
-    }
-
-    return result;
-}
-
-std::string AtomicSignalAtomicSampleHandler::buildTopicName(const SignalContext& signalContext)
+std::string RawHandler::buildTopicName(const SignalContext& signalContext)
 {
     return signalContext.inputPort.getSignal().getGlobalId().toStdString();
 }
 
-MqttDataSamplePtr AtomicSignalAtomicSampleHandler::processDataPacket(SignalContext& signalContext, const DataPacketPtr& dataPacket, size_t offset)
+MqttDataSamplePtr RawHandler::processDataPacket(SignalContext& signalContext, const DataPacketPtr& dataPacket, size_t offset)
 {
-    const auto signal = signalContext.inputPort.getSignal();
-    std::string valueFieldName = buildValueFieldName(signalNamesMode, signal);
-    auto msg = toString(valueFieldName, dataPacket, offset);
+    (void)signalContext;
+    auto msg = toDataBuffer(dataPacket, offset);
     std::string topic = buildTopicName(signalContext);
-    return std::make_shared<MqttDataSample<std::string>>(signalContext.previewSignal, std::move(topic), std::move(msg));
+    return std::make_shared<MqttDataSample<std::vector<uint8_t>>>(signalContext.previewSignal, std::move(topic), std::move(msg));
 }
 
-ListPtr<IString> AtomicSignalAtomicSampleHandler::getTopics(const std::vector<SignalContext>& signalContexts)
+template<typename T>
+std::vector<uint8_t> copyData(daq::DataPacketPtr packet, size_t offset)
+{
+    std::vector<uint8_t> data;
+    auto size = sizeof(T);
+    data.resize(size);
+    memcpy(data.data(), (static_cast<T*>(packet.getData()) + offset), size);
+    return data;
+}
+
+std::vector<uint8_t> RawHandler::toDataBuffer(daq::DataPacketPtr packet, size_t offset)
+{
+    std::vector<uint8_t> data;
+
+    switch (packet.getDataDescriptor().getSampleType())
+    {
+        case SampleType::Float64:
+            data = copyData<SampleTypeToType<SampleType::Float64>::Type>(packet, offset);
+            break;
+        case SampleType::Float32:
+            data = copyData<SampleTypeToType<SampleType::Float32>::Type>(packet, offset);
+            break;
+        case SampleType::UInt64:
+            data = copyData<SampleTypeToType<SampleType::UInt64>::Type>(packet, offset);
+            break;
+        case SampleType::Int64:
+            data = copyData<SampleTypeToType<SampleType::Int64>::Type>(packet, offset);
+            break;
+        case SampleType::UInt32:
+            data = copyData<SampleTypeToType<SampleType::UInt32>::Type>(packet, offset);
+            break;
+        case SampleType::Int32:
+            data = copyData<SampleTypeToType<SampleType::Int32>::Type>(packet, offset);
+            break;
+        case SampleType::UInt16:
+            data = copyData<SampleTypeToType<SampleType::UInt16>::Type>(packet, offset);
+            break;
+        case SampleType::Int16:
+            data = copyData<SampleTypeToType<SampleType::Int16>::Type>(packet, offset);
+            break;
+        case SampleType::UInt8:
+            data = copyData<SampleTypeToType<SampleType::UInt8>::Type>(packet, offset);
+            break;
+        case SampleType::Int8:
+            data = copyData<SampleTypeToType<SampleType::Int8>::Type>(packet, offset);
+            break;
+        case SampleType::String:
+        case SampleType::Binary:
+        {
+            data.resize(packet.getDataSize());
+            memcpy(data.data(), packet.getData(), packet.getDataSize());
+        }
+        break;
+        default:
+            break;
+    }
+    return data;
+}
+
+ListPtr<IString> RawHandler::getTopics(const std::vector<SignalContext>& signalContexts)
 {
     auto res = List<IString>();
     for (const auto& sigCtx : signalContexts)
@@ -159,9 +178,9 @@ ListPtr<IString> AtomicSignalAtomicSampleHandler::getTopics(const std::vector<Si
     return res;
 }
 
-std::string AtomicSignalAtomicSampleHandler::getSchema()
+std::string RawHandler::getSchema()
 {
-    return fmt::format("{{\"{}\" : <sample_value>, \"timestamp\": <timestamp_ns>}}", buildValueFieldNameForSchema(signalNamesMode));
+    return std::string("Raw data");
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

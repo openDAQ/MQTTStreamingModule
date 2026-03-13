@@ -1,7 +1,7 @@
-#pragma once
-
+#include "mqtt_streaming_protocol/utils.h"
 #include <algorithm>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/algorithm/string.hpp>
 #include <cctype>
 #include <cmath>
 #include <cstdint>
@@ -9,7 +9,30 @@
 
 namespace mqtt::utils
 {
-inline uint64_t numericToMicroseconds(uint64_t val)
+mqtt::CmdResult validateTopic(const daq::StringPtr topic)
+{
+    CmdResult result(true, "");
+    if (!topic.assigned() || topic.getLength() == 0)
+    {
+        result = CmdResult(false, "Empty topic is not allowed!");
+        return result;
+    }
+
+    std::vector<std::string> list;
+    boost::split(list, topic.toStdString(), boost::is_any_of("/"));
+
+    for (const auto& part : list)
+    {
+        if (part == "#" || part == "+")
+        {
+            result = CmdResult(false, fmt::format("Wildcard characters '+' and '#' are not allowed in topic: {}", topic.toStdString()));
+            return result;
+        }
+    }
+
+    return result;
+}
+uint64_t numericToMicroseconds(uint64_t val)
 {
     // Determine number of digits
     int digits = (val == 0) ? 1 : static_cast<int>(std::log10(val)) + 1;
@@ -29,7 +52,7 @@ inline uint64_t numericToMicroseconds(uint64_t val)
     }
 }
 
-inline uint64_t toUnixTicks(const std::string& input)
+uint64_t toUnixTicks(const std::string& input)
 {
     std::string str = input;
     // Trim leading/trailing spaces

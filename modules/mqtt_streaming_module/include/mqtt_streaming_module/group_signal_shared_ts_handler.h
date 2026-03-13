@@ -54,6 +54,7 @@ public:
 protected:
     const size_t buffersSize;
     const std::string topic;
+    SignalValueJSONKey signalNamesMode;
     std::vector<void*> dataBuffers;
     bool firstDescriptorChange;
     daq::MultiReaderPtr reader;
