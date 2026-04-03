@@ -22,6 +22,7 @@
 #include <mqtt_streaming_module/common.h>
 #include <mqtt_streaming_module/types.h>
 #include <opendaq/function_block_impl.h>
+#include <thread>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 

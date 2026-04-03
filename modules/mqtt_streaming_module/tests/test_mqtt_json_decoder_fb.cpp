@@ -1,18 +1,19 @@
 #include "MqttAsyncClientWrapper.h"
 #include "mqtt_streaming_helper/timer.h"
-#include "mqtt_streaming_module/mqtt_subscriber_fb_impl.h"
 #include "mqtt_streaming_module/mqtt_json_decoder_fb_impl.h"
+#include "mqtt_streaming_module/mqtt_subscriber_fb_impl.h"
+#include "mqtt_streaming_protocol/utils.h"
 #include "test_daq_test_helper.h"
 #include "test_data.h"
-#include "mqtt_streaming_protocol/utils.h"
+#include <chrono>
 #include <cmath>
 #include <coreobjects/property_factory.h>
 #include <coreobjects/property_object_factory.h>
+#include <iomanip>
 #include <mqtt_streaming_module/constants.h>
 #include <opendaq/reader_factory.h>
 #include <testutils/testutils.h>
-#include <chrono>
-#include <iomanip>
+#include <thread>
 
 using namespace daq;
 using namespace daq::modules::mqtt_streaming_module;

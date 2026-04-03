@@ -2,6 +2,7 @@
 #include <opendaq/opendaq.h>
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
+#include <thread>
 
 #include <iostream>
 
