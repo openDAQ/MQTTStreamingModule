@@ -457,6 +457,7 @@ private:
         auto msgs = replacePlaceholders(data, jsonDataTemplate);
         for (const auto& str : msgs)
         {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
             onSignalsMessage({topic, std::vector<uint8_t>(str.begin(), str.end()), 1, 0});
         }
 
@@ -482,6 +483,7 @@ private:
         timePoints.push_back(getTime());
         for (const auto& str : msgs)
         {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
             onSignalsMessage({topic, std::vector<uint8_t>(str.begin(), str.end()), 1, 0});
             timePoints.push_back(getTime());
         }
