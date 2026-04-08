@@ -48,7 +48,7 @@ protected:
     void initMqttSubscriber();
     void initConnectionStatus();
     void initProperties(const PropertyObjectPtr& config);
-    void readProperties();
+    void readProperties(const PropertyObjectPtr& config);
     bool waitForConnection(const int timeoutMs);
 
     DictObjectPtr<IDict, IString, IFunctionBlockType> nestedFbTypes;
