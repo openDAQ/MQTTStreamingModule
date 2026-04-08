@@ -18,6 +18,7 @@ static constexpr uint32_t DEFAULT_PUB_READ_PERIOD = 20; // ms
 static constexpr uint32_t DEFAULT_PUB_QOS = 1;
 static constexpr uint32_t DEFAULT_SUB_QOS = 1;
 static constexpr uint32_t DEFAULT_PUB_PACK_SIZE = 1;
+static constexpr uint32_t DEFAULT_SUB_DATA_INTERVAL = 5000; // ms
 
 static constexpr const char* DEFAULT_VALUE_SIGNAL_LOCAL_ID = "MQTTValueSignal";
 static constexpr const char* DEFAULT_TS_SIGNAL_LOCAL_ID = "MQTTTimestampSignal";
@@ -36,6 +37,7 @@ static constexpr const char* PROPERTY_NAME_SUB_TOPIC = "Topic";
 static constexpr const char* PROPERTY_NAME_SUB_PREVIEW_SIGNAL = "EnablePreviewSignal";
 static constexpr const char* PROPERTY_NAME_SUB_PREVIEW_SIGNAL_TS_MODE = "DomainMode";
 static constexpr const char* PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING = "MessageIsString";
+static constexpr const char* PROPERTY_NAME_SUB_DATA_INTERVAL = "DataInterval";
 
 static constexpr const char* PROPERTY_NAME_DEC_VALUE_NAME = "ValueKey";
 static constexpr const char* PROPERTY_NAME_DEC_TS_MODE = "DomainMode";

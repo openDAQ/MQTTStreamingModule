@@ -23,13 +23,15 @@ public:
 
     void CreateSubFB(std::string topic,
                      bool enablePreview = true,
-                     SDSM previewTsMode = SDSM::None)
+                     SDSM previewTsMode = SDSM::None,
+                     uint32_t dataInterval = 0)
     {
         const auto fbType = MqttSubscriberFbImpl::CreateType();
         auto config = fbType.createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, topic);
         config.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, enablePreview ? True : False);
         config.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_TS_MODE, static_cast<int>(previewTsMode));
+        config.setPropertyValue(PROPERTY_NAME_SUB_DATA_INTERVAL, dataInterval);
         obj = std::make_unique<MqttSubscriberFbImpl>(NullContext(), nullptr, fbType, nullptr, config);
     }
 
@@ -56,7 +58,7 @@ public:
         return std::string(::testing::UnitTest::GetInstance()->current_test_info()->name()) + "_ClientId";
     }
 
-    void onSignalsMessage(mqtt::MqttMessage& msg)
+    void onSignalsMessage(const mqtt::MqttMessage& msg)
     {
         mqtt::MqttAsyncClient unused;
         obj->onSignalsMessage(unused, msg);
@@ -65,7 +67,10 @@ public:
     DataPacketPtr createDomainDataPacket(daq::FunctionBlockPtr subFb, const uint64_t epochTime)
     {
         auto fb = reinterpret_cast<MqttSubscriberFbImpl*>(*subFb);
-        return fb->createDomainDataPacket(epochTime);
+        DataPacketPtr dp = fb->createDomainDataPacket(epochTime);
+        fb->dataAcqStatus.reset();
+        fb->updateStatuses();
+        return dp;
     }
 };
 
@@ -98,7 +103,7 @@ TEST_F(MqttSubscriberFbTest, DefaultConfig)
 
     ASSERT_TRUE(defaultConfig.assigned());
 
-    EXPECT_EQ(defaultConfig.getAllProperties().getCount(), 7u);
+    EXPECT_EQ(defaultConfig.getAllProperties().getCount(), 8u);
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_JSON_CONFIG));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_JSON_CONFIG).getValueType(), CoreType::ctString);
@@ -134,6 +139,12 @@ TEST_F(MqttSubscriberFbTest, DefaultConfig)
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING).getValueType(), CoreType::ctBool);
     EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING).asPtr<IBoolean>().getValue(False), False);
     EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING).getVisible());
+
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_DATA_INTERVAL));
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_DATA_INTERVAL).getValueType(), CoreType::ctInt);
+    EXPECT_EQ(static_cast<uint32_t>(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_DATA_INTERVAL).asPtr<IInteger>()),
+              DEFAULT_SUB_DATA_INTERVAL);
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_SUB_DATA_INTERVAL).getVisible());
 }
 
 TEST_F(MqttSubscriberFbTest, PropertyVisibility)
@@ -509,7 +520,7 @@ TEST_F(MqttSubscriberFbTest, DataTransfer)
         onSignalsMessage(msg);
         timePoints.push_back(getTime());
     }
-
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     while (!reader.getEmpty())
     {
         auto packet = reader.read();
@@ -538,6 +549,61 @@ TEST_F(MqttSubscriberFbTest, DataTransfer)
         EXPECT_LE(tsToReceive[i], timePoints[i + 1]);
     }
 }
+
+TEST_F(MqttSubscriberFbTest, WaitingData)
+{
+    const auto topic = buildTopicName();
+    const auto dataToSend = std::vector<std::vector<uint8_t>>{std::vector<uint8_t>{0x01, 0x02, 0x03, 0x04, 0x05},
+                                                              std::vector<uint8_t>{0x11, 0x12, 0x13, 0x14},
+                                                              std::vector<uint8_t>{0x21, 0x22, 0x23, 0x24, 0x25, 0x26},
+                                                              std::vector<uint8_t>{0x31},
+                                                              std::vector<uint8_t>{0x41, 0x42, 0x43, 0x44, 0x45}};
+
+    StartUp();
+
+    auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(SUB_FB_NAME).createDefaultConfig();
+    config.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, topic);
+    config.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, True);
+    config.setPropertyValue(PROPERTY_NAME_SUB_DATA_INTERVAL, 200);
+
+    auto rawFB = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    EXPECT_NE(rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Waiting for data"), std::string::npos);
+
+    MqttAsyncClientWrapper publisher("testPublisherId");
+    ASSERT_TRUE(publisher.connect("127.0.0.1"));
+
+    ASSERT_TRUE(publisher.publishMsg(mqtt::MqttMessage{topic, dataToSend[0], 1, 0}));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    EXPECT_NE(rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Data has been received"), std::string::npos);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    EXPECT_NE(rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Waiting for data"), std::string::npos);
+
+    ASSERT_TRUE(publisher.publishMsg(mqtt::MqttMessage{topic, dataToSend[1], 1, 0}));
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    EXPECT_NE(rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Data has been received"), std::string::npos);
+    ASSERT_TRUE(publisher.publishMsg(mqtt::MqttMessage{topic, dataToSend[2], 1, 0}));
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    EXPECT_NE(rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Data has been received"), std::string::npos);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    EXPECT_NE(rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Waiting for data"), std::string::npos);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    EXPECT_NE(rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Waiting for data"), std::string::npos);
+
+    rawFB.setPropertyValue(PROPERTY_NAME_SUB_DATA_INTERVAL, 0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    EXPECT_NE(rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Waiting for data"), std::string::npos);
+    ASSERT_TRUE(publisher.publishMsg(mqtt::MqttMessage{topic, dataToSend[3], 1, 0}));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    EXPECT_NE(rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Data has been received"), std::string::npos);
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    EXPECT_NE(rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Data has been received"), std::string::npos);
+}
+
 
 TEST_F(MqttSubscriberFbTest, CheckRawFbFullDataTransfer)
 {

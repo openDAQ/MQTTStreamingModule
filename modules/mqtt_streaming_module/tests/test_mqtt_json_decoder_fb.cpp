@@ -460,7 +460,7 @@ private:
             onSignalsMessage({topic, std::vector<uint8_t>(str.begin(), str.end()), 1, 0});
         }
 
-        std::vector<returnT> dataToReceive = read<returnT>(reader, signal, 0);
+        std::vector<returnT> dataToReceive = read<returnT>(reader, signal, 1000);
         return dataToReceive;
     }
 
@@ -486,7 +486,7 @@ private:
             timePoints.push_back(getTime());
         }
 
-        std::vector<returnT> dataToReceive = read<returnT>(reader, signal, 0);
+        std::vector<returnT> dataToReceive = read<returnT>(reader, signal, 1000);
         return dataToReceive;
     }
 };
@@ -947,7 +947,7 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferSeveralSignals)
     for (size_t i = 0; i < readers.size(); ++i)
     {
         auto& [reader, signal] = readers[i];
-        dataToReceive[i] = read<std::pair<double, uint64_t>>(reader, signal, 0);
+        dataToReceive[i] = read<std::pair<double, uint64_t>>(reader, signal, 1000);
     }
     EXPECT_EQ(DATA_DOUBLE_INT_0.size(), dataToReceive[0].size());
     EXPECT_TRUE(compareData(DATA_DOUBLE_INT_0, dataToReceive[0]));
@@ -985,7 +985,7 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferMissingFieldOneSignal)
         str = replacePlaceholder(str, "<placeholder_value>", DATA_DOUBLE_INT_0[cnt].first);
         onSignalsMessage({topic, std::vector<uint8_t>(str.begin(), str.end()), 1, 0});
     }
-    std::vector<std::pair<double, uint64_t>> dataToReceive = read<std::pair<double, uint64_t>>(reader, signal, 0);
+    std::vector<std::pair<double, uint64_t>> dataToReceive = read<std::pair<double, uint64_t>>(reader, signal, 1000);
     ASSERT_EQ(dataToReceive.size(), 0);
     ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Error", decoderObj.getContext().getTypeManager()));
@@ -1033,7 +1033,7 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferMissingFieldSeveralSignals)
     for (size_t i = 0; i < readers.size(); ++i)
     {
         auto& [reader, signal] = readers[i];
-        dataToReceive[i] = read<std::pair<double, uint64_t>>(reader, signal, 0);
+        dataToReceive[i] = read<std::pair<double, uint64_t>>(reader, signal, 1000);
     }
     EXPECT_EQ(DATA_DOUBLE_INT_0.size(), dataToReceive[0].size());
     EXPECT_TRUE(compareData(DATA_DOUBLE_INT_0, dataToReceive[0]));
