@@ -15,12 +15,17 @@
  */
 
 #pragma once
-#include "MqttAsyncClient.h"
-#include "MqttDataWrapper.h"
-#include <mqtt_streaming_module/common.h>
-#include <opendaq/function_block_impl.h>
 #include "mqtt_streaming_module/constants.h"
+#include "mqtt_streaming_module/status_container.h"
+#include "mqtt_streaming_protocol/MqttAsyncClient.h"
+#include "mqtt_streaming_protocol/common.h"
+#include <mqtt_streaming_module/common.h>
+#include <opendaq/data_packet_ptr.h>
 #include <opendaq/function_block_impl.h>
+#include <queue>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -30,18 +35,11 @@ class MqttSubscriberFbImpl final : public FunctionBlock
     friend class MqttJsonDecoderFbHelper;
 
 public:
-    struct CmdResult
+    enum class DomainSignalMode : EnumType
     {
-        bool success = false;
-        std::string msg;
-        int token = 0;
-
-        CmdResult(bool success = false, const std::string& msg = "", int token = 0)
-            : success(success),
-              msg(msg),
-              token(token)
-        {
-        }
+        None = 0,
+        SystemTime,
+        _count
     };
 
     explicit DAQ_MQTT_STREAM_MODULE_API MqttSubscriberFbImpl(const ContextPtr& ctx,
@@ -59,26 +57,56 @@ protected:
     static std::atomic<int> localIndex;
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
-    int qos = DEFAULT_SUB_QOS;
-    mqtt::MqttDataWrapper jsonDataWorker;
+
     std::string topicForSubscribing;
+    int qos;
+    bool enablePreview;
+    DomainSignalMode previewDomainMode;
+    bool previewIsString;
+    std::atomic<uint32_t> dataIntervalMs;
+
+    uint64_t lastTsValue;
+
     DictObjectPtr<IDict, IString, IFunctionBlockType> nestedFbTypes;
     std::vector<FunctionBlockPtr> nestedFunctionBlocks;
     SignalConfigPtr outputSignal;
-    bool enablePreview;
-    bool previewIsString;
-    std::atomic<bool> waitingForData;
+    SignalConfigPtr outputDomainSignal;
+
+    std::shared_ptr<utils::StatusContainer> statuses;
+    utils::Error configErr;
+    utils::Error jsonConfigErr;
+    utils::Error domainValueErr;
+    utils::Error subscriptionErr;
+    utils::Error dataAcqStatus;
+
+    std::thread processingThread;
+    std::atomic<bool> processingRunning{false};
+    std::atomic<bool> forceProcessing{false};
+    std::queue<std::pair<mqtt::MqttMessage, uint64_t>> messageQueue;
+    std::mutex queueMutex;
+    std::condition_variable queueCv;
+    mutable std::recursive_mutex processingMutex;
 
     DAQ_MQTT_STREAM_MODULE_API void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg);
 
     static std::string generateLocalId();
 
+    void initStatusContainer();
+    DAQ_MQTT_STREAM_MODULE_API void updateStatuses();
+
     void initNestedFbTypes();
 
     void createSignals();
+    SignalConfigPtr createDomainSignal();
+    void removePreviewSignal();
+    void removeDomainSignal();
+    void reconfigureSignal();
     void clearSubscribedTopic();
 
+    DAQ_MQTT_STREAM_MODULE_API DataPacketPtr createDomainDataPacket(const uint64_t epochTime);
+
     void processMessage(const mqtt::MqttMessage& msg);
+    void processMessageImpl(const mqtt::MqttMessage& msg, const uint64_t epochTime);
     void initProperties(const PropertyObjectPtr& config);
     void readProperties();
     void readJsonConfig();
@@ -86,9 +114,13 @@ protected:
     void setJsonConfig(const std::string config);
     void propertyChanged();
 
-    bool setTopic(std::string topic);
-    CmdResult subscribeToTopic();
-    CmdResult unsubscribeFromTopic();
+    mqtt::CmdResult setTopic(std::string topic);
+    mqtt::CmdResult subscribeToTopic();
+    mqtt::CmdResult unsubscribeFromTopic();
+
+    void startProcessingThread();
+    void stopProcessingThread();
+    void processingLoop();
 
     void removed() override;
     DictPtr<IString, IFunctionBlockType> onGetAvailableFunctionBlockTypes() override;

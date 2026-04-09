@@ -51,7 +51,8 @@ MqttData GroupSignalSharedTsArrHandler::processSignalContexts(std::vector<Signal
             fields.emplace_back(dataBuilders[signalCnt].getPack(valueFieldName));
         }
         fields.emplace_back(tsBuilder.getPack());
-        messages.data.emplace_back(MqttDataSample{signalContexts[0].previewSignal, buildTopicName(), messageFromFields(fields)});
+        messages.data.emplace_back(
+            std::make_shared<MqttDataSample<std::string>>(signalContexts[0].previewSignal, buildTopicName(), messageFromFields(fields)));
     }
     return messages;
 }

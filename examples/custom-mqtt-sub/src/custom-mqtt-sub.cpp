@@ -1,7 +1,7 @@
 #include "../../InputArgs.h"
 #include <iomanip>
 #include <opendaq/opendaq.h>
-
+#include <thread>
 #include <fstream>
 #include <iostream>
 #include <sstream>

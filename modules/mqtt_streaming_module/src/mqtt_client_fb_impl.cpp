@@ -111,6 +111,8 @@ void MqttClientFbImpl::initProperties(const PropertyObjectPtr& config)
     for (const auto& prop : config.getAllProperties())
     {
         const auto propName = prop.getName();
+        if (propName == PROPERTY_NAME_CLIENT_PASSWORD)
+            continue;
         if (!objPtr.hasProperty(propName))
         {
             auto propClone = PropertyBuilder(prop.getName())
@@ -140,18 +142,18 @@ void MqttClientFbImpl::initProperties(const PropertyObjectPtr& config)
             objPtr.setPropertyValue(propName, prop.getValue());
         }
     }
-    readProperties();
+    readProperties(config);
 }
 
-void MqttClientFbImpl::readProperties()
+void MqttClientFbImpl::readProperties(const PropertyObjectPtr& config)
 {
-    connectionSettings.mqttUrl = objPtr.getPropertyValue(PROPERTY_NAME_CLIENT_BROKER_ADDRESS).asPtr<IString>().toStdString();
-    connectionSettings.port = objPtr.getPropertyValue(PROPERTY_NAME_CLIENT_BROKER_PORT);
-    connectionSettings.username = objPtr.getPropertyValue(PROPERTY_NAME_CLIENT_USERNAME).asPtr<IString>().toStdString();
-    connectionSettings.password = objPtr.getPropertyValue(PROPERTY_NAME_CLIENT_PASSWORD).asPtr<IString>().toStdString();
+    connectionSettings.mqttUrl = config.getPropertyValue(PROPERTY_NAME_CLIENT_BROKER_ADDRESS).asPtr<IString>().toStdString();
+    connectionSettings.port = config.getPropertyValue(PROPERTY_NAME_CLIENT_BROKER_PORT);
+    connectionSettings.username = config.getPropertyValue(PROPERTY_NAME_CLIENT_USERNAME).asPtr<IString>().toStdString();
+    connectionSettings.password = config.getPropertyValue(PROPERTY_NAME_CLIENT_PASSWORD).asPtr<IString>().toStdString();
     connectionSettings.clientId = globalId.toStdString();
 
-    connectTimeout = objPtr.getPropertyValue(PROPERTY_NAME_CLIENT_CONNECT_TIMEOUT);
+    connectTimeout = config.getPropertyValue(PROPERTY_NAME_CLIENT_CONNECT_TIMEOUT);
 }
 
 bool MqttClientFbImpl::waitForConnection(const int timeoutMs)

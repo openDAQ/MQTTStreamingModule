@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include "MqttAsyncClient.h"
-#include "MqttSettings.h"
+#include "mqtt_streaming_protocol/MqttAsyncClient.h"
+#include "mqtt_streaming_protocol/MqttSettings.h"
 #include <future>
 #include <mqtt_streaming_module/common.h>
 #include <opendaq/function_block_impl.h>
@@ -48,7 +48,7 @@ protected:
     void initMqttSubscriber();
     void initConnectionStatus();
     void initProperties(const PropertyObjectPtr& config);
-    void readProperties();
+    void readProperties(const PropertyObjectPtr& config);
     bool waitForConnection(const int timeoutMs);
 
     DictObjectPtr<IDict, IString, IFunctionBlockType> nestedFbTypes;

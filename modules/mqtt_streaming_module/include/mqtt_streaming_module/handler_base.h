@@ -27,9 +27,8 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 class HandlerBase
 {
 public:
-    HandlerBase(WeakRefPtr<IFunctionBlock> parentFb, SignalValueJSONKey signalNamesMode)
-        : parentFb(parentFb),
-          signalNamesMode(signalNamesMode)
+    HandlerBase(WeakRefPtr<IFunctionBlock> parentFb)
+        : parentFb(parentFb)
     {
     }
     virtual ~HandlerBase() = default;
@@ -58,7 +57,6 @@ public:
 
 protected:
     WeakRefPtr<IFunctionBlock> parentFb;
-    SignalValueJSONKey signalNamesMode;
 
     static std::pair<uint64_t, uint64_t> calculateRatio(const DataDescriptorPtr descriptor)
     {

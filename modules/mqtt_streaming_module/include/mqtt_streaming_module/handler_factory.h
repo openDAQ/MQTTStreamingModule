@@ -22,6 +22,7 @@
 #include <mqtt_streaming_module/atomic_signal_sample_arr_handler.h>
 #include <mqtt_streaming_module/group_signal_shared_ts_handler.h>
 #include <mqtt_streaming_module/signal_arr_atomic_sample_handler.h>
+#include <mqtt_streaming_module/raw_handler.h>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -31,22 +32,31 @@ public:
     static std::unique_ptr<HandlerBase>
     create(WeakRefPtr<IFunctionBlock> parentFb, const PublisherFbConfig config, const std::string& publisherFbGlobalId)
     {
-        if (config.topicMode == TopicMode::Single)
+        if (config.mode == PublisherMode::Raw)
         {
-            const auto topic = config.topicName.empty() ? publisherFbGlobalId : config.topicName;
-            if (config.groupValues)
-                return std::make_unique<GroupSignalSharedTsArrHandler>(parentFb, config.valueFieldName, topic, config.groupValuesPackSize);
-            else
-                return std::make_unique<GroupSignalSharedTsHandler>(parentFb, config.valueFieldName, topic);
+            return std::make_unique<RawHandler>(parentFb);
         }
-        else if (config.topicMode == TopicMode::PerSignal)
+        else
         {
-            if (config.groupValues)
-                return std::make_unique<AtomicSignalSampleArrayHandler>(parentFb, config.valueFieldName, config.groupValuesPackSize);
-            else
-                return std::make_unique<AtomicSignalAtomicSampleHandler>(parentFb, config.valueFieldName);
+            if (config.topicMode == TopicMode::Single)
+            {
+                const auto topic = config.topicName.empty() ? publisherFbGlobalId : config.topicName;
+                if (config.groupValues)
+                    return std::make_unique<GroupSignalSharedTsArrHandler>(parentFb,
+                                                                           config.valueFieldName,
+                                                                           topic,
+                                                                           config.groupValuesPackSize);
+                else
+                    return std::make_unique<GroupSignalSharedTsHandler>(parentFb, config.valueFieldName, topic);
+            }
+            else if (config.topicMode == TopicMode::PerSignal)
+            {
+                if (config.groupValues)
+                    return std::make_unique<AtomicSignalSampleArrayHandler>(parentFb, config.valueFieldName, config.groupValuesPackSize);
+                else
+                    return std::make_unique<AtomicSignalAtomicSampleHandler>(parentFb, config.valueFieldName);
+            }
         }
-
         return std::make_unique<AtomicSignalAtomicSampleHandler>(parentFb, config.valueFieldName);
     }
 };

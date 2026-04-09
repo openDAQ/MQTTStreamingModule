@@ -47,7 +47,7 @@ protected:
     std::unordered_map<std::string, SignalBuffer> signalBuffers;
 
     MqttData processSignalContext(SignalContext& signalContext) override;
-    MqttDataSample processDataPackets(SignalContext& signalContext);
+    MqttDataSamplePtr processDataPackets(SignalContext& signalContext);
     std::string toString(const std::string valueFieldName, SignalContext& signalContext);
     std::pair<DataPacketPtr, size_t> getSample(SignalContext& signalContext);
     void

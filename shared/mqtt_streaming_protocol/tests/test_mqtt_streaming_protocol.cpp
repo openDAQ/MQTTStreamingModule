@@ -1,7 +1,7 @@
-#include "MqttAsyncClient.h"
+#include "mqtt_streaming_protocol/MqttAsyncClient.h"
 #include "MqttAsyncClientWrapper.h"
 #include "mqtt_streaming_helper/timer.h"
-#include "timestampConverter.h"
+#include "mqtt_streaming_protocol/utils.h"
 #include <future>
 #include <testutils/testutils.h>
 #include <thread>
@@ -124,7 +124,7 @@ TEST_F(MqttStreamingProtocolTest, PublishingWithoutDataControl)
     auto ok = connect("127.0.0.1", clientId);
     ASSERT_TRUE(ok);
 
-    CmdResult result;
+    MqttAsyncClient::CmdResultWithToken result;
     std::atomic<bool> sendDone{false};
     std::promise<bool> sendPromise;
     auto sendFuture = sendPromise.get_future();

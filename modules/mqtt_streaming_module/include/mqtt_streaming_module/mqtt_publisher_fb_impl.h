@@ -15,13 +15,14 @@
  */
 
 #pragma once
-#include "MqttAsyncClient.h"
-#include "MqttDataWrapper.h"
+#include "mqtt_streaming_protocol/MqttAsyncClient.h"
+#include "mqtt_streaming_protocol/MqttDataWrapper.h"
 #include "mqtt_streaming_module/handler_base.h"
 #include "mqtt_streaming_module/status_helper.h"
 #include <mqtt_streaming_module/common.h>
 #include <mqtt_streaming_module/types.h>
 #include <opendaq/function_block_impl.h>
+#include <thread>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -112,8 +113,6 @@ private:
     void validateInputPorts();
     void updateTopics();
     void updateSchema();
-    template <typename retT, typename intfT>
-    retT readProperty(const std::string& propertyName, const retT defaultValue);
     void runReaderThread();
     void readerLoop();
     void sendMessages(const MqttData& data);

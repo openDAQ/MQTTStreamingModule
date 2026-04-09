@@ -1,6 +1,7 @@
 #include "test_daq_test_helper.h"
 #include <coreobjects/property_factory.h>
 #include <coreobjects/property_object_factory.h>
+#include <gtest/gtest.h>
 #include <mqtt_streaming_module/constants.h>
 #include <testutils/testutils.h>
 
@@ -47,6 +48,17 @@ TEST_F(MqttFbTest, DefaultMqttFbConfig)
     ASSERT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_CLIENT_CONNECT_TIMEOUT), DEFAULT_INIT_TIMEOUT);
 }
 
+TEST_F(MqttFbTest, MissingPasswordProperty)
+{
+    const auto instance = Instance();
+    daq::FunctionBlockPtr fb;
+    ASSERT_NO_THROW(fb = instance.addFunctionBlock(CLIENT_FB_NAME));
+    ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", instance.getContext().getTypeManager()));
+
+    ASSERT_FALSE(fb.hasProperty(PROPERTY_NAME_CLIENT_PASSWORD));
+}
+
 TEST_F(MqttFbTest, CreatingMqttFbWithDefaultConfig)
 {
     const auto instance = Instance();
@@ -60,7 +72,7 @@ TEST_F(MqttFbTest, CreatingMqttFbWithDefaultConfig)
     daq::FunctionBlockPtr fbFromList;
     for (const auto& fbInst : fbs)
     {
-        contain = (fbInst.getName() == std::string(MQTT_LOCAL_CLIENT_FB_ID_PREFIX) + std::to_string(0));
+        contain = (fbInst.getName().toStdString().find(MQTT_LOCAL_CLIENT_FB_ID_PREFIX) != std::string::npos);
         if (contain)
         {
             fbFromList = fbInst;

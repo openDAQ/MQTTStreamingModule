@@ -1,3 +1,5 @@
+opendaq_get_cmake_mode(_MQTT_CMAKE_MODERN_MODE_SAVED)
+opendaq_set_cmake_mode(ANCIENT)
 opendaq_set_cmake_folder_context(TARGET_FOLDER_NAME)
 
 if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
@@ -11,3 +13,5 @@ endif()
 add_subdirectory(boost)
 add_subdirectory(paho_mqtt_c)
 add_subdirectory(rapidjson)
+
+opendaq_set_cmake_mode(${_MQTT_CMAKE_MODERN_MODE_SAVED})

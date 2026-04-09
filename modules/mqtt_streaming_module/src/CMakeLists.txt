@@ -17,9 +17,12 @@ set(SRC_Include common.h
                 group_signal_shared_ts_handler.h
                 group_signal_shared_ts_arr_handler.h
                 signal_arr_atomic_sample_handler.h
+                raw_handler.h
                 types.h
                 status_helper.h
+                property_helper.h
                 status_adaptor.h
+                status_container.h
 )
 
 set(SRC_Srcs module_dll.cpp
@@ -34,6 +37,7 @@ set(SRC_Srcs module_dll.cpp
              group_signal_shared_ts_handler.cpp
              group_signal_shared_ts_arr_handler.cpp
              signal_arr_atomic_sample_handler.cpp
+             raw_handler.cpp
 )
 
 opendaq_prepend_include(${TARGET_FOLDER_NAME} SRC_Include)
@@ -43,7 +47,9 @@ source_group("common" FILES ${MODULE_HEADERS_DIR}/common.h
                             ${MODULE_HEADERS_DIR}/helper.h
                             ${MODULE_HEADERS_DIR}/types.h
                             ${MODULE_HEADERS_DIR}/status_helper.h
+                            ${MODULE_HEADERS_DIR}/property_helper.h
                             ${MODULE_HEADERS_DIR}/status_adaptor.h
+                            ${MODULE_HEADERS_DIR}/status_container.h
                             helper.cpp
 )
 
@@ -70,11 +76,13 @@ source_group("handlers" FILES ${MODULE_HEADERS_DIR}/handler_base.h
                             ${MODULE_HEADERS_DIR}/group_signal_shared_ts_handler.h
                             ${MODULE_HEADERS_DIR}/group_signal_shared_ts_arr_handler.h
                             ${MODULE_HEADERS_DIR}/signal_arr_atomic_sample_handler.h
+                            ${MODULE_HEADERS_DIR}/raw_handler.h
                             atomic_signal_atomic_sample_handler.cpp
                             atomic_signal_sample_arr_handler.cpp
                             group_signal_shared_ts_handler.cpp
                             group_signal_shared_ts_arr_handler.cpp
                             signal_arr_atomic_sample_handler.cpp
+                            raw_handler.cpp
 )
 
 find_package(Boost REQUIRED COMPONENTS algorithm)
