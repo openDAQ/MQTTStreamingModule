@@ -115,7 +115,7 @@ void MqttSubscriberFbImpl::updateStatuses()
     }
     else if (!dataAcqStatus.ok())
     {
-        setComponentStatusWithMessage(ComponentStatus::Ok, dataAcqStatus.rawStatusMessage());
+        setComponentStatusWithMessage(ComponentStatus::Warning, dataAcqStatus.rawStatusMessage());
     }
     else if (!domainValueErr.ok())
     {
