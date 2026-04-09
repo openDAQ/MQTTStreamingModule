@@ -24,7 +24,12 @@ jobs:
           },
           {
             "match-jobs": ["windows-*"],
-            "run": "winget install --id EclipseFoundation.Mosquitto --accept-source-agreements --accept-package-agreements"
+            "winget-install": ["EclipseFoundation.Mosquitto"]
+          },
+          {
+            "match-jobs": ["macos-*"],
+            "brew-install": ["mosquitto"],
+            "run": "$(brew --prefix mosquitto)/sbin/mosquitto -d"
           }
         ]
       cmake-presets: >
@@ -32,9 +37,5 @@ jobs:
           {
             "configure-preset": "module",
             "test-preset": "module-test"
-          },
-          {
-            "match-jobs": ["macos-*"],
-            "test-preset": ""
           }
         ]
