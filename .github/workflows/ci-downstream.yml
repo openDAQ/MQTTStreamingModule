@@ -21,15 +21,21 @@ jobs:
             "match-jobs": ["ubuntu-*"],
             "apt-install": ["mosquitto"],
             "run": "mosquitto -d"
+          },
+          {
+            "match-jobs": ["windows-*"],
+            "choco-install": ["mosquitto"],
+            "run": "net start mosquitto"
           }
         ]
       cmake-presets: >
         [
           {
-            "configure-preset": "module"
+            "configure-preset": "module",
+            "test-preset": "module-test"
           },
           {
-            "match-jobs": ["ubuntu-*"],
-            "test-preset": "module-test"
+            "match-jobs": ["macos-*"],
+            "test-preset": ""
           }
         ]
