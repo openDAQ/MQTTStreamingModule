@@ -19,7 +19,8 @@ jobs:
         [
           {
             "match-jobs": ["ubuntu-*"],
-            "apt-install": ["mosquitto"]
+            "apt-install": ["mosquitto"],
+            "run": "mosquitto -d"
           }
         ]
       cmake-presets: >
