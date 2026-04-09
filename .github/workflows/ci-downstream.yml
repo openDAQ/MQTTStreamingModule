@@ -15,10 +15,20 @@ jobs:
     uses: openDAQ/openDAQ-CI/.github/workflows/reusable.yml@jira/TBBAS-3031-reusable-ci
     with:
       opendaq-ref: ${{ github.event.inputs.opendaq-ref || '' }}
+      packages: >
+        [
+          {
+            "match-jobs": ["ubuntu-*"],
+            "apt-install": ["mosquitto"]
+          }
+        ]
       cmake-presets: >
         [
           {
-            "configure-preset": "module",
+            "configure-preset": "module"
+          },
+          {
+            "match-jobs": ["ubuntu-*"],
             "test-preset": "module-test"
           }
         ]
