@@ -451,7 +451,7 @@ public:
     }
 
     template <typename vT>
-    static std::string valueToString(const vT& value, bool quoteString = true)
+    static std::string valueToString(const vT& value, [[maybe_unused]] bool quoteString = true)
     {
         std::string result;
         if constexpr (std::is_same_v<vT, std::string>)
