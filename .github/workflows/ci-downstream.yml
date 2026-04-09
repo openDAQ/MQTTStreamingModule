@@ -24,7 +24,7 @@ jobs:
           },
           {
             "match-jobs": ["windows-*"],
-            "run": "winget install --id EclipseFoundation.Mosquitto --accept-source-agreements --accept-package-agreements && net start mosquitto"
+            "run": "winget install --id EclipseFoundation.Mosquitto --accept-source-agreements --accept-package-agreements"
           }
         ]
       cmake-presets: >
