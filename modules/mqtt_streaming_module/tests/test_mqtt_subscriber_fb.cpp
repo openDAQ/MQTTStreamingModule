@@ -199,7 +199,7 @@ TEST_F(MqttSubscriberFbTest, CreationWithPartialConfig)
     ASSERT_NO_THROW(subFb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config));
     EXPECT_EQ(subFb.getSignals(daq::search::Any()).getCount(), 0u);
     ASSERT_EQ(subFb.getStatusContainer().getStatus("ComponentStatus"),
-              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+              Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
 }
 
 TEST_F(MqttSubscriberFbTest, CreationWithCustomConfig)
@@ -214,7 +214,7 @@ TEST_F(MqttSubscriberFbTest, CreationWithCustomConfig)
     ASSERT_NO_THROW(subFb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config));
     EXPECT_EQ(subFb.getSignals(daq::search::Any()).getCount(), 2u);
     ASSERT_EQ(subFb.getStatusContainer().getStatus("ComponentStatus"),
-              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+              Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
 }
 
 TEST_F(MqttSubscriberFbTest, PreviewSignal)
@@ -262,7 +262,7 @@ TEST_F(MqttSubscriberFbTest, SubscriptionStatusWaitingForData)
     daq::FunctionBlockPtr subFb;
     ASSERT_NO_THROW(subFb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config));
     ASSERT_EQ(subFb.getStatusContainer().getStatus("ComponentStatus"),
-              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+              Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
 }
 
 TEST_P(MqttSubscriberFbTopicPTest, CheckSubscriberFbTopic)
@@ -278,7 +278,7 @@ TEST_P(MqttSubscriberFbTopicPTest, CheckSubscriberFbTopic)
     ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config));
     auto signals = fb.getSignals();
     ASSERT_EQ(signals.getCount(), 1);
-    const auto expectedComponentStatus = result ? "Ok" : "Error";
+    const auto expectedComponentStatus = result ? "Warning" : "Error";
     EXPECT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", expectedComponentStatus, daqInstance.getContext().getTypeManager()));
 }
@@ -301,7 +301,7 @@ TEST_F(MqttSubscriberFbTest, RemovingNestedFunctionBlock)
         config.addProperty(StringProperty(PROPERTY_NAME_SUB_TOPIC, String(buildTopicName())));
         ASSERT_NO_THROW(subFb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config));
         ASSERT_EQ(subFb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+                  Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
     }
     daq::FunctionBlockPtr jsonDecoderFb;
     {
@@ -324,7 +324,7 @@ TEST_F(MqttSubscriberFbTest, TwoFbCreation)
         config.addProperty(StringProperty(PROPERTY_NAME_SUB_TOPIC, buildTopicName("0")));
         ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config));
         EXPECT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+                  Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
     }
     {
         daq::FunctionBlockPtr fb;
@@ -332,7 +332,7 @@ TEST_F(MqttSubscriberFbTest, TwoFbCreation)
         config.addProperty(StringProperty(PROPERTY_NAME_SUB_TOPIC, buildTopicName("1")));
         ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config));
         EXPECT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-                  Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+                  Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
     }
     auto fbs = clientMqttFb.getFunctionBlocks();
     ASSERT_EQ(fbs.getCount(), 2u);
@@ -348,7 +348,7 @@ TEST_F(MqttSubscriberFbTest, PropertyChanged)
     config.addProperty(StringProperty(PROPERTY_NAME_SUB_TOPIC, topic));
     ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config));
     EXPECT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
-              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+              Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
     auto subFb = reinterpret_cast<MqttSubscriberFbImpl*>(*fb);
 
     ASSERT_EQ(topic, subFb->getSubscribedTopic());
@@ -366,7 +366,7 @@ TEST_F(MqttSubscriberFbTest, JsonInit0)
     ASSERT_NO_THROW(subFb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config));
     ASSERT_EQ(subFb.getFunctionBlocks().getCount(), 3u);
     ASSERT_EQ(subFb.getStatusContainer().getStatus("ComponentStatus"),
-              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+              Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
     auto lambda = [&](FunctionBlockPtr nestedFb, std::string value, std::string ts, std::string symbol)
     {
         EXPECT_EQ(nestedFb.getSignals()[0].getName().toStdString(), value);
@@ -392,7 +392,7 @@ TEST_F(MqttSubscriberFbTest, JsonInit1)
     ASSERT_NO_THROW(subFb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config));
     ASSERT_EQ(subFb.getFunctionBlocks().getCount(), 3u);
     ASSERT_EQ(subFb.getStatusContainer().getStatus("ComponentStatus"),
-              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+              Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
     auto lambda = [&](FunctionBlockPtr nestedFb, std::string value, std::string ts, std::string symbol)
     {
         EXPECT_EQ(nestedFb.getSignals()[0].getName().toStdString(), value);
@@ -442,7 +442,7 @@ TEST_P(MqttSubscriberFbConfigFilePTest, JsonInitFromFile)
     config.setPropertyValue(PROPERTY_NAME_SUB_JSON_CONFIG_FILE, String(configJson));
     ASSERT_NO_THROW(subFb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config));
     ASSERT_EQ(subFb.getStatusContainer().getStatus("ComponentStatus"),
-              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+              Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
 }
 
 INSTANTIATE_TEST_SUITE_P(JsonConfigTest,
@@ -460,7 +460,7 @@ TEST_F(MqttSubscriberFbTest, JsonInitFromFileWithChecking)
     config.setPropertyValue(PROPERTY_NAME_SUB_JSON_CONFIG_FILE, String("data/public-example0.json"));
     ASSERT_NO_THROW(subFb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config));
     ASSERT_EQ(subFb.getStatusContainer().getStatus("ComponentStatus"),
-              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+              Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
     ASSERT_EQ(subFb.getFunctionBlocks().getCount(), 3u);
     auto lambda = [&](FunctionBlockPtr nestedFb, std::string value, std::string ts, std::string symbol)
     {
@@ -712,7 +712,7 @@ TEST_F(MqttSubscriberFbTest, CheckRawFbFullDataTransferWithReconfiguring)
 
     ASSERT_NO_THROW(rawFB.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, topic1));
     EXPECT_EQ(rawFB.getStatusContainer().getStatus("ComponentStatus"),
-              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+              Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
     EXPECT_NE(rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Waiting for data"), std::string::npos);
 
     msg = {topic1, dataToSend[1], 2, 0};
@@ -769,8 +769,9 @@ TEST_F(MqttSubscriberFbTest, DomainDataPacketWithTheSameTS)
     // reconfiguring should reset warning
     fb.setPropertyValue(PROPERTY_NAME_SUB_QOS, 2);
 
-    EXPECT_EQ(getComponentStatus(), ok);
+    EXPECT_EQ(getComponentStatus(), warning);
     EXPECT_EQ(getStatusMsg().find(warnMsg), std::string::npos);
+    EXPECT_NE(getStatusMsg().find("Waiting for data"), std::string::npos);
 
     packet = createDomainDataPacket(fb, getTime());
 

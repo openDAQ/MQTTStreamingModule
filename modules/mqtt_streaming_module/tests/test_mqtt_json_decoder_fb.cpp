@@ -1128,7 +1128,7 @@ TEST_F(MqttJsonDecoderFbTest, RemovingNestedFunctionBlock)
     ASSERT_NO_THROW(subMqttFb.removeFunctionBlock(jsonDecoderFb));
     ASSERT_EQ(subMqttFb.getFunctionBlocks().getCount(), 0u);
     ASSERT_EQ(subMqttFb.getStatusContainer().getStatus("ComponentStatus"),
-              Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
+              Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
 }
 
 TEST_F(MqttJsonDecoderFbTest, PacketWithTheSameTS)
