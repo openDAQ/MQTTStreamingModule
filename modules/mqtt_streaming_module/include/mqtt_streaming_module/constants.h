@@ -37,7 +37,7 @@ static constexpr const char* PROPERTY_NAME_SUB_TOPIC = "Topic";
 static constexpr const char* PROPERTY_NAME_SUB_PREVIEW_SIGNAL = "EnablePreviewSignal";
 static constexpr const char* PROPERTY_NAME_SUB_PREVIEW_SIGNAL_TS_MODE = "DomainMode";
 static constexpr const char* PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING = "MessageIsString";
-static constexpr const char* PROPERTY_NAME_SUB_DATA_INTERVAL = "DataInterval";
+static constexpr const char* PROPERTY_NAME_SUB_DATA_TIMEOUT = "DataTimeout";
 
 static constexpr const char* PROPERTY_NAME_DEC_VALUE_NAME = "ValueKey";
 static constexpr const char* PROPERTY_NAME_DEC_TS_MODE = "DomainMode";

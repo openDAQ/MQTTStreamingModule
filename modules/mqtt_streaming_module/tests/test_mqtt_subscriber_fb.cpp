@@ -31,7 +31,7 @@ public:
         config.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, topic);
         config.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, enablePreview ? True : False);
         config.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_TS_MODE, static_cast<int>(previewTsMode));
-        config.setPropertyValue(PROPERTY_NAME_SUB_DATA_INTERVAL, dataInterval);
+        config.setPropertyValue(PROPERTY_NAME_SUB_DATA_TIMEOUT, dataInterval);
         obj = std::make_unique<MqttSubscriberFbImpl>(NullContext(), nullptr, fbType, nullptr, config);
     }
 
@@ -140,11 +140,11 @@ TEST_F(MqttSubscriberFbTest, DefaultConfig)
     EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING).asPtr<IBoolean>().getValue(False), False);
     EXPECT_FALSE(defaultConfig.getProperty(PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING).getVisible());
 
-    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_DATA_INTERVAL));
-    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_DATA_INTERVAL).getValueType(), CoreType::ctInt);
-    EXPECT_EQ(static_cast<uint32_t>(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_DATA_INTERVAL).asPtr<IInteger>()),
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_DATA_TIMEOUT));
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_DATA_TIMEOUT).getValueType(), CoreType::ctInt);
+    EXPECT_EQ(static_cast<uint32_t>(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_DATA_TIMEOUT).asPtr<IInteger>()),
               DEFAULT_SUB_DATA_INTERVAL);
-    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_SUB_DATA_INTERVAL).getVisible());
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_SUB_DATA_TIMEOUT).getVisible());
 }
 
 TEST_F(MqttSubscriberFbTest, PropertyVisibility)
@@ -564,7 +564,7 @@ TEST_F(MqttSubscriberFbTest, WaitingData)
     auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(SUB_FB_NAME).createDefaultConfig();
     config.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, topic);
     config.setPropertyValue(PROPERTY_NAME_SUB_PREVIEW_SIGNAL, True);
-    config.setPropertyValue(PROPERTY_NAME_SUB_DATA_INTERVAL, 200);
+    config.setPropertyValue(PROPERTY_NAME_SUB_DATA_TIMEOUT, 200);
 
     auto rawFB = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config);
 
@@ -594,7 +594,7 @@ TEST_F(MqttSubscriberFbTest, WaitingData)
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     EXPECT_NE(rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Waiting for data"), std::string::npos);
 
-    rawFB.setPropertyValue(PROPERTY_NAME_SUB_DATA_INTERVAL, 0);
+    rawFB.setPropertyValue(PROPERTY_NAME_SUB_DATA_TIMEOUT, 0);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     EXPECT_NE(rawFB.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Waiting for data"), std::string::npos);
     ASSERT_TRUE(publisher.publishMsg(mqtt::MqttMessage{topic, dataToSend[3], 1, 0}));

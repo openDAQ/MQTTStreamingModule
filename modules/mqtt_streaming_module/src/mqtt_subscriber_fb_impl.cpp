@@ -216,7 +216,7 @@ FunctionBlockTypePtr MqttSubscriberFbImpl::CreateType()
     }
     {
         auto builder =
-            IntPropertyBuilder(PROPERTY_NAME_SUB_DATA_INTERVAL, DEFAULT_SUB_DATA_INTERVAL)
+            IntPropertyBuilder(PROPERTY_NAME_SUB_DATA_TIMEOUT, DEFAULT_SUB_DATA_INTERVAL)
                 .setDescription(fmt::format("If no MQTT message is received within this interval (ms), the data acquisition status is set. "
                                             "Set to 0 to disable the check. By default {} ms.",
                                             DEFAULT_SUB_DATA_INTERVAL));
@@ -276,7 +276,7 @@ void MqttSubscriberFbImpl::readProperties()
         previewDomainMode = DomainSignalMode::None;
     }
 
-    dataIntervalMs = readProperty<uint32_t, IInteger>(objPtr, PROPERTY_NAME_SUB_DATA_INTERVAL, DEFAULT_SUB_DATA_INTERVAL);
+    dataIntervalMs = readProperty<uint32_t, IInteger>(objPtr, PROPERTY_NAME_SUB_DATA_TIMEOUT, DEFAULT_SUB_DATA_INTERVAL);
 
     const std::string topic = readProperty<std::string, IString>(objPtr, PROPERTY_NAME_SUB_TOPIC, std::string(""));
     const auto result = setTopic(topic);
