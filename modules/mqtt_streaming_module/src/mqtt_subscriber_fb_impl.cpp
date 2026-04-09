@@ -29,7 +29,7 @@ MqttSubscriberFbImpl::MqttSubscriberFbImpl(const ContextPtr& ctx,
       enablePreview(false),
       previewDomainMode(DomainSignalMode::None),
       previewIsString(false),
-      dataIntervalMs(DEFAULT_SUB_DATA_INTERVAL),
+      dataIntervalMs(DEFAULT_SUB_DATA_TIMEOUT),
       lastTsValue(0),
       nestedFbTypes(nullptr),
       statuses(std::make_shared<utils::StatusContainer>())
@@ -216,10 +216,10 @@ FunctionBlockTypePtr MqttSubscriberFbImpl::CreateType()
     }
     {
         auto builder =
-            IntPropertyBuilder(PROPERTY_NAME_SUB_DATA_TIMEOUT, DEFAULT_SUB_DATA_INTERVAL)
+            IntPropertyBuilder(PROPERTY_NAME_SUB_DATA_TIMEOUT, DEFAULT_SUB_DATA_TIMEOUT)
                 .setDescription(fmt::format("If no MQTT message is received within this interval (ms), the data acquisition status is set. "
                                             "Set to 0 to disable the check. By default {} ms.",
-                                            DEFAULT_SUB_DATA_INTERVAL));
+                                            DEFAULT_SUB_DATA_TIMEOUT));
         defaultConfig.addProperty(builder.build());
     }
     {
@@ -276,7 +276,7 @@ void MqttSubscriberFbImpl::readProperties()
         previewDomainMode = DomainSignalMode::None;
     }
 
-    dataIntervalMs = readProperty<uint32_t, IInteger>(objPtr, PROPERTY_NAME_SUB_DATA_TIMEOUT, DEFAULT_SUB_DATA_INTERVAL);
+    dataIntervalMs = readProperty<uint32_t, IInteger>(objPtr, PROPERTY_NAME_SUB_DATA_TIMEOUT, DEFAULT_SUB_DATA_TIMEOUT);
 
     const std::string topic = readProperty<std::string, IString>(objPtr, PROPERTY_NAME_SUB_TOPIC, std::string(""));
     const auto result = setTopic(topic);
@@ -520,7 +520,7 @@ void MqttSubscriberFbImpl::processingLoop()
         std::queue<std::pair<mqtt::MqttMessage, uint64_t>> localQueue;
         {
             std::unique_lock<std::mutex> lock(queueMutex);
-            queueCv.wait_for(lock, std::chrono::milliseconds(interval > 0 ? interval : DEFAULT_SUB_DATA_INTERVAL), check);
+            queueCv.wait_for(lock, std::chrono::milliseconds(interval > 0 ? interval : DEFAULT_SUB_DATA_TIMEOUT), check);
 
             if (!processingRunning)
                 break;

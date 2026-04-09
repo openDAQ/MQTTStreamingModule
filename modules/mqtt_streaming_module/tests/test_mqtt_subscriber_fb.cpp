@@ -143,7 +143,7 @@ TEST_F(MqttSubscriberFbTest, DefaultConfig)
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_SUB_DATA_TIMEOUT));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_SUB_DATA_TIMEOUT).getValueType(), CoreType::ctInt);
     EXPECT_EQ(static_cast<uint32_t>(defaultConfig.getPropertyValue(PROPERTY_NAME_SUB_DATA_TIMEOUT).asPtr<IInteger>()),
-              DEFAULT_SUB_DATA_INTERVAL);
+              DEFAULT_SUB_DATA_TIMEOUT);
     EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_SUB_DATA_TIMEOUT).getVisible());
 }
 

@@ -18,7 +18,7 @@ static constexpr uint32_t DEFAULT_PUB_READ_PERIOD = 20; // ms
 static constexpr uint32_t DEFAULT_PUB_QOS = 1;
 static constexpr uint32_t DEFAULT_SUB_QOS = 1;
 static constexpr uint32_t DEFAULT_PUB_PACK_SIZE = 1;
-static constexpr uint32_t DEFAULT_SUB_DATA_INTERVAL = 5000; // ms
+static constexpr uint32_t DEFAULT_SUB_DATA_TIMEOUT = 0; // ms
 
 static constexpr const char* DEFAULT_VALUE_SIGNAL_LOCAL_ID = "MQTTValueSignal";
 static constexpr const char* DEFAULT_TS_SIGNAL_LOCAL_ID = "MQTTTimestampSignal";
