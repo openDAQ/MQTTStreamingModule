@@ -101,6 +101,8 @@ void MqttSubscriberFbImpl::updateStatuses()
     if (!statuses->isUpdated())
         return;
 
+    std::scoped_lock lock(componentStatusMutex);
+
     if (!jsonConfigErr.ok())
     {
         setComponentStatusWithMessage(ComponentStatus::Error, jsonConfigErr.buildStatusMessage());
@@ -508,7 +510,6 @@ void MqttSubscriberFbImpl::processMessageImpl(const mqtt::MqttMessage& msg, cons
             decoderFb->processMessage(jsonObjStr, epochTime);
         }
     }
-    updateStatuses();
 }
 
 void MqttSubscriberFbImpl::processingLoop()

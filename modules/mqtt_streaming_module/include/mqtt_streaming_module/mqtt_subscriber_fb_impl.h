@@ -86,6 +86,7 @@ protected:
     std::mutex queueMutex;
     std::condition_variable queueCv;
     mutable std::recursive_mutex processingMutex;
+    std::mutex componentStatusMutex;
 
     DAQ_MQTT_STREAM_MODULE_API void onSignalsMessage(const mqtt::MqttAsyncClient& subscriber, const mqtt::MqttMessage& msg);
 
