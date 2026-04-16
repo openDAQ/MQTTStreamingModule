@@ -37,6 +37,10 @@ option(${REPO_OPTION_PREFIX}_ENABLE_SSL "Enable building with openSSL" OFF)
 opendaq_common_compile_targets_settings()
 opendaq_setup_compiler_flags(${REPO_OPTION_PREFIX})
 
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10)
+    add_compile_options(-Wno-unknown-warning-option)
+endif()
+
 if (${REPO_OPTION_PREFIX}_ENABLE_TESTS)
     message(STATUS "Unit tests in ${REPO_NAME} are ENABLED")
     enable_testing()

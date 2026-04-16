@@ -451,7 +451,7 @@ public:
     }
 
     template <typename vT>
-    static std::string valueToString(const vT& value, bool quoteString = true)
+    static std::string valueToString(const vT& value, [[maybe_unused]] bool quoteString = true)
     {
         std::string result;
         if constexpr (std::is_same_v<vT, std::string>)
@@ -1709,7 +1709,7 @@ TEST_F(MqttPublisherFbTest, DISABLED_MultiReaderTest)
     auto send = [&]()
     {
         std::cout << "---------------sending-data---------------" << std::endl;
-        for (size_t i = 0; i < samples * divider; i++)
+        for (size_t i = 0; i < static_cast<size_t>(samples * divider); i++)
         {
             uint64_t ts0, ts1;
             if (i % divider == 0)
