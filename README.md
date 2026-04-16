@@ -89,7 +89,7 @@ MQTT module for the [OpenDAQ SDK](https://github.com/openDAQ/openDAQ). The modul
         ]
       }
       ```
-    The *‘Timestamp’* and *‘Unit’* fields may be omitted. The fields inside *‘Unit’* may also be omitted. Example:
+    The *’Timestamp’* and *’Unit’* fields may be omitted. The fields inside *’Unit’* may also be omitted. The `"Value"` and `"Timestamp"` fields support dot-separated paths for accessing nested JSON fields, e.g. `"data.temperature"` or `"info.ts"` (see section 4 for details). Example:
     ```json
     {
         "/mirip/UNet3AC2/sensor/data":[
@@ -130,10 +130,17 @@ MQTT module for the [OpenDAQ SDK](https://github.com/openDAQ/openDAQ). The modul
    - **Where**: *include/mqtt_streaming_module/mqtt_json_decoder_fb_impl.h, src/mqtt_json_decoder_fb_impl.cpp*
    - **Purpose**: To parse JSON string data to extract a value and a timestamp, and to send data and domain samples based on this data.
    - **Main properties**:
-      - *ValueKey* (string) — Specifies the JSON field name from which value data will be extracted. This property is required. It should be contained in the incoming JSON messages. Otherwise, a parsing error will occur. 
+      - *ValueKey* (string) — Specifies the JSON field name (or dot-separated path for nested objects) from which value data will be extracted. Use `.` to access nested fields, e.g. `"data.temperature"` extracts the `temperature` field from inside the `data` object. This property is required. It should be contained in the incoming JSON messages. Otherwise, a parsing error will occur.
       - *DomainMode* (list) —  Defines how the timestamp of the decoded signal is generated. By default it is set to *None* (0), which means that the decoded signal doesn't have a timestamp. If set to *Extract from message* (1), the JSON decoder will try to extract the timestamp from the incoming JSON messages (see *DomainKey* property). If set to *System time* (2), the timestamp of the decoded signal is set to the system time when the JSON message is received.
-      - *DomainKey* (string) — Specifies the JSON field name from which timestamp will be extracted. This property is optional. If it is set it should be contained in the incoming JSON messages. Otherwise, a parsing error will occur.
+      - *DomainKey* (string) — Specifies the JSON field name (or dot-separated path for nested objects) from which the timestamp will be extracted. Dot notation is supported, e.g. `"info.timestamp"` extracts `timestamp` from inside the `info` object. This property is optional. If it is set it should be contained in the incoming JSON messages. Otherwise, a parsing error will occur.
       - *Unit* (string) — Specifies the unit symbol for the decoded value. This property is optional.
+
+      Dot-notation paths support arbitrary nesting depth. For example, `"sensor.values.temperature"` traverses `sensor` → `values` → `temperature`.
+      Example of a nested JSON MQTT message and the corresponding property values:
+      ```json
+      {"data": {"temperature": 25.68, "humidity": 72.1}, "info": {"timestamp": 1776332277}}
+      ```
+      For this message, set *ValueKey* to `"data.temperature"` and *DomainKey* to `"info.timestamp"`.
 ---
 
 ## Building MQTTStreamingModule

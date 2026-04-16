@@ -104,8 +104,8 @@ private:
 
     bool parseJson(ExtractionContext& ctx, const std::string& json);
     bool parseJsonFields(ExtractionContext& ctx);
-    bool extractValue(ExtractionContext& ctx, const std::string& jsonFieldName);
-    bool extractTimestamp(ExtractionContext& ctx, const std::string& jsonFieldName);
+    bool extractValue(ExtractionContext& ctx, const rapidjson::Value& node);
+    bool extractTimestamp(ExtractionContext& ctx, const rapidjson::Value& node);
     bool validateExtractionResult(ExtractionContext& ctx);
     bool buildPackets(ExtractionContext& ctx, const uint64_t externalTs);
 

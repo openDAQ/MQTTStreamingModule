@@ -200,20 +200,86 @@ std::vector<std::string> replacePlaceholders(const std::vector<std::pair<vT, tsT
     return result;
 }
 
-std::string extractFieldName(std::string jsonTemplate, const std::string& valuePh)
+std::string extractFieldName(const std::string& jsonTemplate, const std::string& valuePh)
 {
-    std::string result;
-    size_t pos = jsonTemplate.find(valuePh);
+    const size_t pos = jsonTemplate.find(valuePh);
     if (pos == std::string::npos)
         return "";
-    size_t posEnd = jsonTemplate.rfind("\"", pos);
-    if (posEnd == std::string::npos)
-        return "";
-    size_t posStart = jsonTemplate.rfind("\"", posEnd - 1);
-    if (posStart == std::string::npos)
-        return "";
-    ++posStart;
-    result = jsonTemplate.substr(posStart, posEnd - posStart);
+
+    const auto extractKeyBefore = [&](size_t from, std::string& key) -> size_t
+    {
+        const size_t closeQ = jsonTemplate.rfind('"', from);
+        if (closeQ == std::string::npos)
+            return std::string::npos;
+        const size_t openQ = jsonTemplate.rfind('"', closeQ - 1);
+        if (openQ == std::string::npos)
+            return std::string::npos;
+        key = jsonTemplate.substr(openQ + 1, closeQ - openQ - 1);
+        return openQ;
+    };
+
+    std::vector<std::string> segments;
+    size_t scanFrom = std::string::npos;
+
+    {
+        std::string key;
+        scanFrom = extractKeyBefore(pos, key);
+        if (scanFrom == std::string::npos)
+            return "";
+        segments.push_back(key);
+    }
+
+    // walk up ancestor objects by finding the '{' that opens each level
+    while (scanFrom > 0)
+    {
+        // scan backwards for the '{' at depth 0 that opens the current object
+        int depth = 0;
+        size_t p = scanFrom;
+        size_t bracePos = std::string::npos;
+        while (p > 0)
+        {
+            --p;
+            const char c = jsonTemplate[p];
+            if (c == '}')
+                ++depth;
+            else if (c == '{')
+            {
+                if (depth == 0)
+                {
+                    bracePos = p;
+                    break;
+                }
+                --depth;
+            }
+        }
+        if (bracePos == std::string::npos)
+            break;
+
+        size_t q = bracePos;
+        while (q > 0 && std::isspace(static_cast<unsigned char>(jsonTemplate[q - 1])))
+            --q;
+        if (q == 0 || jsonTemplate[q - 1] != ':')
+            break;  // root object — no parent key
+        --q;  // skip ':'
+
+        std::string ancestorKey;
+        const size_t ancestorOpenQ = extractKeyBefore(q, ancestorKey);
+        if (ancestorOpenQ == std::string::npos)
+            break;
+
+        segments.push_back(ancestorKey);
+        scanFrom = ancestorOpenQ;
+    }
+
+    std::reverse(segments.begin(), segments.end());
+
+    std::string result;
+    for (size_t i = 0; i < segments.size(); ++i)
+    {
+        if (i > 0)
+            result += '.';
+        result += segments[i];
+    }
     return result;
 }
 
@@ -1180,4 +1246,66 @@ TEST_F(MqttJsonDecoderFbTest, PacketWithTheSameTS)
     fb->processMessage(buildMsg(3), getTime());
     EXPECT_EQ(getComponentStatus(), ok);
     EXPECT_EQ(getStatusMsg().find(warnMsg), std::string::npos);
+}
+
+TEST_F(MqttJsonDecoderFbTest, NestedValueFieldWithDomain)
+{
+    auto dataToReceive = transferData(DATA_DOUBLE_INT_0, NESTED_JSON_DATA_0);
+    ASSERT_EQ(DATA_DOUBLE_INT_0.size(), dataToReceive.size());
+    ASSERT_TRUE(compareData(DATA_DOUBLE_INT_0, dataToReceive));
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
+}
+
+TEST_F(MqttJsonDecoderFbTest, NestedValueMixedDepth)
+{
+    auto dataToReceive = transferData(DATA_DOUBLE_INT_2, NESTED_JSON_DATA_2);
+    ASSERT_EQ(DATA_DOUBLE_INT_2.size(), dataToReceive.size());
+    ASSERT_TRUE(compareData(DATA_DOUBLE_INT_2, dataToReceive));
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
+}
+
+TEST_F(MqttJsonDecoderFbTest, DeepNestedValueField)
+{
+    auto dataToReceive = transferData(DATA_DOUBLE_INT_1, DEEP_NESTED_JSON_DATA);
+    ASSERT_EQ(DATA_DOUBLE_INT_1.size(), dataToReceive.size());
+    ASSERT_TRUE(compareData(DATA_DOUBLE_INT_1, dataToReceive));
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
+}
+
+TEST_F(MqttJsonDecoderFbTest, NestedValueFieldWithoutDomain)
+{
+    auto dataToReceive = transferDataWithoutDomain(DATA_DOUBLE_INT_1, NESTED_JSON_DATA_1);
+    ASSERT_EQ(DATA_DOUBLE_INT_1.size(), dataToReceive.size());
+    ASSERT_TRUE(compareData(DATA_DOUBLE_INT_1, dataToReceive));
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
+}
+
+TEST_F(MqttJsonDecoderFbTest, NestedMissingField)
+{
+    const auto topic = buildTopicName();
+    CreateDecoderFB(topic, "data.nonexistent", DDSM::None, "");
+
+    auto signal = getSignals()[0];
+    auto reader = daq::PacketReader(signal);
+
+    auto msgs = replacePlaceholders(DATA_DOUBLE_INT_0, DEEP_NESTED_JSON_DATA);
+    for (const auto& str : msgs)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        onSignalsMessage({topic, std::vector<uint8_t>(str.begin(), str.end()), 1, 0});
+    }
+
+    auto dataToReceive = read<double>(reader, signal, 1000);
+    ASSERT_EQ(0u, dataToReceive.size());
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Error", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing failed"), std::string::npos);
 }
