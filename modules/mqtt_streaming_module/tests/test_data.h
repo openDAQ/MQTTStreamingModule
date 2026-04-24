@@ -222,6 +222,31 @@ inline const std::string MISSING_FIELD_JSON_DATA_2 = R"json({
 }
 )json";
 
+inline const std::string NESTED_JSON_DATA_0 = R"json({
+    "data": {"temperature": <placeholder_value>},
+    "info": {"timestamp": <placeholder_ts>}
+}
+)json";
+
+inline const std::string NESTED_JSON_DATA_1 = R"json({
+    "data": {"temperature": <placeholder_value>}
+}
+)json";
+
+inline const std::string NESTED_JSON_DATA_2 = R"json({
+    "data": {"temperature": <placeholder_value>},
+    "timestamp": <placeholder_ts>
+}
+)json";
+
+inline const std::string DEEP_NESTED_JSON_DATA = R"json({
+    "sensor": {
+        "values": {"temperature": <placeholder_value>},
+        "metadata": {"unit": "°C", "ts": <placeholder_ts>, "location": "lab"}
+    }
+}
+)json";
+
 inline const std::vector<std::pair<double, uint64_t>> DATA_DOUBLE_INT_0 = {{23.50000001, 1761567115},
                                                                            {-0.00000005583, 1761567116},
                                                                            {19.84916651651, 1761567117},

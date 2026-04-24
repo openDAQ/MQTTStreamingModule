@@ -85,6 +85,24 @@ std::pair<mqtt::CmdResult, std::vector<std::string>> parseHomogeneousArray(const
     }
     return result;
 }
+
+const rapidjson::Value* resolveJsonPath(const rapidjson::Value& root, const std::string& dotPath)
+{
+    const rapidjson::Value* cur = &root;
+    std::string::size_type start = 0;
+    while (start < dotPath.size())
+    {
+        auto dot = dotPath.find('.', start);
+        if (dot == std::string::npos)
+            dot = dotPath.size();
+        const std::string segment(dotPath, start, dot - start);
+        if (!cur->IsObject() || !cur->HasMember(segment))
+            return nullptr;
+        cur = &(*cur)[segment];
+        start = dot + 1;
+    }
+    return cur;
+}
 } // namespace
 
 namespace mqtt
@@ -159,19 +177,17 @@ bool MqttDataWrapper::parseJsonFields(ExtractionContext& ctx)
         return false;
     try
     {
-        for (auto it = ctx.jsonDocument.MemberBegin(); it != ctx.jsonDocument.MemberEnd(); ++it)
+        if (!msgDescriptor.valueFieldName.empty())
         {
-            const std::string name = it->name.GetString();
-            bool processed = false;
-            processed |= extractValue(ctx, name);
-            if (domainSignalMode == DomainSignalMode::ExtractFromMessage && !processed)
-            {
-                processed |= extractTimestamp(ctx, name);
-            }
-            if (!processed)
-            {
-                // the field is not precessed
-            }
+            const auto* node = resolveJsonPath(ctx.jsonDocument, msgDescriptor.valueFieldName);
+            if (node)
+                extractValue(ctx, *node);
+        }
+        if (domainSignalMode == DomainSignalMode::ExtractFromMessage && !msgDescriptor.tsFieldName.empty())
+        {
+            const auto* node = resolveJsonPath(ctx.jsonDocument, msgDescriptor.tsFieldName);
+            if (node)
+                extractTimestamp(ctx, *node);
         }
     }
     catch (...)
@@ -182,121 +198,111 @@ bool MqttDataWrapper::parseJsonFields(ExtractionContext& ctx)
     return true;
 }
 
-bool MqttDataWrapper::extractValue(ExtractionContext& ctx, const std::string& jsonFieldName)
+bool MqttDataWrapper::extractValue(ExtractionContext& ctx, const rapidjson::Value& node)
 {
-    bool fieldFound = (!msgDescriptor.valueFieldName.empty() && jsonFieldName == msgDescriptor.valueFieldName);
-    if (fieldFound)
+    const auto fillContext = [&ctx](mqtt::CmdResult& parsingStatus, auto&& out)
     {
-        const auto fillContext = [&ctx](mqtt::CmdResult& parsingStatus, auto&& out)
+        ctx.result.merge(parsingStatus);
+        ctx.valueExtracted = parsingStatus.success;
+        if (parsingStatus.success)
+            ctx.value = std::move(out);
+    };
+    if (node.IsArray())
+    {
+        const auto& arr = node.GetArray();
+        if (arr.Empty())
         {
-            ctx.result.merge(parsingStatus);
-            ctx.valueExtracted = parsingStatus.success;
-            if (parsingStatus.success)
-                ctx.value = std::move(out);
-        };
-        const auto& v = ctx.jsonDocument[jsonFieldName];
-        if (v.IsArray())
+            ctx.result.addError("Value field is an array but it is empty. ");
+        }
+        else if (arr[0].IsInt64() || arr[0].IsUint64())
         {
-            const auto& arr = v.GetArray();
-            if (arr.Empty())
-            {
-                ctx.result.addError("Value field is an array but it is empty. ");
-            }
-            else if (arr[0].IsInt64() || arr[0].IsUint64())
-            {
-                auto [parsingStatus, out] = parseHomogeneousArray<int64_t>(arr);
-                fillContext(parsingStatus, std::move(out));
-            }
-            else if (arr[0].IsDouble())
-            {
-                auto [parsingStatus, out] = parseHomogeneousArray<double>(arr);
-                fillContext(parsingStatus, std::move(out));
-            }
-            else if (arr[0].IsString())
-            {
-                auto [parsingStatus, out] = parseHomogeneousArray<std::string>(arr);
-                fillContext(parsingStatus, std::move(out));
-            }
-            else
-            {
-                ctx.result.addError(fmt::format("Unsupported value type for '{}' array. ", jsonFieldName));
-            }
+            auto [parsingStatus, out] = parseHomogeneousArray<int64_t>(arr);
+            fillContext(parsingStatus, std::move(out));
+        }
+        else if (arr[0].IsDouble())
+        {
+            auto [parsingStatus, out] = parseHomogeneousArray<double>(arr);
+            fillContext(parsingStatus, std::move(out));
+        }
+        else if (arr[0].IsString())
+        {
+            auto [parsingStatus, out] = parseHomogeneousArray<std::string>(arr);
+            fillContext(parsingStatus, std::move(out));
         }
         else
         {
-            ctx.valueExtracted = true;
-            if (v.IsInt64())
-                ctx.value = std::vector<int64_t>{v.GetInt64()};
-            else if (v.IsUint64())
-                ctx.value = std::vector<int64_t>{static_cast<int64_t>(v.GetUint64())};
-            else if (v.IsDouble())
-                ctx.value = std::vector<double>{v.GetDouble()};
-            else if (v.IsString())
-                ctx.value = std::vector<std::string>{std::string(v.GetString())};
-            else
-            {
-                ctx.result.addError(fmt::format("Unsupported value type for '{}'. ", jsonFieldName));
-                ctx.valueExtracted = false;
-            }
+            ctx.result.addError(fmt::format("Unsupported value type for '{}' array. ", msgDescriptor.valueFieldName));
         }
     }
-    return fieldFound;
+    else
+    {
+        ctx.valueExtracted = true;
+        if (node.IsInt64())
+            ctx.value = std::vector<int64_t>{node.GetInt64()};
+        else if (node.IsUint64())
+            ctx.value = std::vector<int64_t>{static_cast<int64_t>(node.GetUint64())};
+        else if (node.IsDouble())
+            ctx.value = std::vector<double>{node.GetDouble()};
+        else if (node.IsString())
+            ctx.value = std::vector<std::string>{std::string(node.GetString())};
+        else
+        {
+            ctx.result.addError(fmt::format("Unsupported value type for '{}'. ", msgDescriptor.valueFieldName));
+            ctx.valueExtracted = false;
+        }
+    }
+    return ctx.valueExtracted;
 }
 
-bool MqttDataWrapper::extractTimestamp(ExtractionContext& ctx, const std::string& jsonFieldName)
+bool MqttDataWrapper::extractTimestamp(ExtractionContext& ctx, const rapidjson::Value& node)
 {
-    bool fieldFound = (!msgDescriptor.tsFieldName.empty() && jsonFieldName == msgDescriptor.tsFieldName);
-    if (fieldFound)
+    if (node.IsArray())
     {
-        const auto& tsField = ctx.jsonDocument[jsonFieldName];
-        if (tsField.IsArray())
+        const auto& arr = node.GetArray();
+        if (arr.Empty())
         {
-            const auto& arr = tsField.GetArray();
-            if (arr.Empty())
-            {
-                ctx.result.addError("Timestamp field is an array but it is empty. ");
-            }
-            else if (arr[0].IsInt() || arr[0].IsUint64() || arr[0].IsInt64())
-            {
-                auto [parsingStatus, out] = parseHomogeneousArray<uint64_t>(arr);
-                ctx.result.merge(parsingStatus);
-                ctx.tsExtracted = parsingStatus.success;
-                if (parsingStatus.success)
-                    ctx.ts = std::move(out);
+            ctx.result.addError("Timestamp field is an array but it is empty. ");
+        }
+        else if (arr[0].IsInt() || arr[0].IsUint64() || arr[0].IsInt64())
+        {
+            auto [parsingStatus, out] = parseHomogeneousArray<uint64_t>(arr);
+            ctx.result.merge(parsingStatus);
+            ctx.tsExtracted = parsingStatus.success;
+            if (parsingStatus.success)
+                ctx.ts = std::move(out);
 
-                std::for_each(ctx.ts.begin(), ctx.ts.end(), [](auto& val) { val = mqtt::utils::numericToMicroseconds(val); });
-            }
-            else if (arr[0].IsString())
+            std::for_each(ctx.ts.begin(), ctx.ts.end(), [](auto& val) { val = mqtt::utils::numericToMicroseconds(val); });
+        }
+        else if (arr[0].IsString())
+        {
+            auto [parsingStatus, out] = parseHomogeneousArray<std::string>(arr);
+            ctx.result.merge(parsingStatus);
+            ctx.tsExtracted = parsingStatus.success;
+            if (parsingStatus.success)
             {
-                auto [parsingStatus, out] = parseHomogeneousArray<std::string>(arr);
-                ctx.result.merge(parsingStatus);
-                ctx.tsExtracted = parsingStatus.success;
-                if (parsingStatus.success)
-                {
-                    ctx.ts.reserve(out.size());
-                    std::for_each(out.cbegin(), out.cend(), [&ctx](const auto& val) { ctx.ts.push_back(utils::toUnixTicks(val)); });
-                }
-            }
-            else
-            {
-                ctx.result.addError("Timestamp value type is not supported. ");
+                ctx.ts.reserve(out.size());
+                std::for_each(out.cbegin(), out.cend(), [&ctx](const auto& val) { ctx.ts.push_back(utils::toUnixTicks(val)); });
             }
         }
         else
         {
-            ctx.tsExtracted = true;
-            if (tsField.IsInt() || tsField.IsUint64() || tsField.IsInt64())
-                ctx.ts.push_back(mqtt::utils::numericToMicroseconds(tsField.GetUint64()));
-            else if (tsField.IsString())
-                ctx.ts.push_back(utils::toUnixTicks(tsField.GetString()));
-            else
-            {
-                ctx.result.addError("Timestamp value type is not supported. ");
-                ctx.tsExtracted = false;
-            }
+            ctx.result.addError("Timestamp value type is not supported. ");
         }
     }
-    return fieldFound;
+    else
+    {
+        ctx.tsExtracted = true;
+        if (node.IsInt() || node.IsUint64() || node.IsInt64())
+            ctx.ts.push_back(mqtt::utils::numericToMicroseconds(node.GetUint64()));
+        else if (node.IsString())
+            ctx.ts.push_back(utils::toUnixTicks(node.GetString()));
+        else
+        {
+            ctx.result.addError("Timestamp value type is not supported. ");
+            ctx.tsExtracted = false;
+        }
+    }
+    return ctx.tsExtracted;
 }
 
 bool MqttDataWrapper::validateExtractionResult(ExtractionContext& ctx)
