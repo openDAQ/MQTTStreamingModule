@@ -9,7 +9,7 @@ static const char* MODULE_ID = "OpenDAQMQTTModule";
 static const char* SHORT_MODULE_NAME = "MQTTModule";
 
 static constexpr const char* DEFAULT_BROKER_ADDRESS = "127.0.0.1";
-static constexpr const char* BROKER_ADDRESS_CONFIG_FILE_NAME = "mqtt_client.cfg";
+static constexpr const char* BROKER_ADDRESS_CONFIG_FILE_NAME = "mqtt_client_cfg.txt";
 static constexpr uint16_t DEFAULT_PORT = 1883;
 static constexpr const char* DEFAULT_USERNAME = "";
 static constexpr const char* DEFAULT_PASSWORD = "";

@@ -124,8 +124,8 @@ std::string MqttClientFbImpl::readBrokerAddressFromFile()
                           reinterpret_cast<LPCTSTR>(&sentinel),
                           &hModule))
     {
-        char path[MAX_PATH];
-        if (GetModuleFileName(hModule, path, MAX_PATH))
+        wchar_t path[MAX_PATH];
+        if (GetModuleFileNameW(hModule, path, MAX_PATH))
             configPath = std::filesystem::path(path).parent_path() / BROKER_ADDRESS_CONFIG_FILE_NAME;
     }
 #else
@@ -137,11 +137,14 @@ std::string MqttClientFbImpl::readBrokerAddressFromFile()
     if (configPath.empty())
         configPath = BROKER_ADDRESS_CONFIG_FILE_NAME;
 
-    LOG_I("MQTT: looking for broker address config file at: {}", configPath.string());
+    LOG_W("MQTT: looking for broker address config file at: {}", configPath.string());
 
     std::ifstream file(configPath);
     if (!file)
+    {
+        LOG_W("MQTT: config file not found!", configPath.string());
         return {};
+    }
     std::string line;
     std::getline(file, line);
     boost::algorithm::trim(line);
@@ -161,7 +164,7 @@ void MqttClientFbImpl::initProperties(const PropertyObjectPtr& config)
         const auto fileUrl = readBrokerAddressFromFile();
         if (!fileUrl.empty())
         {
-            LOG_I("MQTT: using broker address from config file: {}", fileUrl);
+            LOG_W("MQTT: using broker address from config file: {}", fileUrl);
             effectiveConfig.setPropertyValue(PROPERTY_NAME_CLIENT_BROKER_ADDRESS, fileUrl);
         }
     }
