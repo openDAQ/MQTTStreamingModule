@@ -50,6 +50,7 @@ protected:
     void initProperties(const PropertyObjectPtr& config);
     void readProperties(const PropertyObjectPtr& config);
     bool waitForConnection(const int timeoutMs);
+    std::string readBrokerAddressFromFile();
 
     DictObjectPtr<IDict, IString, IFunctionBlockType> nestedFbTypes;
 

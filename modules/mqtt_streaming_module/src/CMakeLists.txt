@@ -106,6 +106,7 @@ target_link_libraries(${LIB_NAME} PUBLIC  daq::opendaq
                                           mqtt_streaming_protocol
                                           mqtt_streaming_helper
                                   PRIVATE $<BUILD_INTERFACE:Boost::algorithm>
+                                          ${CMAKE_DL_LIBS}
 )
 
 target_include_directories(${LIB_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>

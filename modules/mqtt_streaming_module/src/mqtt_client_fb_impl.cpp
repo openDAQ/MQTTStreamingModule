@@ -4,6 +4,13 @@
 #include <mqtt_streaming_module/mqtt_client_fb_impl.h>
 #include <opendaq/function_block_type_factory.h>
 #include <boost/algorithm/string.hpp>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
+#include <filesystem>
+#include <fstream>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -106,9 +113,60 @@ void MqttClientFbImpl::initConnectionStatus()
         });
 }
 
+std::string MqttClientFbImpl::readBrokerAddressFromFile()
+{
+    static const char sentinel = 0;
+    std::filesystem::path configPath;
+
+#ifdef _WIN32
+    HMODULE hModule = nullptr;
+    if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                          reinterpret_cast<LPCTSTR>(&sentinel),
+                          &hModule))
+    {
+        char path[MAX_PATH];
+        if (GetModuleFileName(hModule, path, MAX_PATH))
+            configPath = std::filesystem::path(path).parent_path() / BROKER_ADDRESS_CONFIG_FILE_NAME;
+    }
+#else
+    Dl_info info{};
+    if (dladdr(reinterpret_cast<const void*>(&sentinel), &info) && info.dli_fname)
+        configPath = std::filesystem::path(info.dli_fname).parent_path() / BROKER_ADDRESS_CONFIG_FILE_NAME;
+#endif
+
+    if (configPath.empty())
+        configPath = BROKER_ADDRESS_CONFIG_FILE_NAME;
+
+    LOG_I("MQTT: looking for broker address config file at: {}", configPath.string());
+
+    std::ifstream file(configPath);
+    if (!file)
+        return {};
+    std::string line;
+    std::getline(file, line);
+    boost::algorithm::trim(line);
+    return line;
+}
+
 void MqttClientFbImpl::initProperties(const PropertyObjectPtr& config)
 {
-    for (const auto& prop : config.getAllProperties())
+    PropertyObjectPtr effectiveConfig = config;
+    if (!effectiveConfig.assigned())
+        effectiveConfig = CreateType().createDefaultConfig();
+
+    const auto configUrl = effectiveConfig.getPropertyValue(PROPERTY_NAME_CLIENT_BROKER_ADDRESS)
+                               .asPtr<IString>().toStdString();
+    if (configUrl == DEFAULT_BROKER_ADDRESS)
+    {
+        const auto fileUrl = readBrokerAddressFromFile();
+        if (!fileUrl.empty())
+        {
+            LOG_I("MQTT: using broker address from config file: {}", fileUrl);
+            effectiveConfig.setPropertyValue(PROPERTY_NAME_CLIENT_BROKER_ADDRESS, fileUrl);
+        }
+    }
+
+    for (const auto& prop : effectiveConfig.getAllProperties())
     {
         const auto propName = prop.getName();
         if (propName == PROPERTY_NAME_CLIENT_PASSWORD)
@@ -142,7 +200,7 @@ void MqttClientFbImpl::initProperties(const PropertyObjectPtr& config)
             objPtr.setPropertyValue(propName, prop.getValue());
         }
     }
-    readProperties(config);
+    readProperties(effectiveConfig);
 }
 
 void MqttClientFbImpl::readProperties(const PropertyObjectPtr& config)

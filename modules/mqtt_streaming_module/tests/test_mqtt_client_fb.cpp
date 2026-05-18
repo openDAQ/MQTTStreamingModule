@@ -4,6 +4,8 @@
 #include <gtest/gtest.h>
 #include <mqtt_streaming_module/constants.h>
 #include <testutils/testutils.h>
+#include <filesystem>
+#include <fstream>
 
 using namespace daq;
 using namespace daq::modules::mqtt_streaming_module;
@@ -136,6 +138,75 @@ TEST_F(MqttFbTest, RemovingMqttFb)
     auto config = DaqMqttFbConfig();
     ASSERT_NO_THROW(fb = instance.addFunctionBlock(CLIENT_FB_NAME, config));
     ASSERT_NO_THROW(instance.removeFunctionBlock(fb));
+}
+
+namespace daq::modules::mqtt_streaming_module
+{
+
+class MqttClientFbFileConfigTest : public testing::Test, public DaqTestHelper
+{
+protected:
+    std::filesystem::path configFilePath;
+
+    void SetUp() override
+    {
+        configFilePath = std::filesystem::current_path() / BROKER_ADDRESS_CONFIG_FILE_NAME;
+        std::filesystem::remove(configFilePath);
+    }
+
+    void TearDown() override
+    {
+        std::filesystem::remove(configFilePath);
+    }
+
+    void writeConfigFile(const std::string& content)
+    {
+        std::ofstream f(configFilePath);
+        f << content;
+    }
+};
+
+} // namespace daq::modules::mqtt_streaming_module
+
+TEST_F(MqttClientFbFileConfigTest, NoConfigNoFile_UsesDefaultBrokerAddress)
+{
+    const auto instance = Instance();
+    daq::FunctionBlockPtr fb;
+    ASSERT_NO_THROW(fb = instance.addFunctionBlock(CLIENT_FB_NAME));
+    ASSERT_EQ(fb.getPropertyValue(PROPERTY_NAME_CLIENT_BROKER_ADDRESS), DEFAULT_BROKER_ADDRESS);
+}
+
+TEST_F(MqttClientFbFileConfigTest, DefaultConfig_FilePresent_UsesFileAddress)
+{
+    writeConfigFile("  localhost  \n");
+
+    const auto instance = Instance();
+    daq::FunctionBlockPtr fb;
+    ASSERT_NO_THROW(fb = instance.addFunctionBlock(CLIENT_FB_NAME));
+    ASSERT_EQ(fb.getPropertyValue(PROPERTY_NAME_CLIENT_BROKER_ADDRESS), std::string("localhost"));
+    ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", instance.getContext().getTypeManager()));
+}
+
+TEST_F(MqttClientFbFileConfigTest, ExplicitNonDefaultConfig_FileIsIgnored)
+{
+    writeConfigFile("192.168.99.99");
+
+    const auto instance = Instance();
+    auto config = DaqMqttFbConfig("localhost", DEFAULT_PORT);
+    daq::FunctionBlockPtr fb;
+    ASSERT_NO_THROW(fb = instance.addFunctionBlock(CLIENT_FB_NAME, config));
+    ASSERT_EQ(fb.getPropertyValue(PROPERTY_NAME_CLIENT_BROKER_ADDRESS), std::string("localhost"));
+}
+
+TEST_F(MqttClientFbFileConfigTest, NoConfig_EmptyFile_UsesDefaultBrokerAddress)
+{
+    writeConfigFile("");
+
+    const auto instance = Instance();
+    daq::FunctionBlockPtr fb;
+    ASSERT_NO_THROW(fb = instance.addFunctionBlock(CLIENT_FB_NAME));
+    ASSERT_EQ(fb.getPropertyValue(PROPERTY_NAME_CLIENT_BROKER_ADDRESS), DEFAULT_BROKER_ADDRESS);
 }
 
 TEST_F(MqttFbTest, CheckMqttFbFunctionalBlocks)
