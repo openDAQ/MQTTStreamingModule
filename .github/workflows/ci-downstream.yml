@@ -24,7 +24,8 @@ jobs:
           },
           {
             "match-jobs": ["windows-*"],
-            "winget-install": ["EclipseFoundation.Mosquitto"]
+            "choco-install": ["mosquitto"],
+            "run": "Start-Service mosquitto"
           },
           {
             "match-jobs": ["macos-*"],
