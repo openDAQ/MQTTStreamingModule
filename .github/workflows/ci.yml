@@ -19,13 +19,13 @@ jobs:
           - os: ubuntu-latest
             generator: Ninja
             build_type: Debug
-          - os: windows-latest
+          - os: windows-2022
             generator: "Visual Studio 17 2022"
             build_type: Debug
           - os: ubuntu-latest
             generator: Ninja
             build_type: Release
-          - os: windows-latest
+          - os: windows-2022
             generator: "Visual Studio 17 2022"
             build_type: Release
 
@@ -69,13 +69,13 @@ jobs:
           - os: ubuntu-latest
             generator: Ninja
             build_type: Debug
-          - os: windows-latest
+          - os: windows-2022
             generator: "Visual Studio 17 2022"
             build_type: Debug
           - os: ubuntu-latest
             generator: Ninja
             build_type: Release
-          - os: windows-latest
+          - os: windows-2022
             generator: "Visual Studio 17 2022"
             build_type: Release
 
@@ -122,7 +122,7 @@ jobs:
           cmake --install build/output --config "${{ matrix.build_type }}"
 
       - name: Add DLL path (Windows only)
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-2022'
         run: echo "${{ env.INSTALL_PREFIX }}/lib" >> $env:GITHUB_PATH
 
       - name: Configure project with CMake
