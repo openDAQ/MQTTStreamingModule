@@ -24,8 +24,7 @@ jobs:
           },
           {
             "match-jobs": ["windows-*"],
-            "choco-install": ["mosquitto"],
-            "run": "Start-Service mosquitto"
+            "run": "$ErrorActionPreference='Stop'; Invoke-WebRequest -Uri 'https://mosquitto.org/files/binary/win64/mosquitto-2.0.18-install-windows-x64.exe' -OutFile mosq.exe; Start-Process -FilePath ./mosq.exe -ArgumentList '/S' -Wait; Start-Service mosquitto"
           },
           {
             "match-jobs": ["macos-*"],
