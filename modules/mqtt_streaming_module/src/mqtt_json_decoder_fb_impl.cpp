@@ -33,9 +33,10 @@ FunctionBlockTypePtr MqttJsonDecoderFbImpl::CreateType()
         auto builder =
             StringPropertyBuilder(PROPERTY_NAME_DEC_VALUE_NAME, String(""))
                 .setDescription("Specifies the JSON field name from which value data will be extracted. Use \'.\' to address a field "
-                                "of a nested object, e.g. \"data.temperature\"; a dot which is a part of a field name has to be "
-                                "escaped with a backslash, e.g. \"data.a\\.b\". This property is required. It should be "
-                                "contained in the incoming JSON messages. Otherwise, a parsing error will occur.");
+                                "of a nested object, e.g. \"data.temperature\", and an index in square brackets to address an "
+                                "element of an array, e.g. \"sensors[1].temperature\". A dot or a bracket which is a part of a "
+                                "field name has to be escaped with a backslash, e.g. \"data.a\\.b\". This property is required. "
+                                "It should be contained in the incoming JSON messages. Otherwise, a parsing error will occur.");
         defaultConfig.addProperty(builder.build());
     }
 
@@ -59,7 +60,8 @@ FunctionBlockTypePtr MqttJsonDecoderFbImpl::CreateType()
                                       " == " + std::to_string(static_cast<int>(DSM::ExtractFromMessage))))
                 .setDescription(
                     "Specifies the JSON field name from which timestamp will be extracted. Use \'.\' to address a field of a nested "
-                    "object, e.g. \"info.timestamp\"; a dot which is a part of a field name has to be escaped with a backslash. "
+                    "object, e.g. \"info.timestamp\", and an index in square brackets to address an element of an array, e.g. "
+                    "\"info.ts[0]\". A dot or a bracket which is a part of a field name has to be escaped with a backslash. "
                     "This property is optional. If it is set it should be contained in the incoming JSON messages. Otherwise, a "
                     "parsing error will occur.");
         defaultConfig.addProperty(builder.build());

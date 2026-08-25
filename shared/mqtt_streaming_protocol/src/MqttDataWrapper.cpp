@@ -6,6 +6,7 @@
 #include <opendaq/sample_type_traits.h>
 #include <rapidjson/document.h>
 #include <algorithm>
+#include <limits>
 
 #include <mqtt_streaming_protocol/utils.h>
 
@@ -123,7 +124,99 @@ ArrayValueType detectArrayValueType(const rapidjson::Value::ConstArray& arr)
 
 bool isEscapeSequence(const std::string& dotPath, std::string::size_type pos, std::string::size_type end)
 {
-    return dotPath[pos] == '\\' && (pos + 1) < end && (dotPath[pos + 1] == '.' || dotPath[pos + 1] == '\\');
+    if (dotPath[pos] != '\\' || (pos + 1) >= end)
+        return false;
+
+    const char next = dotPath[pos + 1];
+    return next == '.' || next == '[' || next == '\\';
+}
+
+// Reads the "[<index>]" group which starts at pos and returns the position right after it,
+// or npos if there is no well-formed group there
+std::string::size_type
+parseIndex(const std::string& dotPath, std::string::size_type pos, std::string::size_type end, rapidjson::SizeType& index)
+{
+    if (pos >= end || dotPath[pos] != '[')
+        return std::string::npos;
+
+    constexpr uint64_t maxIndex = std::numeric_limits<rapidjson::SizeType>::max();
+    auto digit = pos + 1;
+    uint64_t value = 0;
+    while (digit < end && dotPath[digit] >= '0' && dotPath[digit] <= '9')
+    {
+        value = value * 10 + static_cast<uint64_t>(dotPath[digit] - '0');
+        if (value > maxIndex)
+            return std::string::npos;
+        ++digit;
+    }
+
+    // an empty index ("[]") or a non-digit inside the brackets is not an index
+    if (digit == (pos + 1) || digit >= end || dotPath[digit] != ']')
+        return std::string::npos;
+
+    index = static_cast<rapidjson::SizeType>(value);
+    return digit + 1;
+}
+
+struct PathSegment
+{
+    std::string::size_type nameEnd;  // the field name is [start, nameEnd)
+    std::string::size_type end;      // the chain of indexes is [nameEnd, end), the next segment starts at end + 1
+    bool nameHasEscapes;
+};
+
+// Reads the segment which starts at `start` and splits it into the field name and the chain of array
+// indexes which follows it: "sensors[1][0]" is the name "sensors" plus two indexes. The chain has to
+// occupy the whole tail of the segment, so any ordinary character cancels the chain started before it and
+// makes it a part of the name: "a[x]" and "a[0]b" are plain field names.
+PathSegment readSegment(const std::string& dotPath, std::string::size_type start)
+{
+    constexpr auto noChain = std::string::npos;
+
+    const auto pathEnd = dotPath.size();
+    auto chainStart = noChain;
+    bool nameHasEscapes = false;
+
+    auto pos = start;
+    while (pos < pathEnd && dotPath[pos] != '.')
+    {
+        if (isEscapeSequence(dotPath, pos, pathEnd))
+        {
+            nameHasEscapes = true;
+            chainStart = noChain;
+            pos += 2;
+            continue;
+        }
+
+        if (dotPath[pos] == '[')
+        {
+            rapidjson::SizeType index = 0;
+            if (const auto afterIndex = parseIndex(dotPath, pos, pathEnd, index); afterIndex != std::string::npos)
+            {
+                if (chainStart == noChain)
+                    chainStart = pos;
+                pos = afterIndex;
+                continue;
+            }
+        }
+
+        chainStart = noChain;
+        ++pos;
+    }
+
+    return {chainStart != noChain ? chainStart : pos, pos, nameHasEscapes};
+}
+
+// Copies [from, to) into `out` dropping the escaping backslashes
+void unescape(const std::string& dotPath, std::string::size_type from, std::string::size_type to, std::string& out)
+{
+    out.clear();
+    for (auto pos = from; pos < to; ++pos)
+    {
+        if (isEscapeSequence(dotPath, pos, to))
+            ++pos;
+        out += dotPath[pos];
+    }
 }
 
 const rapidjson::Value* findMember(const rapidjson::Value& node, const char* name, std::string::size_type size)
@@ -135,51 +228,53 @@ const rapidjson::Value* findMember(const rapidjson::Value& node, const char* nam
     return member != node.MemberEnd() ? &member->value : nullptr;
 }
 
-// Resolves a dot-separated path, e.g. "sensor.values.temperature". A dot which belongs to a field name has
-// to be escaped with a backslash ("data.a\.b" addresses the "a.b" field of the "data" object), "\\" stands
-// for a single backslash. A backslash in any other position is a part of the field name.
+// Applies the chain of array indexes [from, to) to the node
+const rapidjson::Value*
+applyIndexes(const rapidjson::Value* node, const std::string& dotPath, std::string::size_type from, std::string::size_type to)
+{
+    auto pos = from;
+    while (node != nullptr && pos < to)
+    {
+        rapidjson::SizeType index = 0;
+        const auto afterIndex = parseIndex(dotPath, pos, to, index);
+        if (afterIndex == std::string::npos)
+            return nullptr;
+
+        node = (node->IsArray() && index < node->Size()) ? &(*node)[index] : nullptr;
+        pos = afterIndex;
+    }
+    return node;
+}
+
+// Resolves a dot-separated path, e.g. "sensor.values.temperature". An element of an array is addressed by
+// its index, e.g. "sensors[1].temperature" or "matrix[1][0]". A dot or an opening bracket which belongs to
+// a field name has to be escaped with a backslash ("data.a\.b" addresses the "a.b" field of the "data"
+// object), "\\" stands for a single backslash. A backslash in any other position is a part of the name.
 const rapidjson::Value* resolveJsonPath(const rapidjson::Value& root, const std::string& dotPath)
 {
     const rapidjson::Value* cur = &root;
-    // Reused by the segments which contain escaped characters
-    // the segments without them are looked up in place
-    std::string unescaped;
+    std::string unescapedName;
 
     std::string::size_type start = 0;
     while (start < dotPath.size())
     {
-        auto end = start;
-        bool escaped = false;
-        while (end < dotPath.size() && dotPath[end] != '.')
-        {
-            if (isEscapeSequence(dotPath, end, dotPath.size()))
-            {
-                escaped = true;
-                ++end;
-            }
-            ++end;
-        }
+        const auto segment = readSegment(dotPath, start);
 
-        if (escaped)
+        if (segment.nameHasEscapes)
         {
-            unescaped.clear();
-            for (auto i = start; i < end; ++i)
-            {
-                if (isEscapeSequence(dotPath, i, end))
-                    ++i;
-                unescaped += dotPath[i];
-            }
-            cur = findMember(*cur, unescaped.data(), unescaped.size());
+            unescape(dotPath, start, segment.nameEnd, unescapedName);
+            cur = findMember(*cur, unescapedName.data(), unescapedName.size());
         }
         else
         {
-            cur = findMember(*cur, dotPath.data() + start, end - start);
+            cur = findMember(*cur, dotPath.data() + start, segment.nameEnd - start);
         }
 
-        if (!cur)
+        cur = applyIndexes(cur, dotPath, segment.nameEnd, segment.end);
+        if (cur == nullptr)
             return nullptr;
 
-        start = end + 1;
+        start = segment.end + 1;
     }
     return cur;
 }
