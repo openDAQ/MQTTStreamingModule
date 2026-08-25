@@ -135,6 +135,8 @@ MQTT module for the [OpenDAQ SDK](https://github.com/openDAQ/openDAQ). The modul
       - *DomainKey* (string) — Specifies the JSON field name (or dot-separated path for nested objects) from which the timestamp will be extracted. Dot notation is supported, e.g. `"info.timestamp"` extracts `timestamp` from inside the `info` object. This property is optional. If it is set it should be contained in the incoming JSON messages. Otherwise, a parsing error will occur.
       - *Unit* (string) — Specifies the unit symbol for the decoded value. This property is optional.
 
+   - **Supported value types**: the field addressed by *ValueKey* may hold a single value (integer, floating-point number or string) or an array of values. An array produces several samples at once, so in the *Extract from message* domain mode the *DomainKey* field has to be an array of the same size. The sample type of the output signal follows the type found in the message, and it is updated if the type changes. An array which mixes integers and floating-point numbers is decoded as a floating-point (`Float64`) array; an array of integers only is decoded as an `Int64` array. Any other mix of types within one array (for example numbers and strings) causes a parsing error.
+
       Dot-notation paths support arbitrary nesting depth. For example, `"sensor.values.temperature"` traverses `sensor` → `values` → `temperature`.
       Example of a nested JSON MQTT message and the corresponding property values:
       ```json

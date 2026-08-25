@@ -481,6 +481,20 @@ public:
         return transferData<vT, tsT, std::pair<vT, uint64_t>>(data, jsonDataTemplate);
     }
 
+    // Sends a ready-made JSON message (no placeholders) to a freshly created decoder FB
+    template <typename returnT>
+    std::vector<returnT> transferRawMessage(const std::string& json, const std::string& valueF, DDSM mode, const std::string& tsF = "")
+    {
+        const auto topic = buildTopicName();
+        CreateDecoderFB(topic, valueF, mode, tsF);
+
+        auto signal = getSignals()[0];
+        auto reader = daq::PacketReader(signal);
+
+        onSignalsMessage({topic, std::vector<uint8_t>(json.begin(), json.end()), 1, 0});
+        return read<returnT>(reader, signal, 1000);
+    }
+
     template <typename vT, typename tsT>
     std::vector<std::pair<std::vector<vT>, std::vector<uint64_t>>>
     transferData(const std::vector<std::pair<std::vector<vT>, std::vector<tsT>>>& data, const std::string& jsonDataTemplate)
@@ -889,6 +903,68 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferOneSignalIntArrayWithoutDomain)
     ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
     EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
+}
+
+TEST_F(MqttJsonDecoderFbTest, DataTransferMixedNumericArray)
+{
+    // An array which mixes integers and doubles has to be promoted to a double array
+    const std::string json = R"json({"value": [1, 2.5, 3, -4.25], "ts": [1761567115, 1761567116, 1761567117, 1761567118]})json";
+    const std::vector<double> expectedValues{1.0, 2.5, 3.0, -4.25};
+    const std::vector<uint64_t> expectedTs{1761567115000000ull, 1761567116000000ull, 1761567117000000ull, 1761567118000000ull};
+
+    auto dataToReceive =
+        transferRawMessage<std::pair<std::vector<double>, std::vector<uint64_t>>>(json, "value", DDSM::ExtractFromMessage, "ts");
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_TRUE(equal(dataToReceive[0].first, expectedValues));
+    EXPECT_EQ(dataToReceive[0].second, expectedTs);
+    EXPECT_EQ(getSignals()[0].getDescriptor().getSampleType(), SampleType::Float64);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, DataTransferMixedNumericArrayDoubleFirst)
+{
+    // The type of the array must not depend on the type of its first element
+    const std::string json = R"json({"value": [2.5, 1, 3, 4]})json";
+    const std::vector<double> expectedValues{2.5, 1.0, 3.0, 4.0};
+
+    auto dataToReceive = transferRawMessage<std::vector<double>>(json, "value", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_TRUE(equal(dataToReceive[0], expectedValues));
+    EXPECT_EQ(getSignals()[0].getDescriptor().getSampleType(), SampleType::Float64);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, DataTransferIntArrayIsNotPromoted)
+{
+    // An array of integers stays an integer array
+    const std::string json = R"json({"value": [1, -2, 3]})json";
+    const std::vector<int64_t> expectedValues{1, -2, 3};
+
+    auto dataToReceive = transferRawMessage<std::vector<int64_t>>(json, "value", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_TRUE(equal(dataToReceive[0], expectedValues));
+    EXPECT_EQ(getSignals()[0].getDescriptor().getSampleType(), SampleType::Int64);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, DataTransferMixedIncompatibleArray)
+{
+    // Mixing numbers with other types is still not supported
+    const std::string json = R"json({"value": [1, "two", 3.5]})json";
+
+    auto dataToReceive = transferRawMessage<std::vector<double>>(json, "value", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 0u);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Error", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Unsupported or mixed value types"),
+              std::string::npos);
 }
 
 TEST_F(MqttJsonDecoderFbTest, DataTransferOneSignalDoubleArrayDomainString)

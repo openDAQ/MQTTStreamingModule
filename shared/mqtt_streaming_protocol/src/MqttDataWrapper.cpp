@@ -38,8 +38,10 @@ template <>
 std::pair<mqtt::CmdResult, std::vector<int64_t>> parseHomogeneousArray(const rapidjson::Value::ConstArray& arr)
 {
     std::pair<mqtt::CmdResult, std::vector<int64_t>> result{{true, {}}, {}};
-    result.second = parseHomogeneousArrayInternal<
-        int64_t>(arr, [](const auto& x) { return x.IsInt64() || x.IsUint64(); }, [](const auto& x) { return x.GetInt64(); });
+    result.second = parseHomogeneousArrayInternal<int64_t>(
+        arr,
+        [](const auto& x) { return x.IsInt64() || x.IsUint64(); },
+        [](const auto& x) { return x.IsInt64() ? x.GetInt64() : static_cast<int64_t>(x.GetUint64()); });
     if (result.second.empty())
     {
         result.first.addError("Mixed types in value array (expected integers). ");
@@ -64,11 +66,12 @@ template <>
 std::pair<mqtt::CmdResult, std::vector<double>> parseHomogeneousArray(const rapidjson::Value::ConstArray& arr)
 {
     std::pair<mqtt::CmdResult, std::vector<double>> result{{true, {}}, {}};
+    // Any JSON number is accepted here: an array which mixes integers and doubles is promoted to doubles
     result.second =
-        parseHomogeneousArrayInternal<double>(arr, [](const auto& x) { return x.IsDouble(); }, [](const auto& x) { return x.GetDouble(); });
+        parseHomogeneousArrayInternal<double>(arr, [](const auto& x) { return x.IsNumber(); }, [](const auto& x) { return x.GetDouble(); });
     if (result.second.empty())
     {
-        result.first.addError("Mixed types in value array (expected doubles). ");
+        result.first.addError("Mixed types in value array (expected numbers). ");
     }
     return result;
 }
@@ -84,6 +87,38 @@ std::pair<mqtt::CmdResult, std::vector<std::string>> parseHomogeneousArray(const
         result.first.addError("Mixed types in value array (expected strings). ");
     }
     return result;
+}
+
+enum class ArrayValueType
+{
+    Integer,
+    Double,
+    String,
+    Unsupported
+};
+
+// The type of an array is derived from all of its elements, not from the first one only: an array which
+// mixes integers and doubles is a valid double array, while any other mix is not supported.
+ArrayValueType detectArrayValueType(const rapidjson::Value::ConstArray& arr)
+{
+    bool allIntegers = true;
+    bool allNumbers = true;
+    bool allStrings = true;
+
+    for (const auto& x : arr)
+    {
+        allIntegers = allIntegers && (x.IsInt64() || x.IsUint64());
+        allNumbers = allNumbers && x.IsNumber();
+        allStrings = allStrings && x.IsString();
+    }
+
+    if (allIntegers)
+        return ArrayValueType::Integer;
+    if (allNumbers)
+        return ArrayValueType::Double;
+    if (allStrings)
+        return ArrayValueType::String;
+    return ArrayValueType::Unsupported;
 }
 
 const rapidjson::Value* resolveJsonPath(const rapidjson::Value& root, const std::string& dotPath)
@@ -214,24 +249,33 @@ bool MqttDataWrapper::extractValue(ExtractionContext& ctx, const rapidjson::Valu
         {
             ctx.result.addError("Value field is an array but it is empty. ");
         }
-        else if (arr[0].IsInt64() || arr[0].IsUint64())
-        {
-            auto [parsingStatus, out] = parseHomogeneousArray<int64_t>(arr);
-            fillContext(parsingStatus, std::move(out));
-        }
-        else if (arr[0].IsDouble())
-        {
-            auto [parsingStatus, out] = parseHomogeneousArray<double>(arr);
-            fillContext(parsingStatus, std::move(out));
-        }
-        else if (arr[0].IsString())
-        {
-            auto [parsingStatus, out] = parseHomogeneousArray<std::string>(arr);
-            fillContext(parsingStatus, std::move(out));
-        }
         else
         {
-            ctx.result.addError(fmt::format("Unsupported value type for '{}' array. ", msgDescriptor.valueFieldName));
+            switch (detectArrayValueType(arr))
+            {
+                case ArrayValueType::Integer:
+                {
+                    auto [parsingStatus, out] = parseHomogeneousArray<int64_t>(arr);
+                    fillContext(parsingStatus, std::move(out));
+                    break;
+                }
+                case ArrayValueType::Double:
+                {
+                    auto [parsingStatus, out] = parseHomogeneousArray<double>(arr);
+                    fillContext(parsingStatus, std::move(out));
+                    break;
+                }
+                case ArrayValueType::String:
+                {
+                    auto [parsingStatus, out] = parseHomogeneousArray<std::string>(arr);
+                    fillContext(parsingStatus, std::move(out));
+                    break;
+                }
+                case ArrayValueType::Unsupported:
+                    ctx.result.addError(
+                        fmt::format("Unsupported or mixed value types for '{}' array. ", msgDescriptor.valueFieldName));
+                    break;
+            }
         }
     }
     else
