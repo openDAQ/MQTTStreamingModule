@@ -361,11 +361,15 @@ void MqttSubscriberFbImpl::setJsonConfig(const std::string config)
             }
             if (const auto signalDscs = jsonConfigWrapper.extractDescription(); !signalDscs.empty())
             {
+                using DSM = mqtt::MqttDataWrapper::DomainSignalMode;
                 auto fbConfig = MqttJsonDecoderFbImpl::CreateType().createDefaultConfig();
                 for (const auto& [signalName, descriptor] : signalDscs)
                 {
                     LOG_I("Creating a decoder FB for the signal \"{}\":", signalName);
                     fbConfig.setPropertyValue(PROPERTY_NAME_DEC_VALUE_NAME, descriptor.valueFieldName);
+
+                    const auto tsMode = descriptor.tsFieldName.empty() ? DSM::None : DSM::ExtractFromMessage;
+                    fbConfig.setPropertyValue(PROPERTY_NAME_DEC_TS_MODE, static_cast<int>(tsMode));
                     fbConfig.setPropertyValue(PROPERTY_NAME_DEC_TS_NAME, descriptor.tsFieldName);
                     if (descriptor.unit.assigned())
                         fbConfig.setPropertyValue(PROPERTY_NAME_DEC_UNIT, descriptor.unit.getSymbol());
