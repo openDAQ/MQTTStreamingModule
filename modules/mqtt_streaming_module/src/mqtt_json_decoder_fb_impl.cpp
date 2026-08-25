@@ -32,8 +32,10 @@ FunctionBlockTypePtr MqttJsonDecoderFbImpl::CreateType()
     {
         auto builder =
             StringPropertyBuilder(PROPERTY_NAME_DEC_VALUE_NAME, String(""))
-                .setDescription("Specifies the JSON field name from which value data will be extracted. This property is required. It "
-                                "should be contained in the incoming JSON messages. Otherwise, a parsing error will occur.");
+                .setDescription("Specifies the JSON field name from which value data will be extracted. Use \'.\' to address a field "
+                                "of a nested object, e.g. \"data.temperature\"; a dot which is a part of a field name has to be "
+                                "escaped with a backslash, e.g. \"data.a\\.b\". This property is required. It should be "
+                                "contained in the incoming JSON messages. Otherwise, a parsing error will occur.");
         defaultConfig.addProperty(builder.build());
     }
 
@@ -56,8 +58,10 @@ FunctionBlockTypePtr MqttJsonDecoderFbImpl::CreateType()
                 .setVisible(EvalValue(std::string("$") + PROPERTY_NAME_DEC_TS_MODE +
                                       " == " + std::to_string(static_cast<int>(DSM::ExtractFromMessage))))
                 .setDescription(
-                    "Specifies the JSON field name from which timestamp will be extracted. This property is "
-                    "optional. If it is set it should be contained in the incoming JSON messages. Otherwise, a parsing error will occur.");
+                    "Specifies the JSON field name from which timestamp will be extracted. Use \'.\' to address a field of a nested "
+                    "object, e.g. \"info.timestamp\"; a dot which is a part of a field name has to be escaped with a backslash. "
+                    "This property is optional. If it is set it should be contained in the incoming JSON messages. Otherwise, a "
+                    "parsing error will occur.");
         defaultConfig.addProperty(builder.build());
     }
 

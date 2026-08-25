@@ -138,6 +138,7 @@ MQTT module for the [OpenDAQ SDK](https://github.com/openDAQ/openDAQ). The modul
    - **Supported value types**: the field addressed by *ValueKey* may hold a single value (integer, floating-point number or string) or an array of values. An array produces several samples at once, so in the *Extract from message* domain mode the *DomainKey* field has to be an array of the same size. The sample type of the output signal follows the type found in the message, and it is updated if the type changes. An array which mixes integers and floating-point numbers is decoded as a floating-point (`Float64`) array; an array of integers only is decoded as an `Int64` array. Any other mix of types within one array (for example numbers and strings) causes a parsing error.
 
       Dot-notation paths support arbitrary nesting depth. For example, `"sensor.values.temperature"` traverses `sensor` → `values` → `temperature`.
+      A dot which is a part of a field name has to be escaped with a backslash: `"data.a\.b"` addresses the `"a.b"` field of the `"data"` object, and `"\\"` stands for a single backslash in a field name. Inside a JSON configuration file the backslash itself has to be escaped as well, e.g. `"Value": "data.a\\.b"`.
       Example of a nested JSON MQTT message and the corresponding property values:
       ```json
       {"data": {"temperature": 25.68, "humidity": 72.1}, "info": {"timestamp": 1776332277}}

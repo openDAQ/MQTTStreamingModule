@@ -1364,6 +1364,72 @@ TEST_F(MqttJsonDecoderFbTest, NestedValueFieldWithoutDomain)
     EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 }
 
+TEST_F(MqttJsonDecoderFbTest, EscapedDotInValueFieldName)
+{
+    // "data.a\.b" addresses the "a.b" field of the "data" object, not the "b" field of the "data.a" object
+    const std::string json = R"json({"data": {"a.b": 1.5, "a": {"b": 99.5}}})json";
+
+    auto dataToReceive = transferRawMessage<double>(json, "data.a\\.b", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_DOUBLE_EQ(dataToReceive[0], 1.5);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, EscapedDotInTopLevelFieldName)
+{
+    const std::string json = R"json({"a.b": 2.5})json";
+
+    auto dataToReceive = transferRawMessage<double>(json, "a\\.b", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_DOUBLE_EQ(dataToReceive[0], 2.5);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, EscapedDotInDomainFieldName)
+{
+    const std::string json = R"json({"value": 3.5, "info.ts": 1761567115})json";
+
+    auto dataToReceive =
+        transferRawMessage<std::pair<double, uint64_t>>(json, "value", DDSM::ExtractFromMessage, "info\\.ts");
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_DOUBLE_EQ(dataToReceive[0].first, 3.5);
+    EXPECT_EQ(dataToReceive[0].second, 1761567115000000ull);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, EscapedBackslashInFieldName)
+{
+    // The JSON field name is "a\b", the escaped path for it is "a\\b"
+    const std::string json = R"json({"a\\b": 4.5})json";
+
+    auto dataToReceive = transferRawMessage<double>(json, "a\\\\b", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_DOUBLE_EQ(dataToReceive[0], 4.5);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, UnescapedDotStaysAPathSeparator)
+{
+    // Without the escaping "a.b" still means the "b" field of the "a" object
+    const std::string json = R"json({"a.b": 5.5})json";
+
+    auto dataToReceive = transferRawMessage<double>(json, "a.b", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 0u);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Error", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing failed"),
+              std::string::npos);
+}
+
 TEST_F(MqttJsonDecoderFbTest, NestedMissingField)
 {
     const auto topic = buildTopicName();

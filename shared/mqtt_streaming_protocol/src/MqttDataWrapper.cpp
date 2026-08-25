@@ -121,20 +121,65 @@ ArrayValueType detectArrayValueType(const rapidjson::Value::ConstArray& arr)
     return ArrayValueType::Unsupported;
 }
 
+bool isEscapeSequence(const std::string& dotPath, std::string::size_type pos, std::string::size_type end)
+{
+    return dotPath[pos] == '\\' && (pos + 1) < end && (dotPath[pos + 1] == '.' || dotPath[pos + 1] == '\\');
+}
+
+const rapidjson::Value* findMember(const rapidjson::Value& node, const char* name, std::string::size_type size)
+{
+    if (!node.IsObject())
+        return nullptr;
+
+    const auto member = node.FindMember(rapidjson::Value(rapidjson::StringRef(name, size)));
+    return member != node.MemberEnd() ? &member->value : nullptr;
+}
+
+// Resolves a dot-separated path, e.g. "sensor.values.temperature". A dot which belongs to a field name has
+// to be escaped with a backslash ("data.a\.b" addresses the "a.b" field of the "data" object), "\\" stands
+// for a single backslash. A backslash in any other position is a part of the field name.
 const rapidjson::Value* resolveJsonPath(const rapidjson::Value& root, const std::string& dotPath)
 {
     const rapidjson::Value* cur = &root;
+    // Reused by the segments which contain escaped characters
+    // the segments without them are looked up in place
+    std::string unescaped;
+
     std::string::size_type start = 0;
     while (start < dotPath.size())
     {
-        auto dot = dotPath.find('.', start);
-        if (dot == std::string::npos)
-            dot = dotPath.size();
-        const std::string segment(dotPath, start, dot - start);
-        if (!cur->IsObject() || !cur->HasMember(segment))
+        auto end = start;
+        bool escaped = false;
+        while (end < dotPath.size() && dotPath[end] != '.')
+        {
+            if (isEscapeSequence(dotPath, end, dotPath.size()))
+            {
+                escaped = true;
+                ++end;
+            }
+            ++end;
+        }
+
+        if (escaped)
+        {
+            unescaped.clear();
+            for (auto i = start; i < end; ++i)
+            {
+                if (isEscapeSequence(dotPath, i, end))
+                    ++i;
+                unescaped += dotPath[i];
+            }
+            cur = findMember(*cur, unescaped.data(), unescaped.size());
+        }
+        else
+        {
+            cur = findMember(*cur, dotPath.data() + start, end - start);
+        }
+
+        if (!cur)
             return nullptr;
-        cur = &(*cur)[segment];
-        start = dot + 1;
+
+        start = end + 1;
     }
     return cur;
 }
