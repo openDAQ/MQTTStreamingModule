@@ -15,9 +15,9 @@ set(OPENDAQ_ALWAYS_FETCH_PAHO_MQTT_C ON CACHE BOOL "" FORCE)
 
 opendaq_dependency(
     NAME                paho_mqtt_c
-    REQUIRED_VERSION    1.3.12
+    REQUIRED_VERSION    1.3.15
     GIT_REPOSITORY      https://github.com/eclipse/paho.mqtt.c.git
-    GIT_REF             v1.3.12
+    GIT_REF             v1.3.15
 )
 
 if (paho_mqtt_c_FETCHED)
