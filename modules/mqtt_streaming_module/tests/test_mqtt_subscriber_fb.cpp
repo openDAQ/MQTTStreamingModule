@@ -1,3 +1,4 @@
+#include "mqtt_streaming_module/mqtt_json_decoder_fb_impl.h"
 #include "mqtt_streaming_module/mqtt_subscriber_fb_impl.h"
 #include "test_daq_test_helper.h"
 #include "test_data.h"
@@ -45,6 +46,13 @@ public:
         auto signalList = List<ISignal>();
         obj->getSignals(&signalList);
         return signalList;
+    }
+
+    auto getNestedFbs()
+    {
+        auto fbList = List<IFunctionBlock>();
+        obj->getFunctionBlocks(&fbList);
+        return fbList;
     }
 
     std::string buildTopicName(const std::string& postfix = "")
@@ -492,6 +500,73 @@ TEST_F(MqttSubscriberFbTest, JsonInitFromFileWithChecking)
     lambda(subFb.getFunctionBlocks()[1], "humi", "ts", "%");
     lambda(subFb.getFunctionBlocks()[2], "tds_value", "ts", "ppm");
 
+}
+
+TEST_F(MqttSubscriberFbTest, JsonInitDomainMode)
+{
+    using DDSM = mqtt::MqttDataWrapper::DomainSignalMode;
+
+    auto config = MqttSubscriberFbImpl::CreateType().createDefaultConfig();
+    config.setPropertyValue(PROPERTY_NAME_SUB_JSON_CONFIG, String(VALID_JSON_1_TOPIC_0));
+    CreateSubFB(config);
+
+    auto nestedFbs = getNestedFbs();
+    ASSERT_EQ(nestedFbs.getCount(), 3u);
+
+    auto lambda = [](FunctionBlockPtr nestedFb, std::string value, std::string ts, DDSM mode)
+    {
+        EXPECT_EQ(nestedFb.getPropertyValue(PROPERTY_NAME_DEC_VALUE_NAME).asPtr<IString>().toStdString(), value);
+        EXPECT_EQ(static_cast<int>(nestedFb.getPropertyValue(PROPERTY_NAME_DEC_TS_MODE).asPtr<IInteger>()), static_cast<int>(mode));
+        EXPECT_EQ(nestedFb.getPropertyValue(PROPERTY_NAME_DEC_TS_NAME).asPtr<IString>().toStdString(), ts);
+        ASSERT_EQ(nestedFb.getSignals().getCount(), 1u);
+        EXPECT_EQ(nestedFb.getSignals()[0].getDomainSignal().assigned(), mode != DDSM::None);
+    };
+
+    lambda(nestedFbs[0], "value", "timestamp", DDSM::ExtractFromMessage);
+    lambda(nestedFbs[1], "value1", "", DDSM::None);
+    lambda(nestedFbs[2], "value2", "", DDSM::None);
+}
+
+TEST_F(MqttSubscriberFbTest, JsonInitDomainModeDataTransfer)
+{
+    auto config = MqttSubscriberFbImpl::CreateType().createDefaultConfig();
+    config.setPropertyValue(PROPERTY_NAME_SUB_JSON_CONFIG, String(VALID_JSON_1_TOPIC_0));
+    CreateSubFB(config);
+
+    const auto topic = obj->getSubscribedTopic();
+    auto nestedFbs = getNestedFbs();
+    ASSERT_EQ(nestedFbs.getCount(), 3u);
+
+    auto signal = nestedFbs[0].getSignals()[0];
+    ASSERT_TRUE(signal.getDomainSignal().assigned());
+    auto reader = daq::PacketReader(signal);
+
+    constexpr uint64_t tsToSend = 1761567115;
+    constexpr double valueToSend = 12.5;
+    const std::string payload = R"json({"value": 12.5, "timestamp": 1761567115, "value1": 7})json";
+
+    onSignalsMessage({topic, std::vector<uint8_t>(payload.begin(), payload.end()), 1, 0});
+    const auto timeout = std::chrono::steady_clock::now() + std::chrono::milliseconds(1000);
+
+    std::vector<double> dataToReceive;
+    std::vector<uint64_t> tsToReceive;
+    while ((!reader.getEmpty() || std::chrono::steady_clock::now() < timeout) && tsToReceive.empty())
+    {
+        auto packet = reader.read();
+        const auto dataPacket = packet.asPtrOrNull<IDataPacket>();
+        if (!dataPacket.assigned())
+            continue;
+
+        dataToReceive.push_back(*(static_cast<double*>(dataPacket.getRawData())));
+        const auto domainPacket = dataPacket.getDomainPacket();
+        ASSERT_TRUE(domainPacket.assigned());
+        tsToReceive.push_back(*(static_cast<uint64_t*>(domainPacket.getRawData())));
+    }
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_DOUBLE_EQ(dataToReceive[0], valueToSend);
+    ASSERT_EQ(tsToReceive.size(), 1u);
+    EXPECT_EQ(tsToReceive[0], tsToSend * 1'000'000ull);
 }
 
 TEST_F(MqttSubscriberFbTest, JsonInitFromFileWrongPath)

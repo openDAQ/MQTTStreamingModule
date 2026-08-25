@@ -481,6 +481,20 @@ public:
         return transferData<vT, tsT, std::pair<vT, uint64_t>>(data, jsonDataTemplate);
     }
 
+    // Sends a ready-made JSON message (no placeholders) to a freshly created decoder FB
+    template <typename returnT>
+    std::vector<returnT> transferRawMessage(const std::string& json, const std::string& valueF, DDSM mode, const std::string& tsF = "")
+    {
+        const auto topic = buildTopicName();
+        CreateDecoderFB(topic, valueF, mode, tsF);
+
+        auto signal = getSignals()[0];
+        auto reader = daq::PacketReader(signal);
+
+        onSignalsMessage({topic, std::vector<uint8_t>(json.begin(), json.end()), 1, 0});
+        return read<returnT>(reader, signal, 1000);
+    }
+
     template <typename vT, typename tsT>
     std::vector<std::pair<std::vector<vT>, std::vector<uint64_t>>>
     transferData(const std::vector<std::pair<std::vector<vT>, std::vector<tsT>>>& data, const std::string& jsonDataTemplate)
@@ -891,6 +905,68 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferOneSignalIntArrayWithoutDomain)
     EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
 }
 
+TEST_F(MqttJsonDecoderFbTest, DataTransferMixedNumericArray)
+{
+    // An array which mixes integers and doubles has to be promoted to a double array
+    const std::string json = R"json({"value": [1, 2.5, 3, -4.25], "ts": [1761567115, 1761567116, 1761567117, 1761567118]})json";
+    const std::vector<double> expectedValues{1.0, 2.5, 3.0, -4.25};
+    const std::vector<uint64_t> expectedTs{1761567115000000ull, 1761567116000000ull, 1761567117000000ull, 1761567118000000ull};
+
+    auto dataToReceive =
+        transferRawMessage<std::pair<std::vector<double>, std::vector<uint64_t>>>(json, "value", DDSM::ExtractFromMessage, "ts");
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_TRUE(equal(dataToReceive[0].first, expectedValues));
+    EXPECT_EQ(dataToReceive[0].second, expectedTs);
+    EXPECT_EQ(getSignals()[0].getDescriptor().getSampleType(), SampleType::Float64);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, DataTransferMixedNumericArrayDoubleFirst)
+{
+    // The type of the array must not depend on the type of its first element
+    const std::string json = R"json({"value": [2.5, 1, 3, 4]})json";
+    const std::vector<double> expectedValues{2.5, 1.0, 3.0, 4.0};
+
+    auto dataToReceive = transferRawMessage<std::vector<double>>(json, "value", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_TRUE(equal(dataToReceive[0], expectedValues));
+    EXPECT_EQ(getSignals()[0].getDescriptor().getSampleType(), SampleType::Float64);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, DataTransferIntArrayIsNotPromoted)
+{
+    // An array of integers stays an integer array
+    const std::string json = R"json({"value": [1, -2, 3]})json";
+    const std::vector<int64_t> expectedValues{1, -2, 3};
+
+    auto dataToReceive = transferRawMessage<std::vector<int64_t>>(json, "value", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_TRUE(equal(dataToReceive[0], expectedValues));
+    EXPECT_EQ(getSignals()[0].getDescriptor().getSampleType(), SampleType::Int64);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, DataTransferMixedIncompatibleArray)
+{
+    // Mixing numbers with other types is still not supported
+    const std::string json = R"json({"value": [1, "two", 3.5]})json";
+
+    auto dataToReceive = transferRawMessage<std::vector<double>>(json, "value", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 0u);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Error", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Unsupported or mixed value types"),
+              std::string::npos);
+}
+
 TEST_F(MqttJsonDecoderFbTest, DataTransferOneSignalDoubleArrayDomainString)
 {
     std::vector<std::pair<std::vector<double>, std::vector<std::string>>> dataToSend;
@@ -1286,6 +1362,185 @@ TEST_F(MqttJsonDecoderFbTest, NestedValueFieldWithoutDomain)
     ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
     EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing succeeded"), std::string::npos);
+}
+
+TEST_F(MqttJsonDecoderFbTest, EscapedDotInValueFieldName)
+{
+    // "data.a\.b" addresses the "a.b" field of the "data" object, not the "b" field of the "data.a" object
+    const std::string json = R"json({"data": {"a.b": 1.5, "a": {"b": 99.5}}})json";
+
+    auto dataToReceive = transferRawMessage<double>(json, "data.a\\.b", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_DOUBLE_EQ(dataToReceive[0], 1.5);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, EscapedDotInTopLevelFieldName)
+{
+    const std::string json = R"json({"a.b": 2.5})json";
+
+    auto dataToReceive = transferRawMessage<double>(json, "a\\.b", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_DOUBLE_EQ(dataToReceive[0], 2.5);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, EscapedDotInDomainFieldName)
+{
+    const std::string json = R"json({"value": 3.5, "info.ts": 1761567115})json";
+
+    auto dataToReceive =
+        transferRawMessage<std::pair<double, uint64_t>>(json, "value", DDSM::ExtractFromMessage, "info\\.ts");
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_DOUBLE_EQ(dataToReceive[0].first, 3.5);
+    EXPECT_EQ(dataToReceive[0].second, 1761567115000000ull);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, EscapedBackslashInFieldName)
+{
+    // The JSON field name is "a\b", the escaped path for it is "a\\b"
+    const std::string json = R"json({"a\\b": 4.5})json";
+
+    auto dataToReceive = transferRawMessage<double>(json, "a\\\\b", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_DOUBLE_EQ(dataToReceive[0], 4.5);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, UnescapedDotStaysAPathSeparator)
+{
+    // Without the escaping "a.b" still means the "b" field of the "a" object
+    const std::string json = R"json({"a.b": 5.5})json";
+
+    auto dataToReceive = transferRawMessage<double>(json, "a.b", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 0u);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Error", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing failed"),
+              std::string::npos);
+}
+
+TEST_F(MqttJsonDecoderFbTest, ArrayIndexInValueFieldPath)
+{
+    const std::string json = R"json({"sensors": [{"temp": 1.5}, {"temp": 2.5}, {"temp": 3.5}]})json";
+
+    auto dataToReceive = transferRawMessage<double>(json, "sensors[1].temp", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_DOUBLE_EQ(dataToReceive[0], 2.5);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, ArrayIndexAtTheEndOfThePath)
+{
+    const std::string json = R"json({"data": {"values": [1.5, 2.5, 3.5]}})json";
+
+    auto dataToReceive = transferRawMessage<double>(json, "data.values[2]", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_DOUBLE_EQ(dataToReceive[0], 3.5);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, ChainedArrayIndexes)
+{
+    const std::string json = R"json({"matrix": [[1.5, 2.5], [3.5, 4.5]]})json";
+
+    auto dataToReceive = transferRawMessage<double>(json, "matrix[1][0]", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_DOUBLE_EQ(dataToReceive[0], 3.5);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, ArrayIndexSelectsAnArrayOfSamples)
+{
+    // An indexed element may be an array itself, and then it produces several samples
+    const std::string json = R"json({"matrix": [[1.5, 2.5], [3.5, 4.5]]})json";
+
+    auto dataToReceive = transferRawMessage<std::vector<double>>(json, "matrix[0]", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_TRUE(equal(dataToReceive[0], std::vector<double>{1.5, 2.5}));
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, ArrayIndexInDomainFieldPath)
+{
+    const std::string json = R"json({"value": 3.5, "info": {"ts": [1761567115, 1761567116]}})json";
+
+    auto dataToReceive =
+        transferRawMessage<std::pair<double, uint64_t>>(json, "value", DDSM::ExtractFromMessage, "info.ts[1]");
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_DOUBLE_EQ(dataToReceive[0].first, 3.5);
+    EXPECT_EQ(dataToReceive[0].second, 1761567116000000ull);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, ArrayIndexOutOfRange)
+{
+    const std::string json = R"json({"values": [1.5, 2.5]})json";
+
+    auto dataToReceive = transferRawMessage<double>(json, "values[2]", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 0u);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Error", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("Parsing failed"),
+              std::string::npos);
+}
+
+TEST_F(MqttJsonDecoderFbTest, ArrayIndexOnNonArrayField)
+{
+    const std::string json = R"json({"value": 1.5})json";
+
+    auto dataToReceive = transferRawMessage<double>(json, "value[0]", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 0u);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Error", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, EscapedBracketInFieldName)
+{
+    // The field is named "a[0]", so the bracket has to be escaped to keep it a part of the name
+    const std::string json = R"json({"a[0]": 6.5, "a": [7.5]})json";
+
+    auto dataToReceive = transferRawMessage<double>(json, "a\\[0]", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_DOUBLE_EQ(dataToReceive[0], 6.5);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
+}
+
+TEST_F(MqttJsonDecoderFbTest, BracketsWhichAreNotAnIndexStayInTheFieldName)
+{
+    // "[x]" is not a valid index, so the whole segment is a field name and needs no escaping
+    const std::string json = R"json({"a[x]": 8.5})json";
+
+    auto dataToReceive = transferRawMessage<double>(json, "a[x]", DDSM::None);
+
+    ASSERT_EQ(dataToReceive.size(), 1u);
+    EXPECT_DOUBLE_EQ(dataToReceive[0], 8.5);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Ok", decoderObj.getContext().getTypeManager()));
 }
 
 TEST_F(MqttJsonDecoderFbTest, NestedMissingField)

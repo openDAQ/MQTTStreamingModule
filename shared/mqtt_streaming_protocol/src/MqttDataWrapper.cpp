@@ -6,6 +6,7 @@
 #include <opendaq/sample_type_traits.h>
 #include <rapidjson/document.h>
 #include <algorithm>
+#include <limits>
 
 #include <mqtt_streaming_protocol/utils.h>
 
@@ -38,8 +39,10 @@ template <>
 std::pair<mqtt::CmdResult, std::vector<int64_t>> parseHomogeneousArray(const rapidjson::Value::ConstArray& arr)
 {
     std::pair<mqtt::CmdResult, std::vector<int64_t>> result{{true, {}}, {}};
-    result.second = parseHomogeneousArrayInternal<
-        int64_t>(arr, [](const auto& x) { return x.IsInt64() || x.IsUint64(); }, [](const auto& x) { return x.GetInt64(); });
+    result.second = parseHomogeneousArrayInternal<int64_t>(
+        arr,
+        [](const auto& x) { return x.IsInt64() || x.IsUint64(); },
+        [](const auto& x) { return x.IsInt64() ? x.GetInt64() : static_cast<int64_t>(x.GetUint64()); });
     if (result.second.empty())
     {
         result.first.addError("Mixed types in value array (expected integers). ");
@@ -64,11 +67,12 @@ template <>
 std::pair<mqtt::CmdResult, std::vector<double>> parseHomogeneousArray(const rapidjson::Value::ConstArray& arr)
 {
     std::pair<mqtt::CmdResult, std::vector<double>> result{{true, {}}, {}};
+    // Any JSON number is accepted here: an array which mixes integers and doubles is promoted to doubles
     result.second =
-        parseHomogeneousArrayInternal<double>(arr, [](const auto& x) { return x.IsDouble(); }, [](const auto& x) { return x.GetDouble(); });
+        parseHomogeneousArrayInternal<double>(arr, [](const auto& x) { return x.IsNumber(); }, [](const auto& x) { return x.GetDouble(); });
     if (result.second.empty())
     {
-        result.first.addError("Mixed types in value array (expected doubles). ");
+        result.first.addError("Mixed types in value array (expected numbers). ");
     }
     return result;
 }
@@ -86,20 +90,191 @@ std::pair<mqtt::CmdResult, std::vector<std::string>> parseHomogeneousArray(const
     return result;
 }
 
+enum class ArrayValueType
+{
+    Integer,
+    Double,
+    String,
+    Unsupported
+};
+
+// The type of an array is derived from all of its elements, not from the first one only: an array which
+// mixes integers and doubles is a valid double array, while any other mix is not supported.
+ArrayValueType detectArrayValueType(const rapidjson::Value::ConstArray& arr)
+{
+    bool allIntegers = true;
+    bool allNumbers = true;
+    bool allStrings = true;
+
+    for (const auto& x : arr)
+    {
+        allIntegers = allIntegers && (x.IsInt64() || x.IsUint64());
+        allNumbers = allNumbers && x.IsNumber();
+        allStrings = allStrings && x.IsString();
+    }
+
+    if (allIntegers)
+        return ArrayValueType::Integer;
+    if (allNumbers)
+        return ArrayValueType::Double;
+    if (allStrings)
+        return ArrayValueType::String;
+    return ArrayValueType::Unsupported;
+}
+
+bool isEscapeSequence(const std::string& dotPath, std::string::size_type pos, std::string::size_type end)
+{
+    if (dotPath[pos] != '\\' || (pos + 1) >= end)
+        return false;
+
+    const char next = dotPath[pos + 1];
+    return next == '.' || next == '[' || next == '\\';
+}
+
+// Reads the "[<index>]" group which starts at pos and returns the position right after it,
+// or npos if there is no well-formed group there
+std::string::size_type
+parseIndex(const std::string& dotPath, std::string::size_type pos, std::string::size_type end, rapidjson::SizeType& index)
+{
+    if (pos >= end || dotPath[pos] != '[')
+        return std::string::npos;
+
+    constexpr uint64_t maxIndex = std::numeric_limits<rapidjson::SizeType>::max();
+    auto digit = pos + 1;
+    uint64_t value = 0;
+    while (digit < end && dotPath[digit] >= '0' && dotPath[digit] <= '9')
+    {
+        value = value * 10 + static_cast<uint64_t>(dotPath[digit] - '0');
+        if (value > maxIndex)
+            return std::string::npos;
+        ++digit;
+    }
+
+    // an empty index ("[]") or a non-digit inside the brackets is not an index
+    if (digit == (pos + 1) || digit >= end || dotPath[digit] != ']')
+        return std::string::npos;
+
+    index = static_cast<rapidjson::SizeType>(value);
+    return digit + 1;
+}
+
+struct PathSegment
+{
+    std::string::size_type nameEnd;  // the field name is [start, nameEnd)
+    std::string::size_type end;      // the chain of indexes is [nameEnd, end), the next segment starts at end + 1
+    bool nameHasEscapes;
+};
+
+// Reads the segment which starts at `start` and splits it into the field name and the chain of array
+// indexes which follows it: "sensors[1][0]" is the name "sensors" plus two indexes. The chain has to
+// occupy the whole tail of the segment, so any ordinary character cancels the chain started before it and
+// makes it a part of the name: "a[x]" and "a[0]b" are plain field names.
+PathSegment readSegment(const std::string& dotPath, std::string::size_type start)
+{
+    constexpr auto noChain = std::string::npos;
+
+    const auto pathEnd = dotPath.size();
+    auto chainStart = noChain;
+    bool nameHasEscapes = false;
+
+    auto pos = start;
+    while (pos < pathEnd && dotPath[pos] != '.')
+    {
+        if (isEscapeSequence(dotPath, pos, pathEnd))
+        {
+            nameHasEscapes = true;
+            chainStart = noChain;
+            pos += 2;
+            continue;
+        }
+
+        if (dotPath[pos] == '[')
+        {
+            rapidjson::SizeType index = 0;
+            if (const auto afterIndex = parseIndex(dotPath, pos, pathEnd, index); afterIndex != std::string::npos)
+            {
+                if (chainStart == noChain)
+                    chainStart = pos;
+                pos = afterIndex;
+                continue;
+            }
+        }
+
+        chainStart = noChain;
+        ++pos;
+    }
+
+    return {chainStart != noChain ? chainStart : pos, pos, nameHasEscapes};
+}
+
+// Copies [from, to) into `out` dropping the escaping backslashes
+void unescape(const std::string& dotPath, std::string::size_type from, std::string::size_type to, std::string& out)
+{
+    out.clear();
+    for (auto pos = from; pos < to; ++pos)
+    {
+        if (isEscapeSequence(dotPath, pos, to))
+            ++pos;
+        out += dotPath[pos];
+    }
+}
+
+const rapidjson::Value* findMember(const rapidjson::Value& node, const char* name, std::string::size_type size)
+{
+    if (!node.IsObject())
+        return nullptr;
+
+    const auto member = node.FindMember(rapidjson::Value(rapidjson::StringRef(name, size)));
+    return member != node.MemberEnd() ? &member->value : nullptr;
+}
+
+// Applies the chain of array indexes [from, to) to the node
+const rapidjson::Value*
+applyIndexes(const rapidjson::Value* node, const std::string& dotPath, std::string::size_type from, std::string::size_type to)
+{
+    auto pos = from;
+    while (node != nullptr && pos < to)
+    {
+        rapidjson::SizeType index = 0;
+        const auto afterIndex = parseIndex(dotPath, pos, to, index);
+        if (afterIndex == std::string::npos)
+            return nullptr;
+
+        node = (node->IsArray() && index < node->Size()) ? &(*node)[index] : nullptr;
+        pos = afterIndex;
+    }
+    return node;
+}
+
+// Resolves a dot-separated path, e.g. "sensor.values.temperature". An element of an array is addressed by
+// its index, e.g. "sensors[1].temperature" or "matrix[1][0]". A dot or an opening bracket which belongs to
+// a field name has to be escaped with a backslash ("data.a\.b" addresses the "a.b" field of the "data"
+// object), "\\" stands for a single backslash. A backslash in any other position is a part of the name.
 const rapidjson::Value* resolveJsonPath(const rapidjson::Value& root, const std::string& dotPath)
 {
     const rapidjson::Value* cur = &root;
+    std::string unescapedName;
+
     std::string::size_type start = 0;
     while (start < dotPath.size())
     {
-        auto dot = dotPath.find('.', start);
-        if (dot == std::string::npos)
-            dot = dotPath.size();
-        const std::string segment(dotPath, start, dot - start);
-        if (!cur->IsObject() || !cur->HasMember(segment))
+        const auto segment = readSegment(dotPath, start);
+
+        if (segment.nameHasEscapes)
+        {
+            unescape(dotPath, start, segment.nameEnd, unescapedName);
+            cur = findMember(*cur, unescapedName.data(), unescapedName.size());
+        }
+        else
+        {
+            cur = findMember(*cur, dotPath.data() + start, segment.nameEnd - start);
+        }
+
+        cur = applyIndexes(cur, dotPath, segment.nameEnd, segment.end);
+        if (cur == nullptr)
             return nullptr;
-        cur = &(*cur)[segment];
-        start = dot + 1;
+
+        start = segment.end + 1;
     }
     return cur;
 }
@@ -214,24 +389,33 @@ bool MqttDataWrapper::extractValue(ExtractionContext& ctx, const rapidjson::Valu
         {
             ctx.result.addError("Value field is an array but it is empty. ");
         }
-        else if (arr[0].IsInt64() || arr[0].IsUint64())
-        {
-            auto [parsingStatus, out] = parseHomogeneousArray<int64_t>(arr);
-            fillContext(parsingStatus, std::move(out));
-        }
-        else if (arr[0].IsDouble())
-        {
-            auto [parsingStatus, out] = parseHomogeneousArray<double>(arr);
-            fillContext(parsingStatus, std::move(out));
-        }
-        else if (arr[0].IsString())
-        {
-            auto [parsingStatus, out] = parseHomogeneousArray<std::string>(arr);
-            fillContext(parsingStatus, std::move(out));
-        }
         else
         {
-            ctx.result.addError(fmt::format("Unsupported value type for '{}' array. ", msgDescriptor.valueFieldName));
+            switch (detectArrayValueType(arr))
+            {
+                case ArrayValueType::Integer:
+                {
+                    auto [parsingStatus, out] = parseHomogeneousArray<int64_t>(arr);
+                    fillContext(parsingStatus, std::move(out));
+                    break;
+                }
+                case ArrayValueType::Double:
+                {
+                    auto [parsingStatus, out] = parseHomogeneousArray<double>(arr);
+                    fillContext(parsingStatus, std::move(out));
+                    break;
+                }
+                case ArrayValueType::String:
+                {
+                    auto [parsingStatus, out] = parseHomogeneousArray<std::string>(arr);
+                    fillContext(parsingStatus, std::move(out));
+                    break;
+                }
+                case ArrayValueType::Unsupported:
+                    ctx.result.addError(
+                        fmt::format("Unsupported or mixed value types for '{}' array. ", msgDescriptor.valueFieldName));
+                    break;
+            }
         }
     }
     else
