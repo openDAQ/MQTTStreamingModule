@@ -49,28 +49,30 @@ TEST_F(MqttStreamingClientModuleTest, VersionCorrect)
     ASSERT_EQ(version.getPatch(), MQTT_STREAM_MODULE_PATCH_VERSION);
 }
 
-TEST_F(MqttStreamingClientModuleTest, MqttFbAvailable)
+TEST_F(MqttStreamingClientModuleTest, MqttDeviceAvailable)
 {
     auto module = CreateModule();
 
-    DictPtr<daq::IString, daq::IFunctionBlockType> fbt;
-    ASSERT_NO_THROW(fbt = module.getAvailableFunctionBlockTypes());
-    ASSERT_EQ(fbt.getCount(), 1u);
+    DictPtr<daq::IString, daq::IDeviceType> deviceTypes;
+    ASSERT_NO_THROW(deviceTypes = module.getAvailableDeviceTypes());
+    ASSERT_EQ(deviceTypes.getCount(), 1u);
 }
 
 TEST_F(MqttStreamingClientModuleTest, GetAvailableComponentTypes)
 {
     const auto module = CreateModule();
 
+    // The MQTT client is a device now; the module offers no top-level function block type.
     DictPtr<IString, IFunctionBlockType> functionBlockTypes;
     ASSERT_NO_THROW(functionBlockTypes = module.getAvailableFunctionBlockTypes());
-    ASSERT_EQ(functionBlockTypes.getCount(), 1u);
-    ASSERT_TRUE(functionBlockTypes.hasKey(CLIENT_FB_NAME));
-    ASSERT_EQ(functionBlockTypes.get(CLIENT_FB_NAME).getId(), CLIENT_FB_NAME);
+    ASSERT_EQ(functionBlockTypes.getCount(), 0u);
 
     DictPtr<IString, IDeviceType> deviceTypes;
     ASSERT_NO_THROW(deviceTypes = module.getAvailableDeviceTypes());
-    ASSERT_EQ(deviceTypes.getCount(), 0u);
+    ASSERT_EQ(deviceTypes.getCount(), 1u);
+    ASSERT_TRUE(deviceTypes.hasKey(CLIENT_DEVICE_TYPE_ID));
+    ASSERT_EQ(deviceTypes.get(CLIENT_DEVICE_TYPE_ID).getId(), CLIENT_DEVICE_TYPE_ID);
+    ASSERT_EQ(deviceTypes.get(CLIENT_DEVICE_TYPE_ID).getConnectionStringPrefix(), CLIENT_DEVICE_CONN_PREFIX);
 
 
     DictPtr<IString, IServerType> serverTypes;
@@ -94,11 +96,11 @@ TEST_F(MqttStreamingClientModuleTest, GetAvailableComponentTypes)
         ASSERT_EQ(versionInfoModule.getPatch(), MQTT_STREAM_MODULE_PATCH_VERSION);
     }
 
-    // Check module and version info for fb types
-    for (const auto& fbt : functionBlockTypes)
+    // Check module and version info for device types
+    for (const auto& devType : deviceTypes)
     {
         ModuleInfoPtr moduleInfo;
-        ASSERT_NO_THROW(moduleInfo = fbt.second.getModuleInfo());
+        ASSERT_NO_THROW(moduleInfo = devType.second.getModuleInfo());
         ASSERT_NE(moduleInfo, nullptr);
         ASSERT_EQ(moduleInfo.getName(), MODULE_NAME);
         ASSERT_EQ(moduleInfo.getId(), MODULE_ID);

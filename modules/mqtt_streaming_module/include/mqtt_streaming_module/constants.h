@@ -24,8 +24,7 @@ static constexpr const char* DEFAULT_VALUE_SIGNAL_LOCAL_ID = "MQTTValueSignal";
 static constexpr const char* DEFAULT_TS_SIGNAL_LOCAL_ID = "MQTTTimestampSignal";
 
 
-static constexpr const char* PROPERTY_NAME_CLIENT_BROKER_ADDRESS = "BrokerAddress";
-static constexpr const char* PROPERTY_NAME_CLIENT_BROKER_PORT = "BrokerPort";
+static constexpr const char* PROPERTY_NAME_CLIENT_BROKER_PORT = "Port";
 static constexpr const char* PROPERTY_NAME_CLIENT_USERNAME = "Username";
 static constexpr const char* PROPERTY_NAME_CLIENT_PASSWORD = "Password";
 static constexpr const char* PROPERTY_NAME_CLIENT_CONNECT_TIMEOUT = "ConnectionTimeout";
@@ -59,22 +58,23 @@ static constexpr const char* PUB_PREVIEW_SIGNAL_NAME = "PreviewSignal";
 
 static constexpr const char* SUB_FB_NAME = "MQTTSubscriberFB";
 static constexpr const char* PUB_FB_NAME = "MQTTJSONPublisherFB";
-static constexpr const char* CLIENT_FB_NAME = "MQTTClientFB";
 static constexpr const char* JSON_DECODER_FB_NAME = "MQTTJSONDecoderFB";
 
-static const char* MQTT_LOCAL_CLIENT_FB_ID_PREFIX = "MQTTClientFB";
+static constexpr const char* CLIENT_DEVICE_TYPE_ID = "OpenDAQMQTTDevice";
+static constexpr const char* CLIENT_DEVICE_TYPE_NAME = "MQTT client device";
+static constexpr const char* CLIENT_DEVICE_CONN_PREFIX = "daq.mqtt";
+
+static const char* MQTT_LOCAL_CLIENT_DEVICE_ID_PREFIX = "MQTTClientDevice";
 static const char* MQTT_LOCAL_PUB_FB_ID_PREFIX = "MQTTJSONPublisherFB";
 static const char* MQTT_LOCAL_SUB_FB_ID_PREFIX = "MQTTSubscriberFB";
 static const char* MQTT_LOCAL_JSON_DECODER_FB_ID_PREFIX = "MQTTJSONDecoderFB";
 
 
-static const char* MQTT_CLIENT_FB_CON_STATUS_TYPE = "DAQ_MQTT_ConnectionStatusType";
 static const char* MQTT_PUB_FB_SIG_STATUS_TYPE = "DAQ_MQTT_SignalStatusType";
 static const char* MQTT_PUB_FB_PUB_STATUS_TYPE = "DAQ_MQTT_PublishingStatusType";
 static const char* MQTT_PUB_FB_SET_STATUS_TYPE = "DAQ_MQTT_SettingStatusType";
 
 
-static const char* MQTT_CLIENT_FB_CON_STATUS_NAME = "ConnectionStatus";
 static const char* MQTT_PUB_FB_SIG_STATUS_NAME = "SignalStatus";
 static const char* MQTT_PUB_FB_PUB_STATUS_NAME = "PublishingStatus";
 static const char* MQTT_PUB_FB_SET_STATUS_NAME = "SettingStatus";

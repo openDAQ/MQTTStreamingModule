@@ -2,6 +2,7 @@
 #include <mqtt_streaming_module/module_dll.h>
 #include <mqtt_streaming_module/constants.h>
 #include <opendaq/instance_factory.h>
+#include <string>
 
 using namespace daq::modules::mqtt_streaming_module;
 
@@ -9,13 +10,13 @@ class DaqTestHelper
 {
 public:
     daq::InstancePtr daqInstance;
-    daq::FunctionBlockPtr clientMqttFb;
+    daq::DevicePtr mqttDevice;
     daq::FunctionBlockPtr subMqttFb;
 
     void StartUp(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
     {
         DaqInstanceInit();
-        DaqMqttFbInit(url, port);
+        DaqMqttDeviceInit(url, port);
     }
 
     daq::InstancePtr DaqInstanceInit()
@@ -25,32 +26,27 @@ public:
         return daqInstance;
     }
 
-    daq::FunctionBlockPtr DaqAddClientMqttFb(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
+    static std::string MqttConnectionString(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
     {
-        auto config = DaqMqttFbConfig(url, port);
-        clientMqttFb = daqInstance.addFunctionBlock(CLIENT_FB_NAME, config);
-        return clientMqttFb;
+        return std::string(CLIENT_DEVICE_CONN_PREFIX) + "://" + url + ":" + std::to_string(port);
     }
 
-    daq::FunctionBlockPtr DaqMqttFbInit(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
+    daq::DevicePtr DaqAddMqttDevice(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
     {
-        if (!clientMqttFb.assigned())
-        {
-            auto config = DaqMqttFbConfig(url, port);
-            clientMqttFb = daqInstance.addFunctionBlock(CLIENT_FB_NAME, config);
-        }
-        return clientMqttFb;
+        mqttDevice = daqInstance.addDevice(MqttConnectionString(url, port), DaqMqttDeviceConfig());
+        return mqttDevice;
     }
 
-    daq::PropertyObjectPtr DaqMqttFbConfig(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
+    daq::DevicePtr DaqMqttDeviceInit(std::string url = DEFAULT_BROKER_ADDRESS, uint16_t port = DEFAULT_PORT)
     {
-        daq::ModulePtr module;
-        createModule(&module, daq::NullContext());
+        if (!mqttDevice.assigned())
+            DaqAddMqttDevice(url, port);
+        return mqttDevice;
+    }
 
-        auto config = module.getAvailableFunctionBlockTypes().get(daq::modules::mqtt_streaming_module::CLIENT_FB_NAME).createDefaultConfig();
-        config.setPropertyValue(PROPERTY_NAME_CLIENT_BROKER_ADDRESS, url);
-        config.setPropertyValue(PROPERTY_NAME_CLIENT_BROKER_PORT, port);
-        return config;
+    static daq::PropertyObjectPtr DaqMqttDeviceConfig()
+    {
+        return CreateModule().getAvailableDeviceTypes().get(CLIENT_DEVICE_TYPE_ID).createDefaultConfig();
     }
 
     static daq::ModulePtr CreateModule()
@@ -62,9 +58,9 @@ public:
 
     daq::FunctionBlockPtr AddSubFb(std::string topic = "")
     {
-        auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(SUB_FB_NAME).createDefaultConfig();
+        auto config = mqttDevice.getAvailableFunctionBlockTypes().get(SUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_SUB_TOPIC, daq::String(topic));
-        subMqttFb = clientMqttFb.addFunctionBlock(SUB_FB_NAME, config);
+        subMqttFb = mqttDevice.addFunctionBlock(SUB_FB_NAME, config);
         return subMqttFb;
     }
 };

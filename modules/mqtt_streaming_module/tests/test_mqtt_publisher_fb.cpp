@@ -237,10 +237,10 @@ public:
 
     void CreatePublisherFB()
     {
-        auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        auto config = mqttDevice.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_QOS, 2);
         config.setPropertyValue(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, True);
-        fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config);
+        fb = mqttDevice.addFunctionBlock(PUB_FB_NAME, config);
     }
 
     void CreatePublisherFB(bool multiTopic,
@@ -251,7 +251,7 @@ public:
                            int qos = 2,
                            uint32_t readPeriod = 20)
     {
-        auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        auto config = mqttDevice.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_MODE, 0);
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, multiTopic ? 1 : 0);
         config.setPropertyValue(PROPERTY_NAME_PUB_GROUP_VALUES, groupV ? True : False);
@@ -261,18 +261,18 @@ public:
         config.setPropertyValue(PROPERTY_NAME_PUB_READ_PERIOD, readPeriod);
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, topicName);
         config.setPropertyValue(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, True);
-        fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config);
+        fb = mqttDevice.addFunctionBlock(PUB_FB_NAME, config);
     }
 
     void CreateRawPublisherFB(int qos = 2,
                               uint32_t readPeriod = 20)
     {
-        auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        auto config = mqttDevice.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_MODE, 1);
         config.setPropertyValue(PROPERTY_NAME_PUB_QOS, qos);
         config.setPropertyValue(PROPERTY_NAME_PUB_READ_PERIOD, readPeriod);
         config.setPropertyValue(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, False);
-        fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config);
+        fb = mqttDevice.addFunctionBlock(PUB_FB_NAME, config);
     }
 
     bool CreateSubscriber(std::string postfix = "_subscriberId")
@@ -622,7 +622,7 @@ TEST_F(MqttPublisherFbTest, DefaultConfig)
     daq::DictPtr<daq::IString, daq::IFunctionBlockType> fbTypes;
     daq::FunctionBlockTypePtr fbt;
     daq::PropertyObjectPtr defaultConfig;
-    ASSERT_NO_THROW(fbTypes = clientMqttFb.getAvailableFunctionBlockTypes());
+    ASSERT_NO_THROW(fbTypes = mqttDevice.getAvailableFunctionBlockTypes());
     ASSERT_NO_THROW(fbt = fbTypes.get(PUB_FB_NAME));
     ASSERT_NO_THROW(defaultConfig = fbt.createDefaultConfig());
 
@@ -723,7 +723,7 @@ TEST_F(MqttPublisherFbTest, PropertyVisibility)
 TEST_F(MqttPublisherFbTest, Config)
 {
     StartUp();
-    auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+    auto config = mqttDevice.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
 
     config.setPropertyValue(PROPERTY_NAME_PUB_MODE, 0);
     config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
@@ -735,7 +735,7 @@ TEST_F(MqttPublisherFbTest, Config)
     config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, buildTopicName());
     config.setPropertyValue(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, True);
     daq::FunctionBlockPtr fb;
-    ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
+    ASSERT_NO_THROW(fb = mqttDevice.addFunctionBlock(PUB_FB_NAME, config));
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Warning", daqInstance.getContext().getTypeManager()));
     SignalHelper<double> helper{};
@@ -770,7 +770,7 @@ TEST_F(MqttPublisherFbTest, Creation)
 {
     StartUp();
     daq::FunctionBlockPtr fb;
-    ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME));
+    ASSERT_NO_THROW(fb = mqttDevice.addFunctionBlock(PUB_FB_NAME));
     SignalHelper<double> helper{};
     fb.getInputPorts()[0].connect(helper.signal0);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
@@ -787,7 +787,7 @@ TEST_F(MqttPublisherFbTest, TwoFbCreation)
     SignalHelper<double> helper{};
     {
         daq::FunctionBlockPtr fb;
-        ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME));
+        ASSERT_NO_THROW(fb = mqttDevice.addFunctionBlock(PUB_FB_NAME));
         fb.getInputPorts()[0].connect(helper.signal0);
         ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
                   Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
@@ -798,7 +798,7 @@ TEST_F(MqttPublisherFbTest, TwoFbCreation)
     }
     {
         daq::FunctionBlockPtr fb;
-        ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME));
+        ASSERT_NO_THROW(fb = mqttDevice.addFunctionBlock(PUB_FB_NAME));
         fb.getInputPorts()[0].connect(helper.signal0);
         ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
                   Enumeration("ComponentStatusType", "Ok", daqInstance.getContext().getTypeManager()));
@@ -807,7 +807,7 @@ TEST_F(MqttPublisherFbTest, TwoFbCreation)
                                           static_cast<Int>(MqttPublisherFbImpl::SettingStatus::Valid),
                                           daqInstance.getContext().getTypeManager()));
     }
-    auto fbs = clientMqttFb.getFunctionBlocks();
+    auto fbs = mqttDevice.getFunctionBlocks();
     ASSERT_EQ(fbs.getCount(), 2u);
 }
 
@@ -815,7 +815,7 @@ TEST_F(MqttPublisherFbTest, CreationWithDefaultConfig)
 {
     StartUp();
     daq::FunctionBlockPtr fb;
-    ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME));
+    ASSERT_NO_THROW(fb = mqttDevice.addFunctionBlock(PUB_FB_NAME));
     auto signals = fb.getSignals();
     ASSERT_EQ(signals.getCount(), 0u);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
@@ -836,7 +836,7 @@ TEST_F(MqttPublisherFbTest, CreationWithPartialConfig)
     daq::FunctionBlockPtr fb;
     auto config = PropertyObject();
     config.addProperty(IntProperty(PROPERTY_NAME_PUB_READ_PERIOD, 20));
-    ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
+    ASSERT_NO_THROW(fb = mqttDevice.addFunctionBlock(PUB_FB_NAME, config));
     SignalHelper<double> helper{};
     fb.getInputPorts()[0].connect(helper.signal0);
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
@@ -853,11 +853,11 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
     StatusHelper<MqttPublisherFbImpl::SignalStatus>::addTypesToTypeManager(MQTT_PUB_FB_SIG_STATUS_TYPE,
                                                                            MQTT_PUB_FB_SIG_STATUS_NAME,
                                                                            MqttPublisherFbImpl::signalStatusMap,
-                                                                           clientMqttFb.getContext().getTypeManager());
+                                                                           mqttDevice.getContext().getTypeManager());
     StatusHelper<MqttPublisherFbImpl::PublishingStatus>::addTypesToTypeManager(MQTT_PUB_FB_PUB_STATUS_TYPE,
                                                                                MQTT_PUB_FB_PUB_STATUS_NAME,
                                                                                MqttPublisherFbImpl::publishingStatusMap,
-                                                                               clientMqttFb.getContext().getTypeManager());
+                                                                               mqttDevice.getContext().getTypeManager());
     const auto sigStValid = EnumerationWithIntValue(MQTT_PUB_FB_SIG_STATUS_TYPE,
                                                     static_cast<Int>(MqttPublisherFbImpl::SignalStatus::Valid),
                                                     daqInstance.getContext().getTypeManager());
@@ -873,7 +873,7 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
 
     {
         daq::FunctionBlockPtr fb;
-        ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME));
+        ASSERT_NO_THROW(fb = mqttDevice.addFunctionBlock(PUB_FB_NAME));
         ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SIG_STATUS_NAME), sigStNotConnected);
         auto help = SignalHelper<double>();
 
@@ -920,10 +920,10 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
 
     {
         daq::FunctionBlockPtr fb;
-        auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        auto config = mqttDevice.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, String(buildTopicName()));
-        ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
+        ASSERT_NO_THROW(fb = mqttDevice.addFunctionBlock(PUB_FB_NAME, config));
         auto help = SignalHelper<double>();
 
         auto signal0 = help.createSignal(DataDescriptorBuilder().setRule(LinearDataRule(2, 3)).setTickResolution(Ratio(1, 1000)));
@@ -937,10 +937,10 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
 
     {
         daq::FunctionBlockPtr fb;
-        auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        auto config = mqttDevice.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, String(buildTopicName()));
-        ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
+        ASSERT_NO_THROW(fb = mqttDevice.addFunctionBlock(PUB_FB_NAME, config));
         auto help = SignalHelper<double>();
 
         auto signal0 = help.createSignal(DataDescriptorBuilder().setRule(LinearDataRule(1, 3)).setTickResolution(Ratio(1, 1000)));
@@ -957,10 +957,10 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
 
     {
         daq::FunctionBlockPtr fb;
-        auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        auto config = mqttDevice.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, String(buildTopicName()));
-        ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
+        ASSERT_NO_THROW(fb = mqttDevice.addFunctionBlock(PUB_FB_NAME, config));
         auto help = SignalHelper<double>();
 
         auto signal0 = help.createSignal(DataDescriptorBuilder().setRule(LinearDataRule(2, 3)).setTickResolution(Ratio(1, 1000)));
@@ -977,10 +977,10 @@ TEST_F(MqttPublisherFbTest, ConnectToPort)
 
     {
         daq::FunctionBlockPtr fb;
-        auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        auto config = mqttDevice.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, String(buildTopicName()));
-        ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
+        ASSERT_NO_THROW(fb = mqttDevice.addFunctionBlock(PUB_FB_NAME, config));
         auto help = SignalHelper<double>();
 
         auto signal0 = help.createSignal(DataDescriptorBuilder().setRule(LinearDataRule(1, 3)).setTickResolution(Ratio(1, 500)));
@@ -1006,10 +1006,10 @@ TEST_F(MqttPublisherFbTest, PreviewSignals)
     StartUp();
 
     daq::FunctionBlockPtr fb;
-    auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+    auto config = mqttDevice.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
     config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0);
     config.setPropertyValue(PROPERTY_NAME_PUB_PREVIEW_SIGNAL, False);
-    ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
+    ASSERT_NO_THROW(fb = mqttDevice.addFunctionBlock(PUB_FB_NAME, config));
     auto help = SignalHelper<double>();
 
     ASSERT_EQ(fb.getSignals().getCount(), 0u);
@@ -1068,9 +1068,9 @@ TEST_F(MqttPublisherFbTest, TopicsList)
 
     {
         daq::FunctionBlockPtr fb;
-        auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        auto config = mqttDevice.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 0);
-        ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
+        ASSERT_NO_THROW(fb = mqttDevice.addFunctionBlock(PUB_FB_NAME, config));
         auto help = SignalHelper<double>();
 
         ASSERT_NO_THROW(fb.getInputPorts()[0].connect(help.signal0));
@@ -1082,9 +1082,9 @@ TEST_F(MqttPublisherFbTest, TopicsList)
 
     {
         daq::FunctionBlockPtr fb;
-        auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+        auto config = mqttDevice.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
         config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
-        ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
+        ASSERT_NO_THROW(fb = mqttDevice.addFunctionBlock(PUB_FB_NAME, config));
         auto help = SignalHelper<double>();
 
         ASSERT_NO_THROW(fb.getInputPorts()[0].connect(help.signal0));
@@ -1099,11 +1099,11 @@ TEST_F(MqttPublisherFbTest, WrongConfig)
 {
     StartUp();
     daq::FunctionBlockPtr fb;
-    auto config = clientMqttFb.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
+    auto config = mqttDevice.getAvailableFunctionBlockTypes().get(PUB_FB_NAME).createDefaultConfig();
     config.setPropertyValue(PROPERTY_NAME_PUB_MODE, 0);
     config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_MODE, 1);
     config.setPropertyValue(PROPERTY_NAME_PUB_TOPIC_NAME, String("/test/#"));
-    ASSERT_NO_THROW(fb = clientMqttFb.addFunctionBlock(PUB_FB_NAME, config));
+    ASSERT_NO_THROW(fb = mqttDevice.addFunctionBlock(PUB_FB_NAME, config));
     ASSERT_EQ(fb.getStatusContainer().getStatus("ComponentStatus"),
               Enumeration("ComponentStatusType", "Error", daqInstance.getContext().getTypeManager()));
     ASSERT_EQ(fb.getStatusContainer().getStatus(MQTT_PUB_FB_SET_STATUS_NAME),
