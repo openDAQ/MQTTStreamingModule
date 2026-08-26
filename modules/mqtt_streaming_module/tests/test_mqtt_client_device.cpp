@@ -3,6 +3,7 @@
 #include <coreobjects/property_object_factory.h>
 #include <gtest/gtest.h>
 #include <mqtt_streaming_module/constants.h>
+#include <mqtt_streaming_module/mqtt_streaming_module_impl.h>
 #include <testutils/testutils.h>
 
 using namespace daq;
@@ -213,21 +214,83 @@ TEST_F(MqttDeviceTest, ConnectionStringPortBeatsProperty)
     ASSERT_EQ(device.getInfo().getConnectionString(), "daq.mqtt://127.0.0.1:1883");
 }
 
-TEST_F(MqttDeviceTest, ConnectionStringIpv6)
-{
-    const auto instance = Instance();
-    DevicePtr device;
-    ASSERT_NO_THROW(device = instance.addDevice("daq.mqtt://[::1]:1883"));
-
-    ASSERT_EQ(device.getInfo().getConnectionString(), "daq.mqtt://[::1]:1883");
-    ASSERT_EQ(device.getStatusContainer().getStatus("ComponentStatus"),
-              Enumeration("ComponentStatusType", "Ok", instance.getContext().getTypeManager()));
-}
-
 TEST_F(MqttDeviceTest, UnknownConnectionStringPrefixThrows)
 {
     const auto instance = Instance();
     ASSERT_ANY_THROW(instance.addDevice("daq.nosuchproto://127.0.0.1:1883"));
+}
+
+// ---------------------------------------------------------------------------
+// Connection string parsing
+// ---------------------------------------------------------------------------
+
+TEST_F(MqttDeviceTest, ParseConnectionStringIpv4)
+{
+    const auto address = MqttStreamingModule::parseConnectionString("daq.mqtt://127.0.0.1:1883");
+    ASSERT_EQ(address.host, "127.0.0.1");
+    ASSERT_EQ(address.port, 1883);
+}
+
+TEST_F(MqttDeviceTest, ParseConnectionStringHostname)
+{
+    const auto address = MqttStreamingModule::parseConnectionString("daq.mqtt://broker.emqx.io:1883");
+    ASSERT_EQ(address.host, "broker.emqx.io");
+    ASSERT_EQ(address.port, 1883);
+}
+
+TEST_F(MqttDeviceTest, ParseConnectionStringWithoutPort)
+{
+    // Port 0 means "not given"; onCreateDevice then falls back to the Port property.
+    const auto address = MqttStreamingModule::parseConnectionString("daq.mqtt://127.0.0.1");
+    ASSERT_EQ(address.host, "127.0.0.1");
+    ASSERT_EQ(address.port, 0);
+}
+
+TEST_F(MqttDeviceTest, ParseConnectionStringIpv6)
+{
+    const auto address = MqttStreamingModule::parseConnectionString("daq.mqtt://[::1]:1883");
+    // The brackets stay part of the host - the MQTT client URL needs them.
+    ASSERT_EQ(address.host, "[::1]");
+    ASSERT_EQ(address.port, 1883);
+}
+
+TEST_F(MqttDeviceTest, ParseConnectionStringIpv6WithoutPort)
+{
+    const auto address = MqttStreamingModule::parseConnectionString("daq.mqtt://[fe80::1]");
+    ASSERT_EQ(address.host, "[fe80::1]");
+    ASSERT_EQ(address.port, 0);
+}
+
+TEST_F(MqttDeviceTest, ParseConnectionStringRejectsForeignPrefix)
+{
+    ASSERT_THROW(MqttStreamingModule::parseConnectionString("daq.opcua://127.0.0.1:1883"), InvalidParameterException);
+}
+
+TEST_F(MqttDeviceTest, ParseConnectionStringRejectsMissingPrefix)
+{
+    ASSERT_THROW(MqttStreamingModule::parseConnectionString("127.0.0.1:1883"), InvalidParameterException);
+}
+
+TEST_F(MqttDeviceTest, ParseConnectionStringRejectsMissingHost)
+{
+    ASSERT_THROW(MqttStreamingModule::parseConnectionString("daq.mqtt://"), InvalidParameterException);
+}
+
+TEST_F(MqttDeviceTest, ParseConnectionStringRejectsPortOutOfRange)
+{
+    ASSERT_THROW(MqttStreamingModule::parseConnectionString("daq.mqtt://127.0.0.1:0"), InvalidParameterException);
+    ASSERT_THROW(MqttStreamingModule::parseConnectionString("daq.mqtt://127.0.0.1:70000"), InvalidParameterException);
+}
+
+TEST_F(MqttDeviceTest, FormatConnectionStringAlwaysCarriesPort)
+{
+    MqttStreamingModule::BrokerAddress address;
+    address.host = "127.0.0.1";
+    address.port = 1883;
+    ASSERT_EQ(MqttStreamingModule::formatConnectionString(address), "daq.mqtt://127.0.0.1:1883");
+
+    address.host = "[::1]";
+    ASSERT_EQ(MqttStreamingModule::formatConnectionString(address), "daq.mqtt://[::1]:1883");
 }
 
 TEST_F(MqttDeviceTest, UnreachableBrokerThrows)

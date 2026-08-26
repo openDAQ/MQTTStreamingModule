@@ -33,7 +33,6 @@ public:
                              const ComponentPtr& parent,
                              const PropertyObjectPtr& config) override;
 
-private:
     /// Host and port taken from a `daq.mqtt://host[:port]` connection string.
     struct BrokerAddress
     {
@@ -42,9 +41,10 @@ private:
     };
 
     /// Throws InvalidParameterException when the string is not a valid `daq.mqtt://` address.
-    static BrokerAddress parseConnectionString(const StringPtr& connectionString);
-    static StringPtr formatConnectionString(const MqttStreamingModule::BrokerAddress& conParam);
+    DAQ_MQTT_STREAM_MODULE_API static BrokerAddress parseConnectionString(const StringPtr& connectionString);
+    DAQ_MQTT_STREAM_MODULE_API static StringPtr formatConnectionString(const MqttStreamingModule::BrokerAddress& conParam);
 
+private:
     static DeviceTypePtr createDeviceType();
 
     static PropertyObjectPtr populateDefaultConfig(const PropertyObjectPtr& config);
