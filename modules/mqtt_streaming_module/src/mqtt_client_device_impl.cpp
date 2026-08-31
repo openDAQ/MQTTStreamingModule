@@ -228,6 +228,17 @@ FunctionBlockPtr MqttClientDeviceImpl::onAddFunctionBlock(const StringPtr& typeI
     return nestedFunctionBlock;
 }
 
+void MqttClientDeviceImpl::onRemoveFunctionBlock(const FunctionBlockPtr& functionBlock)
+{
+    auto lock = getRecursiveConfigLock2();
+
+    if (!functionBlocks.hasItem(functionBlock.getLocalId()))
+        DAQ_THROW_EXCEPTION(NotFoundException, "Function block not found: " + functionBlock.getLocalId().toStdString());
+
+    functionBlocks.removeItem(functionBlock);
+    setComponentStatus(ComponentStatus::Ok);
+}
+
 PropertyObjectPtr MqttClientDeviceImpl::CreateDefaultConfig()
 {
     auto config = PropertyObject();
