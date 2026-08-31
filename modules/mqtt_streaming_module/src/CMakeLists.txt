@@ -4,7 +4,7 @@ set(MODULE_HEADERS_DIR ../include/${TARGET_FOLDER_NAME})
 set(SRC_Include common.h
                 module_dll.h
                 mqtt_streaming_module_impl.h
-                mqtt_client_fb_impl.h
+                mqtt_client_device_impl.h
                 mqtt_json_decoder_fb_impl.h
                 mqtt_subscriber_fb_impl.h
                 mqtt_publisher_fb_impl.h
@@ -21,13 +21,12 @@ set(SRC_Include common.h
                 types.h
                 status_helper.h
                 property_helper.h
-                status_adaptor.h
                 status_container.h
 )
 
 set(SRC_Srcs module_dll.cpp
              mqtt_streaming_module_impl.cpp
-             mqtt_client_fb_impl.cpp
+             mqtt_client_device_impl.cpp
              mqtt_json_decoder_fb_impl.cpp
              mqtt_subscriber_fb_impl.cpp
              mqtt_publisher_fb_impl.cpp
@@ -48,7 +47,6 @@ source_group("common" FILES ${MODULE_HEADERS_DIR}/common.h
                             ${MODULE_HEADERS_DIR}/types.h
                             ${MODULE_HEADERS_DIR}/status_helper.h
                             ${MODULE_HEADERS_DIR}/property_helper.h
-                            ${MODULE_HEADERS_DIR}/status_adaptor.h
                             ${MODULE_HEADERS_DIR}/status_container.h
                             helper.cpp
 )
@@ -65,8 +63,10 @@ source_group("functionalBlock" FILES ${MODULE_HEADERS_DIR}/mqtt_json_decoder_fb_
                             mqtt_subscriber_fb_impl.cpp
                             ${MODULE_HEADERS_DIR}/mqtt_publisher_fb_impl.h
                             mqtt_publisher_fb_impl.cpp
-                            ${MODULE_HEADERS_DIR}/mqtt_client_fb_impl.h
-                            mqtt_client_fb_impl.cpp
+)
+
+source_group("device" FILES ${MODULE_HEADERS_DIR}/mqtt_client_device_impl.h
+                            mqtt_client_device_impl.cpp
 )
 
 source_group("handlers" FILES ${MODULE_HEADERS_DIR}/handler_base.h

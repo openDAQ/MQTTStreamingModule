@@ -1,7 +1,10 @@
 #include "mqtt_streaming_module/constants.h"
 #include "mqtt_streaming_module/mqtt_subscriber_fb_impl.h"
 #include "mqtt_streaming_module/mqtt_publisher_fb_impl.h"
-#include <mqtt_streaming_module/mqtt_client_fb_impl.h>
+#include <mqtt_streaming_module/mqtt_client_device_impl.h>
+#include <coretypes/enumeration_factory.h>
+#include <opendaq/device_info_factory.h>
+#include <opendaq/device_type_factory.h>
 #include <opendaq/function_block_type_factory.h>
 #include <boost/algorithm/string.hpp>
 
@@ -9,21 +12,25 @@ BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
 constexpr int MQTT_CLIENT_SYNC_DISCONNECT_TOUT = 3000;
 
-std::atomic<int> MqttClientFbImpl::localIndex = 0;
-
-MqttClientFbImpl::MqttClientFbImpl(const ContextPtr& ctx, const ComponentPtr& parent, const PropertyObjectPtr& config)
-    : FunctionBlock(CreateType(), ctx, parent, generateLocalId()),
+MqttClientDeviceImpl::MqttClientDeviceImpl(const ContextPtr& ctx,
+                                           const ComponentPtr& parent,
+                                           const StringPtr& localId,
+                                           const StringPtr& connectionString,
+                                           const std::string& brokerHost,
+                                           const PropertyObjectPtr& config)
+    : Device(ctx, parent, localId, nullptr, CLIENT_DEVICE_TYPE_NAME),
+      connectionString(connectionString),
       connectTimeout(0),
-      connectionStatus("ConnectionStatusType",
-                       MQTT_CLIENT_FB_CON_STATUS_NAME,
-                       statusContainer,
-                       "Reconnecting",
-                       context.getTypeManager()),
       subscriber(std::make_shared<mqtt::MqttAsyncClient>())
 {
     initComponentStatus();
+    connectionStatusContainer.addConfigurationConnectionStatus(
+        connectionString, Enumeration("ConnectionStatusType", "Reconnecting", context.getTypeManager()));
     initConnectionStatus();
     initProperties(config);
+
+    connectionSettings.mqttUrl = brokerHost;
+
     initNestedFbTypes();
     initMqttSubscriber();
 
@@ -36,9 +43,9 @@ MqttClientFbImpl::MqttClientFbImpl(const ContextPtr& ctx, const ComponentPtr& pa
     LOG_I("MQTT: Connection established");
 }
 
-void MqttClientFbImpl::removed()
+void MqttClientDeviceImpl::removed()
 {
-    FunctionBlock::removed();
+    Device::removed();
     LOG_I("MQTT: disconnecting from the MQTT broker...", connectionSettings.mqttUrl + ":" + std::to_string(connectionSettings.port));
     bool disRes = subscriber->syncDisconnect(MQTT_CLIENT_SYNC_DISCONNECT_TOUT);
     if (!disRes)
@@ -51,7 +58,14 @@ void MqttClientFbImpl::removed()
     }
 }
 
-void MqttClientFbImpl::initNestedFbTypes()
+DeviceInfoPtr MqttClientDeviceImpl::onGetInfo()
+{
+    auto info = DeviceInfo(connectionString, CLIENT_DEVICE_TYPE_NAME);
+    info.setDeviceType(CreateType());
+    return info;
+}
+
+void MqttClientDeviceImpl::initNestedFbTypes()
 {
     nestedFbTypes = Dict<IString, IFunctionBlockType>();
     // Add a MQTT subscriber function block type
@@ -67,7 +81,7 @@ void MqttClientFbImpl::initNestedFbTypes()
     }
 }
 
-void MqttClientFbImpl::initMqttSubscriber()
+void MqttClientDeviceImpl::initMqttSubscriber()
 {
     const auto serverUrl = connectionSettings.mqttUrl + ((connectionSettings.port > 0) ? ":" + std::to_string(connectionSettings.port) : "");
     subscriber->setServerURL(serverUrl);
@@ -84,7 +98,7 @@ void MqttClientFbImpl::initMqttSubscriber()
             bool expected = false;
             if (connectedDone.compare_exchange_strong(expected, true))
             {
-                connectionStatus.setStatus("Connected");
+                setConnectionStatus("Connected");
                 connectedPromise->set_value(true);
                 std::scoped_lock lock(componentStatusSync);
                 setComponentStatus(ComponentStatus::Ok);
@@ -95,18 +109,18 @@ void MqttClientFbImpl::initMqttSubscriber()
     subscriber->connect();
 }
 
-void MqttClientFbImpl::initConnectionStatus()
+void MqttClientDeviceImpl::initConnectionStatus()
 {
     subscriber->setConnectionLostCb(
         [this](std::string msg)
         {
-            connectionStatus.setStatus("Reconnecting", msg);
+            setConnectionStatus("Reconnecting", msg);
             std::scoped_lock lock(componentStatusSync);
             setComponentStatusWithMessage(ComponentStatus::Error, "Connection lost");
         });
 }
 
-void MqttClientFbImpl::initProperties(const PropertyObjectPtr& config)
+void MqttClientDeviceImpl::initProperties(const PropertyObjectPtr& config)
 {
     for (const auto& prop : config.getAllProperties())
     {
@@ -145,10 +159,9 @@ void MqttClientFbImpl::initProperties(const PropertyObjectPtr& config)
     readProperties(config);
 }
 
-void MqttClientFbImpl::readProperties(const PropertyObjectPtr& config)
+void MqttClientDeviceImpl::readProperties(const PropertyObjectPtr& config)
 {
-    connectionSettings.mqttUrl = config.getPropertyValue(PROPERTY_NAME_CLIENT_BROKER_ADDRESS).asPtr<IString>().toStdString();
-    connectionSettings.port = config.getPropertyValue(PROPERTY_NAME_CLIENT_BROKER_PORT);
+    connectionSettings.port = config.getPropertyValue(PROPERTY_NAME_CLIENT_BROKER_PORT).asPtr<IInteger>();
     connectionSettings.username = config.getPropertyValue(PROPERTY_NAME_CLIENT_USERNAME).asPtr<IString>().toStdString();
     connectionSettings.password = config.getPropertyValue(PROPERTY_NAME_CLIENT_PASSWORD).asPtr<IString>().toStdString();
     connectionSettings.clientId = globalId.toStdString();
@@ -156,26 +169,32 @@ void MqttClientFbImpl::readProperties(const PropertyObjectPtr& config)
     connectTimeout = config.getPropertyValue(PROPERTY_NAME_CLIENT_CONNECT_TIMEOUT);
 }
 
-bool MqttClientFbImpl::waitForConnection(const int timeoutMs)
+bool MqttClientDeviceImpl::waitForConnection(const int timeoutMs)
 {
     bool res =
         (connectedFuture.wait_for(std::chrono::milliseconds(timeoutMs)) == std::future_status::ready && connectedFuture.get() == true);
     subscriber->setConnectedCb(
         [this]
         {
-            connectionStatus.setStatus("Connected");
+            setConnectionStatus("Connected");
             std::scoped_lock lock(componentStatusSync);
             setComponentStatus(ComponentStatus::Ok);
         });
     return res;
 }
 
-DictPtr<IString, IFunctionBlockType> MqttClientFbImpl::onGetAvailableFunctionBlockTypes()
+void MqttClientDeviceImpl::setConnectionStatus(const std::string& value, const std::string& message)
+{
+    connectionStatusContainer.updateConnectionStatusWithMessage(
+        connectionString, Enumeration("ConnectionStatusType", value, context.getTypeManager()), nullptr, String(message));
+}
+
+DictPtr<IString, IFunctionBlockType> MqttClientDeviceImpl::onGetAvailableFunctionBlockTypes()
 {
     return nestedFbTypes;
 }
 
-FunctionBlockPtr MqttClientFbImpl::onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config)
+FunctionBlockPtr MqttClientDeviceImpl::onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config)
 {
     FunctionBlockPtr nestedFunctionBlock;
     {
@@ -209,21 +228,20 @@ FunctionBlockPtr MqttClientFbImpl::onAddFunctionBlock(const StringPtr& typeId, c
     return nestedFunctionBlock;
 }
 
-std::string MqttClientFbImpl::generateLocalId()
+void MqttClientDeviceImpl::onRemoveFunctionBlock(const FunctionBlockPtr& functionBlock)
 {
-    return std::string(MQTT_LOCAL_CLIENT_FB_ID_PREFIX + std::to_string(localIndex++));
+    auto lock = getRecursiveConfigLock2();
+
+    if (!functionBlocks.hasItem(functionBlock.getLocalId()))
+        DAQ_THROW_EXCEPTION(NotFoundException, "Function block not found: " + functionBlock.getLocalId().toStdString());
+
+    functionBlocks.removeItem(functionBlock);
+    setComponentStatus(ComponentStatus::Ok);
 }
 
-FunctionBlockTypePtr MqttClientFbImpl::CreateType()
+PropertyObjectPtr MqttClientDeviceImpl::CreateDefaultConfig()
 {
     auto config = PropertyObject();
-    {
-        auto builder =
-            StringPropertyBuilder(PROPERTY_NAME_CLIENT_BROKER_ADDRESS, DEFAULT_BROKER_ADDRESS)
-                .setDescription(fmt::format("MQTT broker address. It can be an IP address or a hostname. By default it is set to \"{}\".",
-                                            DEFAULT_BROKER_ADDRESS));
-        config.addProperty(builder.build());
-    }
     {
         auto builder =
             StringPropertyBuilder(PROPERTY_NAME_CLIENT_USERNAME, DEFAULT_USERNAME)
@@ -241,7 +259,9 @@ FunctionBlockTypePtr MqttClientFbImpl::CreateType()
             IntPropertyBuilder(PROPERTY_NAME_CLIENT_BROKER_PORT, DEFAULT_PORT)
                 .setMinValue(1)
                 .setMaxValue(65535)
-                .setDescription(fmt::format("Port number for MQTT broker connection. By default it is set to {}.", DEFAULT_PORT));
+                .setDescription(fmt::format("Port number for MQTT broker connection. Used only when the connection string "
+                                            "carries no port. By default it is set to {}.",
+                                            DEFAULT_PORT));
         config.addProperty(builder.build());
     }
     {
@@ -253,11 +273,15 @@ FunctionBlockTypePtr MqttClientFbImpl::CreateType()
                                         DEFAULT_INIT_TIMEOUT));
         config.addProperty(builder.build());
     }
-    const auto fbType = FunctionBlockType(CLIENT_FB_NAME,
-                                          CLIENT_FB_NAME,
-                                          "The MQTT function block allows connecting to MQTT broker. It may contain nested "
-                                          "publisher/subscriber FBs.",
-                                          config);
-    return fbType;
+    return config;
+}
+
+DeviceTypePtr MqttClientDeviceImpl::CreateType()
+{
+    return DeviceType(CLIENT_DEVICE_TYPE_ID,
+                      CLIENT_DEVICE_TYPE_NAME,
+                      "The MQTT device connects to an MQTT broker. It may contain nested publisher/subscriber FBs.",
+                      CLIENT_DEVICE_CONN_PREFIX,
+                      CreateDefaultConfig());
 }
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE

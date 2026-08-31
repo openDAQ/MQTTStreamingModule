@@ -19,30 +19,32 @@
 #include "mqtt_streaming_protocol/MqttSettings.h"
 #include <future>
 #include <mqtt_streaming_module/common.h>
-#include <opendaq/function_block_impl.h>
-#include <opendaq/streaming_ptr.h>
-#include <mqtt_streaming_module/status_adaptor.h>
+#include <opendaq/device_impl.h>
 
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
-class MqttClientFbImpl : public FunctionBlock
+class MqttClientDeviceImpl : public Device
 {
 public:
-    explicit MqttClientFbImpl(const ContextPtr& ctx,
-                                       const ComponentPtr& parent,
-                                       const PropertyObjectPtr& config);
+    explicit MqttClientDeviceImpl(const ContextPtr& ctx,
+                                  const ComponentPtr& parent,
+                                  const StringPtr& localId,
+                                  const StringPtr& connectionString,
+                                  const std::string& brokerHost,
+                                  const PropertyObjectPtr& config);
 
-    static FunctionBlockTypePtr CreateType();
+    static DeviceTypePtr CreateType();
+    static PropertyObjectPtr CreateDefaultConfig();
 
 protected:
-    static std::atomic<int> localIndex;
-    static std::string generateLocalId();
-
     void removed() override;
+
+    DeviceInfoPtr onGetInfo() override;
 
     DictPtr<IString, IFunctionBlockType> onGetAvailableFunctionBlockTypes() override;
     FunctionBlockPtr onAddFunctionBlock(const StringPtr& typeId, const PropertyObjectPtr& config) override;
+    void onRemoveFunctionBlock(const FunctionBlockPtr& functionBlock) override;
 
     void initNestedFbTypes();
     void initMqttSubscriber();
@@ -51,10 +53,14 @@ protected:
     void readProperties(const PropertyObjectPtr& config);
     bool waitForConnection(const int timeoutMs);
 
+    /// Pushes a ConnectionStatusType value into the device's connection status container.
+    /// Surfaces to clients under the "ConfigurationStatus" alias.
+    void setConnectionStatus(const std::string& value, const std::string& message = "");
+
     DictObjectPtr<IDict, IString, IFunctionBlockType> nestedFbTypes;
 
+    StringPtr connectionString;
     int connectTimeout;
-    StatusAdaptor connectionStatus;
 
     std::shared_ptr<mqtt::MqttAsyncClient> subscriber;
     Mqtt::Utils::Settings::MqttConnectionSettings connectionSettings;

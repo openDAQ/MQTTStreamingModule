@@ -1059,7 +1059,7 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferSeveralSignals)
     const auto topic = buildTopicName();
 
     DaqInstanceInit();
-    auto clientFb0 = DaqAddClientMqttFb("127.0.0.1", DEFAULT_PORT);
+    auto clientFb0 = DaqAddMqttDevice("127.0.0.1", DEFAULT_PORT);
     auto jsonFb0 = AddSubFb(topic);
     auto decoderFb0 = AddDecoderFb(valueF0, DDSM::ExtractFromMessage, tsF);
     auto decoderFb1 = AddDecoderFb(valueF1, DDSM::ExtractFromMessage, tsF);
@@ -1146,7 +1146,7 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferMissingFieldSeveralSignals)
     const auto topic = buildTopicName();
 
     DaqInstanceInit();
-    auto clientFb0 = DaqAddClientMqttFb("127.0.0.1", DEFAULT_PORT);
+    auto clientFb0 = DaqAddMqttDevice("127.0.0.1", DEFAULT_PORT);
     auto jsonFb0 = AddSubFb(topic);
     auto decoderFb0 = AddDecoderFb(valueF0, DDSM::ExtractFromMessage, tsF);
     auto decoderFb1 = AddDecoderFb(valueF1, DDSM::ExtractFromMessage, tsF);
@@ -1227,11 +1227,11 @@ TEST_F(MqttJsonFbCommunicationTest, DISABLED_FullDataTransferFor2MqttFbs)
     const std::string topic1 = buildTopicName("1");
 
     DaqInstanceInit();
-    auto clientFb0 = DaqAddClientMqttFb("127.0.0.1", 1883);
+    auto clientFb0 = DaqAddMqttDevice("127.0.0.1", 1883);
     auto jsonFb0 = AddSubFb(topic0);
     auto decoderFb0 = AddDecoderFb(valueF, DDSM::ExtractFromMessage, tsF);
 
-    auto clientFb1 = DaqAddClientMqttFb("127.0.0.1", 1884);
+    auto clientFb1 = DaqAddMqttDevice("127.0.0.1", 1884);
     auto jsonFb1 = AddSubFb(topic1);
     auto decoderFb1 = AddDecoderFb(valueF, DDSM::ExtractFromMessage, tsF);
 

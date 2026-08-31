@@ -54,13 +54,11 @@ int main(int argc, char* argv[])
         return appConfig.error;
     }
 
-    // Create OpenDAQ instance and add MQTT broker FB
+    // Create OpenDAQ instance and add the MQTT broker device
     const InstancePtr instance = InstanceBuilder().addModulePath(MODULE_PATH).build();
-    const std::string clientFbName = "MQTTClientFB";
-    auto clientFbConfig = instance.getAvailableFunctionBlockTypes().get(clientFbName).createDefaultConfig();
-    clientFbConfig.setPropertyValue("BrokerAddress", appConfig.brokerAddress);
-    auto brokerFB = instance.addFunctionBlock(clientFbName, clientFbConfig);
-    auto availableFbs = brokerFB.getAvailableFunctionBlockTypes();
+    const std::string connectionString = "daq.mqtt://" + appConfig.brokerAddress;
+    auto brokerDevice = instance.addDevice(connectionString);
+    auto availableFbs = brokerDevice.getAvailableFunctionBlockTypes();
 
     const std::string fbName = "MQTTSubscriberFB";
     std::cout << "Try to add the " << fbName << std::endl;
@@ -72,7 +70,7 @@ int main(int argc, char* argv[])
     config.setPropertyValue("MessageIsString", True);
 
     // Add the subscriber function block to the broker FB
-    daq::FunctionBlockPtr subFb = brokerFB.addFunctionBlock(fbName, config);
+    daq::FunctionBlockPtr subFb = brokerDevice.addFunctionBlock(fbName, config);
 
     // Create packet readers for a signal
     const auto signal = subFb.getSignals()[0];

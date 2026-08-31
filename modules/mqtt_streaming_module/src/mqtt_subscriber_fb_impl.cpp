@@ -70,6 +70,10 @@ void MqttSubscriberFbImpl::removed()
 {
     stopProcessingThread();
     unsubscribeFromTopic();
+    {
+        auto lockProcessing = std::scoped_lock(processingMutex);
+        nestedFunctionBlocks.clear();
+    }
     FunctionBlock::removed();
 }
 

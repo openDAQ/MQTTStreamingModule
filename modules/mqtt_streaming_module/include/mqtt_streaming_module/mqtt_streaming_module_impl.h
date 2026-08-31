@@ -18,6 +18,7 @@
 #include <mqtt_streaming_module/common.h>
 #include <opendaq/module_impl.h>
 #include <opendaq/device_ptr.h>
+#include <mutex>
 
 BEGIN_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
 
@@ -27,14 +28,29 @@ class MqttStreamingModule final : public Module
 public:
     MqttStreamingModule(ContextPtr context);
 
-    DictPtr<IString, IFunctionBlockType> onGetAvailableFunctionBlockTypes() override;
-    FunctionBlockPtr onCreateFunctionBlock(const StringPtr& id,
-                                           const ComponentPtr& parent,
-                                           const StringPtr& localId,
-                                           const PropertyObjectPtr& config) override;
+    DictPtr<IString, IDeviceType> onGetAvailableDeviceTypes() override;
+    DevicePtr onCreateDevice(const StringPtr& connectionString,
+                             const ComponentPtr& parent,
+                             const PropertyObjectPtr& config) override;
+
+    /// Host and port taken from a `daq.mqtt://host[:port]` connection string.
+    struct BrokerAddress
+    {
+        std::string host;
+        uint16_t port{0};   // 0 when the connection string carries no port
+    };
+
+    /// Throws InvalidParameterException when the string is not a valid `daq.mqtt://` address.
+    DAQ_MQTT_STREAM_MODULE_API static BrokerAddress parseConnectionString(const StringPtr& connectionString);
+    DAQ_MQTT_STREAM_MODULE_API static StringPtr formatConnectionString(const MqttStreamingModule::BrokerAddress& conParam);
 
 private:
-    static FunctionBlockTypePtr createFbType();
+    static DeviceTypePtr createDeviceType();
+
+    static PropertyObjectPtr populateDefaultConfig(const PropertyObjectPtr& config);
+
+    std::mutex sync;
+    size_t deviceIndex{0};
 };
 
 END_NAMESPACE_OPENDAQ_MQTT_STREAMING_MODULE
