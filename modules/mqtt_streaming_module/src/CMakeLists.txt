@@ -92,6 +92,9 @@ add_library(${LIB_NAME} SHARED ${SRC_Include}
 )
 add_library(${SDK_TARGET_NAMESPACE}::${LIB_NAME} ALIAS ${LIB_NAME})
 
+opendaq_target_pch(${LIB_NAME} <opendaq/opendaq.h>)
+opendaq_target_unity_libs(${LIB_NAME} BATCH_SIZE 4)
+
 if(${REPO_OPTION_PREFIX}_ENABLE_TESTS)
     target_compile_definitions(${LIB_NAME}
         PRIVATE ${REPO_OPTION_PREFIX}_ENABLE_TESTS

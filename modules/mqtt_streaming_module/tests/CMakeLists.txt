@@ -25,6 +25,12 @@ if (MSVC)
     target_compile_options(${TEST_APP} PRIVATE /bigobj)
 endif()
 
+opendaq_target_pch(${TEST_APP} <opendaq/opendaq.h> <gtest/gtest.h>)
+
+# test_app.cpp defines main().
+set_source_files_properties(test_app.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+opendaq_target_unity_tests(${TEST_APP} BATCH_SIZE 4)
+
 add_custom_command(
     TARGET ${TEST_APP} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
