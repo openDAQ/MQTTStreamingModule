@@ -185,7 +185,11 @@
             "cacheVariables": {
                 "DAQMODULES_MQTT_ENABLE_TESTS": "ON"
             }
-        }
+        },
+        {
+            "name": "stage",
+            "hidden": true,
+            "cacheVariables": {}
     ],
     "testPresets": [
         {
