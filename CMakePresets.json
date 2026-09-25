@@ -183,7 +183,7 @@
             "name": "module",
             "hidden": true,
             "cacheVariables": {
-                "DAQMODULES_MQTT_ENABLE_TESTS": "ON"
+                "DAQMODULES_MQTT_ENABLE_TESTS": "OFF"
             }
         },
         {
