@@ -48,6 +48,7 @@ jobs:
       cmake-presets: >
         [
           {
+            "match-jobs": ["*"],
             "configure-preset": "module",
             "test-preset": "module-test"
           }

@@ -190,10 +190,11 @@
             "name": "stage",
             "hidden": true,
             "cacheVariables": {
-                "DAQMODULES_MQTT_ENABLE_EXAMPLE_APP": "false",
-                "DAQMODULES_MQTT_ENABLE_TESTS": "false",
-                "DAQMODULES_REF_DEVICE_MODULE": "false",
-                "DAQMODULES_REF_FB_MODULE": "false"
+                "DAQMODULES_MQTT_ENABLE_TESTS": false,
+                "DAQMODULES_MQTT_ENABLE_EXAMPLE_APP": false,
+                "DAQMODULES_REF_DEVICE_MODULE": false,
+                "DAQMODULES_REF_FB_MODULE": false,
+                
             }
         }
     ],
