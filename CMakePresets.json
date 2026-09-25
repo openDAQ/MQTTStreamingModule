@@ -194,8 +194,8 @@
                 "DAQMODULES_MQTT_ENABLE_TESTS": "false",
                 "DAQMODULES_REF_DEVICE_MODULE": "false",
                 "DAQMODULES_REF_FB_MODULE": "false"
-                
             }
+        }
     ],
     "testPresets": [
         {
