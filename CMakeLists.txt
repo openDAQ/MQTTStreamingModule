@@ -91,13 +91,13 @@ if (NOT TARGET "${OPENDAQ_SDK_TARGET_NAMESPACE}::${OPENDAQ_SDK_TARGET_NAME}")
     endif()
 endif()
 
-if (PROJECT_IS_TOP_LEVEL)
-    include(cmake/Packing.cmake)
-endif()
-
 add_subdirectory(external)
 add_subdirectory(shared)
 add_subdirectory(modules)
+
+if (PROJECT_IS_TOP_LEVEL)
+    include(cmake/Packing.cmake)
+endif()
 
 if(${REPO_OPTION_PREFIX}_ENABLE_EXAMPLE_APP)
     message(STATUS "Example applications in ${REPO_NAME} are ENABLED")
