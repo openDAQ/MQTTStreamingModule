@@ -1,6 +1,9 @@
 name: Build MQTT module stagings
 
 on:
+  push:
+    branches: [other/CI-staging]
+
   schedule:
     - cron: '0 2 * * 1'
   workflow_dispatch:
