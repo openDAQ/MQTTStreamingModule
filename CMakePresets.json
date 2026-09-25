@@ -190,8 +190,8 @@
             "name": "stage",
             "hidden": true,
             "cacheVariables": {
-                "DAQMODULES_MQTT_ENABLE_EXAMPLE_APP": "false",
-                "DAQMODULES_MQTT_ENABLE_TESTS": "false"
+                "DAQMODULES_MQTT_ENABLE_EXAMPLE_APP": "OFF",
+                "DAQMODULES_MQTT_ENABLE_TESTS": "OFF"
             }
     ],
     "testPresets": [
