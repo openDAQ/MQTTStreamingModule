@@ -24,6 +24,10 @@ if(NOT CPACK_PACKAGE_DIRECTORY)
     set(CPACK_PACKAGE_DIRECTORY "${CMAKE_SOURCE_DIR}/build/_packages")
 endif()
 
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+    set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+endif()
+
 ##
 ## Package filename and staging metadata
 ##
