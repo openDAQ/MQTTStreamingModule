@@ -185,6 +185,15 @@
             "cacheVariables": {
                 "DAQMODULES_MQTT_ENABLE_TESTS": "ON"
             }
+        },
+        {
+            "name": "stage",
+            "hidden": true,
+            "cacheVariables": {
+                "DAQMODULES_MQTT_ENABLE_TESTS": false,
+                "DAQMODULES_MQTT_ENABLE_EXAMPLE_APP": false,
+                "CPACK_COMPONENTS_ALL": "openDAQ_mqtt_stream_module_Runtime"
+            }
         }
     ],
     "testPresets": [
