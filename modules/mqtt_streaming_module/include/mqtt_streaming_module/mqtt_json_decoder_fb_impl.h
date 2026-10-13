@@ -44,6 +44,7 @@ protected:
 
     struct FbConfig {
         std::string valueFieldName;
+        mqtt::MqttDataWrapper::ValueType valueType;
         mqtt::MqttDataWrapper::DomainSignalMode tsMode;
         std::string tsFieldName;
         std::string unitSymbol;

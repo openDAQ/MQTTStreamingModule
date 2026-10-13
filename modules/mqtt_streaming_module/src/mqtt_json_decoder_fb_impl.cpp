@@ -28,6 +28,7 @@ MqttJsonDecoderFbImpl::MqttJsonDecoderFbImpl(const ContextPtr& ctx,
 FunctionBlockTypePtr MqttJsonDecoderFbImpl::CreateType()
 {
     using DSM = mqtt::MqttDataWrapper::DomainSignalMode;
+    using DVT = mqtt::MqttDataWrapper::ValueType;
     auto defaultConfig = PropertyObject();
     {
         auto builder =
@@ -37,6 +38,21 @@ FunctionBlockTypePtr MqttJsonDecoderFbImpl::CreateType()
                                 "element of an array, e.g. \"sensors[1].temperature\". A dot or a bracket which is a part of a "
                                 "field name has to be escaped with a backslash, e.g. \"data.a\\.b\". This property is required. "
                                 "It should be contained in the incoming JSON messages. Otherwise, a parsing error will occur.");
+        defaultConfig.addProperty(builder.build());
+    }
+
+    {
+        auto builder =
+            SelectionPropertyBuilder(PROPERTY_NAME_DEC_VALUE_TYPE,
+                                     List<IString>("Auto", "Float64", "Int64"),
+                                     static_cast<int>(DVT::Float64))
+                .setDescription(
+                    "Defines the sample type of numeric values. By default it is set to Float64, which decodes every number "
+                    "as a 64-bit floating-point value, so the signal keeps its sample type when the values switch between "
+                    "whole numbers and decimals. If set to Int64, every number has to be a whole number, and a message with "
+                    "a fractional value fails to parse. If set to Auto, whole numbers are decoded as Int64 and decimals as "
+                    "Float64, so the sample type of the signal changes whenever the type of the values does. String values "
+                    "are not affected.");
         defaultConfig.addProperty(builder.build());
     }
 
@@ -113,6 +129,7 @@ void MqttJsonDecoderFbImpl::readProperties()
 {
     using namespace property_helper;
     using DSM = mqtt::MqttDataWrapper::DomainSignalMode;
+    using DVT = mqtt::MqttDataWrapper::ValueType;
     auto lock = this->getRecursiveConfigLock();
     configValid = true;
     configMsg.clear();
@@ -121,6 +138,18 @@ void MqttJsonDecoderFbImpl::readProperties()
     {
         configMsg = fmt::format("\"{}\" property is empty!", PROPERTY_NAME_DEC_VALUE_NAME);
         configValid = false;
+    }
+
+    auto tmpValueType = readProperty<int, IInteger>(objPtr, PROPERTY_NAME_DEC_VALUE_TYPE, static_cast<int>(DVT::Float64));
+    if (tmpValueType < static_cast<int>(DVT::_count) && tmpValueType >= 0)
+    {
+        config.valueType = static_cast<DVT>(tmpValueType);
+    }
+    else
+    {
+        configMsg = fmt::format("Wrong value for the \"{}\" property!", PROPERTY_NAME_DEC_VALUE_TYPE);
+        configValid = false;
+        config.valueType = DVT::Float64;
     }
 
     config.tsFieldName = readProperty<std::string, IString>(objPtr, PROPERTY_NAME_DEC_TS_NAME, "");
@@ -151,6 +180,7 @@ void MqttJsonDecoderFbImpl::readProperties()
         config.tsFieldName = "";
     }
     jsonDataWorker.setValueFieldName(config.valueFieldName);
+    jsonDataWorker.setValueType(config.valueType);
     jsonDataWorker.setTimestampFieldName(config.tsFieldName);
     jsonDataWorker.setDomainSignalMode(config.tsMode);
     waitingData = configValid.load();
