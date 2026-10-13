@@ -18,6 +18,7 @@
 using namespace daq;
 using namespace daq::modules::mqtt_streaming_module;
 using DDSM = mqtt::MqttDataWrapper::DomainSignalMode;
+using DVT = mqtt::MqttDataWrapper::ValueType;
 
 namespace
 {
@@ -424,6 +425,8 @@ class MqttJsonDecoderFbHelper : public DaqTestHelper
 {
 public:
     daq::FunctionBlockPtr decoderObj;
+    // The value type of the decoders this helper adds
+    DVT valueType = DVT::Float64;
 
     void onSignalsMessage(const mqtt::MqttMessage& msg)
     {
@@ -454,6 +457,7 @@ public:
 
         config.setPropertyValue(PROPERTY_NAME_DEC_TS_MODE, static_cast<int>(mode));
         config.setPropertyValue(PROPERTY_NAME_DEC_VALUE_NAME, valueF);
+        config.setPropertyValue(PROPERTY_NAME_DEC_VALUE_TYPE, static_cast<int>(valueType));
         config.setPropertyValue(PROPERTY_NAME_DEC_TS_NAME, tsF);
         config.setPropertyValue(PROPERTY_NAME_DEC_UNIT, unitSymbol);
         decoderObj = subMqttFb.addFunctionBlock(typeId, config);
@@ -493,6 +497,32 @@ public:
 
         onSignalsMessage({topic, std::vector<uint8_t>(json.begin(), json.end()), 1, 0});
         return read<returnT>(reader, signal, 1000);
+    }
+
+    // Sends ready-made JSON messages to a freshly created decoder FB and returns the data packets it sends
+    std::vector<DataPacketPtr> transferRawMessages(const std::vector<std::string>& jsons, const std::string& valueF)
+    {
+        const auto topic = buildTopicName();
+        CreateDecoderFB(topic, valueF, DDSM::None, "");
+
+        auto reader = daq::PacketReader(getSignals()[0]);
+        for (const auto& json : jsons)
+            onSignalsMessage({topic, std::vector<uint8_t>(json.begin(), json.end()), 1, 0});
+
+        std::vector<DataPacketPtr> packets;
+        auto timer = helper::utils::Timer(1000);
+        while (!reader.getEmpty() || !timer.expired())
+        {
+            if (reader.getEmpty())
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                continue;
+            }
+            const auto packet = reader.read();
+            if (packet.getType() == PacketType::Data)
+                packets.push_back(packet.asPtr<IDataPacket>());
+        }
+        return packets;
     }
 
     template <typename vT, typename tsT>
@@ -649,12 +679,17 @@ TEST_F(MqttJsonDecoderFbTest, DefaultConfig)
 
     ASSERT_TRUE(defaultConfig.assigned());
 
-    EXPECT_EQ(defaultConfig.getAllProperties().getCount(), 4u);
+    EXPECT_EQ(defaultConfig.getAllProperties().getCount(), 5u);
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_DEC_VALUE_NAME));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_DEC_VALUE_NAME).getValueType(), CoreType::ctString);
     EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_DEC_VALUE_NAME).asPtr<IString>().getLength(), 0u);
     EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_DEC_VALUE_NAME).getVisible());
+
+    ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_DEC_VALUE_TYPE));
+    ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_DEC_VALUE_TYPE).getValueType(), CoreType::ctInt);
+    EXPECT_EQ(defaultConfig.getPropertyValue(PROPERTY_NAME_DEC_VALUE_TYPE).asPtr<IInteger>(), static_cast<int>(DVT::Float64));
+    EXPECT_TRUE(defaultConfig.getProperty(PROPERTY_NAME_DEC_VALUE_TYPE).getVisible());
 
     ASSERT_TRUE(defaultConfig.hasProperty(PROPERTY_NAME_DEC_TS_MODE));
     ASSERT_EQ(defaultConfig.getProperty(PROPERTY_NAME_DEC_TS_MODE).getValueType(), CoreType::ctInt);
@@ -877,6 +912,7 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferOneSignalDoubleArrayWithoutDomain)
 
 TEST_F(MqttJsonDecoderFbTest, DataTransferOneSignalIntArray)
 {
+    valueType = DVT::Int64;
     std::vector<std::pair<std::vector<int64_t>, std::vector<uint64_t>>> dataToSend;
     merge(DATA_INT_INT_0, dataToSend);
     merge(DATA_INT_INT_1, dataToSend);
@@ -892,6 +928,7 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferOneSignalIntArray)
 
 TEST_F(MqttJsonDecoderFbTest, DataTransferOneSignalIntArrayWithoutDomain)
 {
+    valueType = DVT::Int64;
     std::vector<std::pair<std::vector<int64_t>, std::vector<uint64_t>>> dataToSend;
     merge(DATA_INT_INT_0, dataToSend);
     merge(DATA_INT_INT_1, dataToSend);
@@ -940,7 +977,8 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferMixedNumericArrayDoubleFirst)
 
 TEST_F(MqttJsonDecoderFbTest, DataTransferIntArrayIsNotPromoted)
 {
-    // An array of integers stays an integer array
+    // With the Auto value type an array of integers stays an integer array
+    valueType = DVT::Auto;
     const std::string json = R"json({"value": [1, -2, 3]})json";
     const std::vector<int64_t> expectedValues{1, -2, 3};
 
@@ -967,6 +1005,69 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferMixedIncompatibleArray)
               std::string::npos);
 }
 
+TEST_F(MqttJsonDecoderFbTest, Float64ValueTypeKeepsTheSampleTypeAcrossWholeNumbers)
+{
+    // A publisher can write a whole number without a decimal point. The sample type must not follow it.
+    const auto packets = transferRawMessages({R"json({"value": 21})json", R"json({"value": 21.5})json", R"json({"value": 22})json"},
+                                             "value");
+    const std::vector<double> expectedValues{21.0, 21.5, 22.0};
+
+    ASSERT_EQ(packets.size(), expectedValues.size());
+    for (size_t i = 0; i < packets.size(); ++i)
+    {
+        ASSERT_EQ(packets[i].getDataDescriptor().getSampleType(), SampleType::Float64);
+        EXPECT_EQ(*static_cast<double*>(packets[i].getData()), expectedValues[i]);
+    }
+}
+
+TEST_F(MqttJsonDecoderFbTest, Float64ValueTypeConvertsAnIntegerArray)
+{
+    const auto packets = transferRawMessages({R"json({"value": [1, -2, 3]})json"}, "value");
+    const std::vector<double> expectedValues{1.0, -2.0, 3.0};
+
+    ASSERT_EQ(packets.size(), 1u);
+    ASSERT_EQ(packets[0].getDataDescriptor().getSampleType(), SampleType::Float64);
+    ASSERT_EQ(packets[0].getSampleCount(), expectedValues.size());
+    for (size_t i = 0; i < expectedValues.size(); ++i)
+        EXPECT_EQ(static_cast<double*>(packets[0].getData())[i], expectedValues[i]);
+}
+
+TEST_F(MqttJsonDecoderFbTest, AutoValueTypeFollowsEachMessage)
+{
+    valueType = DVT::Auto;
+    const auto packets = transferRawMessages({R"json({"value": 21})json", R"json({"value": 21.5})json"}, "value");
+
+    ASSERT_EQ(packets.size(), 2u);
+    EXPECT_EQ(packets[0].getDataDescriptor().getSampleType(), SampleType::Int64);
+    EXPECT_EQ(packets[1].getDataDescriptor().getSampleType(), SampleType::Float64);
+}
+
+TEST_F(MqttJsonDecoderFbTest, Int64ValueTypeAcceptsAWholeNumberWrittenAsADecimal)
+{
+    valueType = DVT::Int64;
+    const auto packets = transferRawMessages({R"json({"value": 21})json", R"json({"value": 22.0})json"}, "value");
+    const std::vector<int64_t> expectedValues{21, 22};
+
+    ASSERT_EQ(packets.size(), expectedValues.size());
+    for (size_t i = 0; i < packets.size(); ++i)
+    {
+        ASSERT_EQ(packets[i].getDataDescriptor().getSampleType(), SampleType::Int64);
+        EXPECT_EQ(*static_cast<int64_t*>(packets[i].getData()), expectedValues[i]);
+    }
+}
+
+TEST_F(MqttJsonDecoderFbTest, Int64ValueTypeRejectsAFraction)
+{
+    valueType = DVT::Int64;
+    const auto packets = transferRawMessages({R"json({"value": 21.5})json"}, "value");
+
+    EXPECT_EQ(packets.size(), 0u);
+    ASSERT_EQ(decoderObj.getStatusContainer().getStatus("ComponentStatus"),
+              Enumeration("ComponentStatusType", "Error", decoderObj.getContext().getTypeManager()));
+    EXPECT_NE(decoderObj.getStatusContainer().getStatusMessage("ComponentStatus").toStdString().find("not a whole number"),
+              std::string::npos);
+}
+
 TEST_F(MqttJsonDecoderFbTest, DataTransferOneSignalDoubleArrayDomainString)
 {
     std::vector<std::pair<std::vector<double>, std::vector<std::string>>> dataToSend;
@@ -984,6 +1085,7 @@ TEST_F(MqttJsonDecoderFbTest, DataTransferOneSignalDoubleArrayDomainString)
 
 TEST_P(MqttJsonFbIntDataPTest, DataTransferOneSignalInt)
 {
+    valueType = DVT::Int64;
     const auto dataToSend = GetParam();
     auto dataToReceive = transferData(dataToSend, VALID_JSON_DATA_0);
     ASSERT_EQ(dataToSend.size(), dataToReceive.size());
@@ -995,6 +1097,7 @@ TEST_P(MqttJsonFbIntDataPTest, DataTransferOneSignalInt)
 
 TEST_P(MqttJsonFbIntDataPTest, DataTransferOneSignalIntWithoutDomain)
 {
+    valueType = DVT::Int64;
     const auto dataToSend = GetParam();
     auto dataToReceive = transferDataWithoutDomain(dataToSend, VALID_JSON_DATA_1);
     ASSERT_EQ(dataToSend.size(), dataToReceive.size());
