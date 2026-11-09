@@ -6,6 +6,8 @@
 #include <opendaq/sample_type_traits.h>
 #include <rapidjson/document.h>
 #include <algorithm>
+#include <cmath>
+#include <iterator>
 #include <limits>
 
 #include <mqtt_streaming_protocol/utils.h>
@@ -284,7 +286,8 @@ namespace mqtt
 {
 
 MqttDataWrapper::MqttDataWrapper()
-    : domainSignalMode(DomainSignalMode::None)
+    : domainSignalMode(DomainSignalMode::None),
+      valueType(ValueType::Float64)
 {
 }
 
@@ -319,6 +322,11 @@ void MqttDataWrapper::setTimestampFieldName(std::string tsFieldName)
 void MqttDataWrapper::setDomainSignalMode(DomainSignalMode mode)
 {
     domainSignalMode = mode;
+}
+
+void MqttDataWrapper::setValueType(ValueType type)
+{
+    valueType = type;
 }
 
 bool MqttDataWrapper::parseJson(ExtractionContext& ctx, const std::string& json)
@@ -525,6 +533,51 @@ bool MqttDataWrapper::validateExtractionResult(ExtractionContext& ctx)
     return (valueExtractionError || tsExtractionError || alignmentError);
 }
 
+bool MqttDataWrapper::convertValueType(ExtractionContext& ctx)
+{
+    if (!ctx.result.success)
+        return false;
+
+    if (valueType == ValueType::Float64)
+    {
+        if (const auto* integers = std::get_if<std::vector<int64_t>>(&ctx.value))
+        {
+            std::vector<double> numbers;
+            numbers.reserve(integers->size());
+            std::transform(integers->cbegin(),
+                           integers->cend(),
+                           std::back_inserter(numbers),
+                           [](int64_t integer) { return static_cast<double>(integer); });
+            ctx.value = std::move(numbers);
+        }
+    }
+    else if (valueType == ValueType::Int64)
+    {
+        if (const auto* numbers = std::get_if<std::vector<double>>(&ctx.value))
+        {
+            // 2^63, the first whole number past the end of the Int64 range
+            constexpr double int64Bound = 9223372036854775808.0;
+
+            std::vector<int64_t> integers;
+            integers.reserve(numbers->size());
+            for (const double number : *numbers)
+            {
+                if (std::trunc(number) != number || number < -int64Bound || number >= int64Bound)
+                {
+                    ctx.result.addError(
+                        fmt::format("The value type is Int64, but '{}' holds {}, which is not a whole number in the Int64 range. ",
+                                    msgDescriptor.valueFieldName,
+                                    number));
+                    return false;
+                }
+                integers.push_back(static_cast<int64_t>(number));
+            }
+            ctx.value = std::move(integers);
+        }
+    }
+    return true;
+}
+
 bool MqttDataWrapper::buildPackets(ExtractionContext& ctx, const uint64_t externalTs)
 {
     ctx.dataPacketBuilt = false;
@@ -556,6 +609,7 @@ std::pair<CmdResult, std::vector<MqttDataWrapper::DataPackets>> MqttDataWrapper:
     parseJson(ctx, json);
     parseJsonFields(ctx);
     validateExtractionResult(ctx);
+    convertValueType(ctx);
     buildPackets(ctx, externalTs);
 
     return std::pair{std::move(ctx.result), std::move(ctx.outputData)};

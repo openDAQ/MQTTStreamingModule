@@ -47,6 +47,16 @@ public:
         _count
     };
 
+    // Auto takes the sample type from each message, so a value that switches between a whole number and a
+    // decimal changes the signal's descriptor. Float64 and Int64 keep the sample type fixed.
+    enum class ValueType : int
+    {
+        Auto = 0,
+        Float64,
+        Int64,
+        _count
+    };
+
     MqttDataWrapper();
 
     void setOutputSignal(daq::SignalConfigPtr outputSignal);
@@ -54,6 +64,7 @@ public:
     void setValueFieldName(std::string valueFieldName);
     void setTimestampFieldName(std::string tsFieldName);
     void setDomainSignalMode(DomainSignalMode mode);
+    void setValueType(ValueType type);
 
 private:
     struct DataPackets
@@ -79,6 +90,7 @@ private:
     // used for description how to extract data from sample json
     MqttMsgDescriptor msgDescriptor;
     DomainSignalMode domainSignalMode;
+    ValueType valueType;
 
     std::pair<CmdResult, std::vector<DataPackets>> extractDataSamples(const std::string& json, const uint64_t externalTs);
     void sendDataSamples(const DataPackets& dataPackets);
@@ -107,6 +119,7 @@ private:
     bool extractValue(ExtractionContext& ctx, const rapidjson::Value& node);
     bool extractTimestamp(ExtractionContext& ctx, const rapidjson::Value& node);
     bool validateExtractionResult(ExtractionContext& ctx);
+    bool convertValueType(ExtractionContext& ctx);
     bool buildPackets(ExtractionContext& ctx, const uint64_t externalTs);
 
     template <typename TReadType>

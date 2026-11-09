@@ -39,6 +39,7 @@ static constexpr const char* PROPERTY_NAME_SUB_PREVIEW_SIGNAL_IS_STRING = "Messa
 static constexpr const char* PROPERTY_NAME_SUB_DATA_TIMEOUT = "DataTimeout";
 
 static constexpr const char* PROPERTY_NAME_DEC_VALUE_NAME = "ValueKey";
+static constexpr const char* PROPERTY_NAME_DEC_VALUE_TYPE = "ValueType";
 static constexpr const char* PROPERTY_NAME_DEC_TS_MODE = "DomainMode";
 static constexpr const char* PROPERTY_NAME_DEC_TS_NAME = "DomainKey";
 static constexpr const char* PROPERTY_NAME_DEC_UNIT = "Unit";
