@@ -131,9 +131,11 @@ bool MqttAsyncClientWrapper::publishMsg(const mqtt::MqttMessage& msg)
 bool MqttAsyncClientWrapper::subscribe(const std::string& topic, int qos)
 {
     auto status = instance->subscribe(topic, qos);
-    if (status.success)
-        subscribedTopics.push_back(topic);
-    return status.success;
+    if (!status.success)
+        return false;
+    subscribedTopics.push_back(topic);
+    // The broker drops messages published before it has processed the subscription
+    return instance->waitForCompletion(status.token, successTimeout).success;
 }
 
 void MqttAsyncClientWrapper::expectMsgs(const std::string& topic,
