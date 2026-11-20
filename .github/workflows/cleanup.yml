@@ -20,5 +20,6 @@ jobs:
       dry-run: ${{ inputs.dry-run || false }}
       staging-retentions: >-
         [
+          { "path": "ghcr.io/openDAQ/staging/mqtt-module",      "retention": { "days": 30 } },
           { "path": "ghcr.io/openDAQ/dev/staging/mqtt-module",  "retention": { "days": 30 } }
         ]
