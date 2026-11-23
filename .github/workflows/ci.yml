@@ -114,10 +114,18 @@ jobs:
           ref: ${{ env.OPENDAQ_REF }}
           path: opendaq
 
+      # the core takes the module's utils, not its own pin
+      - name: Checkout opendaq-cmake-utils
+        uses: actions/checkout@v4
+        with:
+          repository: openDAQ/opendaq-cmake-utils
+          ref: fix/cmake-boost
+          path: utils
+
       - name: Configure, build and install openDAQ
         working-directory: opendaq
         run: |
-          cmake -B build/output -S . -G "${{ matrix.generator }}" -DOPENDAQ_ENABLE_TESTS=OFF -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" -DCMAKE_INSTALL_PREFIX="${{ env.INSTALL_PREFIX }}"
+          cmake -B build/output -S . -G "${{ matrix.generator }}" -DOPENDAQ_ENABLE_TESTS=OFF "-DFETCHCONTENT_SOURCE_DIR_OPENDAQ-CMAKE-UTILS=${{ github.workspace }}/utils" -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" -DCMAKE_INSTALL_PREFIX="${{ env.INSTALL_PREFIX }}"
           cmake --build build/output --config "${{ matrix.build_type }}"
           cmake --install build/output --config "${{ matrix.build_type }}"
 
